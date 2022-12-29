@@ -89,8 +89,8 @@ impl ToString for Vozlišče {
                     + "\"",
 
             Število(število) => število.to_string(),
-            Spremenljivka{ ime, naslov, z_odmikom } => format!("{} ({}{})", ime
-                                                               , if *z_odmikom { "+" } else { "@" }, naslov),
+            Spremenljivka{ ime, naslov, z_odmikom } => format!("{} ({}{})", ime,
+                if *z_odmikom { "+" } else { "@" }, naslov),
 
             Resnica => "resnica".to_owned(),
             Laž     => "laž".to_owned(),
@@ -289,11 +289,14 @@ impl Vozlišče {
             ManjšeEnako(l, d) => VečjeEnako(d.clone(), l.clone()).prevedi(),
 
             ProgramskiŠtevec(odmik) => format!("PC {}\n", odmik),
-            Skok(odmik_ime) => "JUMP ".to_owned() + &odmik_ime.to_string() + "\n",
+            Skok(odmik_ime) => format!("JUMP {}{}\n", 
+                                       if let OdmikIme::Odmik(odmik) = odmik_ime { if *odmik >= 0 { "+" } else { "" } } else { "" },
+                                       &odmik_ime.to_string()),
+
             DinamičniSkok => "JMPD\n".to_owned(),
             PogojniSkok(pogoj, skok) =>
                 pogoj.prevedi()
-                + &format!("JMPC {}\n", skok),
+                + &format!("JMPC {}{}\n", if *skok >= 0 { "+" } else { "" }, skok),
 
             PogojniStavek{ pogoj, resnica, laž } => {
                 let skok = Skok(OdmikIme::Odmik((resnica.len() + 1) as isize)).rc();

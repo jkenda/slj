@@ -3,7 +3,7 @@ use std::{mem::size_of, fmt::Debug};
 use std::fmt;
 
 #[derive(Clone, Copy)]
-union Podatek {
+pub union Podatek {
     i: i32,
     f: f32,
     c: char,

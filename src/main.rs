@@ -1,13 +1,30 @@
 mod drevo;
 mod prevajanik;
-//mod tokenizer;
+mod tokenizer;
 mod binary;
+
+use std::{env, fs};
 
 use drevo::Vozlišče::*;
 use prevajanik::*;
 use binary::*;
 
+use crate::tokenizer::Tokenizer;
+
 fn main() {
+
+    let args: Vec<String> = env::args().collect();
+    let pot = &args[1];
+
+    let datoteka = fs::read_to_string(pot).unwrap_or("{}".to_owned());
+    let mut tokenizer = Tokenizer::from(&datoteka);
+    let tokeni = tokenizer.tokenize();
+
+    println!("{}", datoteka);
+    println!("{:?}", tokenizer);
+
+    return;
+
     let a = Spremenljivka { ime: "a".to_owned(), naslov: 0, z_odmikom: false }.rc();
     let b = Spremenljivka { ime: "b".to_owned(), naslov: 1, z_odmikom: false }.rc();
     let program = Okvir { 

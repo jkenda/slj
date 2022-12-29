@@ -1,0 +1,29 @@
+x=1;y=2
+
+# izpiši razliko
+če x == y {
+    natisni(0, "\n")
+} čene če x > y {
+    natisni(x - y, "\n")
+} čene {
+    natisni(y - x, "\n")
+}
+
+i = 0
+dokler i < 10 {
+    natisni(i, ", ")
+    i = i + 1
+}
+natisni("\n\n")
+
+i = 0
+dokler i < 10 {
+    j = 0
+    dokler j < 10 {
+        natisni(10 * i + j, " ")
+        j += 1
+    }
+    natisni("\n")
+    i += 1
+}
+natisni(100, "\n")
