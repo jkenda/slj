@@ -10,12 +10,19 @@ pub enum Token {
     Niz(String),
 }
 
+impl Token {
+    fn set(&mut self, new: &str) -> &Token {
+        match self {
+            Literal(val) | Ime(val) | Število(val) | Niz(val) => *val = new.to_owned(),
+            Ločilo(val) => *val = if new.starts_with('\n') { "\n".to_owned() } else { new.to_owned() },
+        }
+        self
+    }
+}
+
 pub struct Tokenizer {
-    ločilo_regex: Regex,
-    literal_regex: Regex,
-    ime_regex: Regex,
-    število_regex: Regex,
-    niz_regex: Regex,
+    split_regex: Regex,
+    regexi: [(Regex, Token); 5],
     tekst: String,
     tokens: Vec<Token>,
 }
@@ -31,11 +38,14 @@ use Token::*;
 impl Tokenizer {
     pub fn new() -> Tokenizer {
         Tokenizer {
-            ločilo_regex:  Regex::new(r#"^(\(|\)|\{|\}|\[|\]|,|;|:|"|'|=|==|<|>|<=|>=|!|\+|-|\*|/|\+=|\-=|\*=|/=|%|\^|#)"#).unwrap(),
-            literal_regex: Regex::new(r"^(resnica|laž|in|ali|če|čene|dokler|za|funkcija|vrni)").unwrap(),
-            ime_regex:     Regex::new(r"^[_[[:alpha:]]][\w\d]*").unwrap(),
-            število_regex: Regex::new(r"^-?([1-9][0-9]*(.[0-9]+)?|[0-9])").unwrap(),
-            niz_regex: Regex::new(r#"^"[[:graph:]]*""#).unwrap(),
+            split_regex: Regex::new(r"[^\S\r\n]+").unwrap(),
+            regexi: [
+                (Regex::new(r"^(resnica|laž|in|ali|če|čene|dokler|za|funkcija|vrni)").unwrap(), Literal(String::new())),
+                (Regex::new(r"^[_[[:alpha:]]][\w\d]*").unwrap(), Ime(String::new())),
+                (Regex::new(r"^-?([1-9][0-9]*(.[0-9]+)?|[0-9])").unwrap(), Število(String::new())),
+                (Regex::new(r#"^"[[:graph:]]*""#).unwrap(), Niz(String::new())),
+                (Regex::new(r#"^(;|\n+|\(|\)|\{|\}|\[|\]|,|:|"|'|=|==|<|>|<=|>=|!|\+|-|\*|/|\+=|\-=|\*=|/=|%|\^|#)"#).unwrap(), Ločilo(String::new())),
+            ],
             tekst: String::new(),
             tokens: Vec::new() }
     }
@@ -52,29 +62,13 @@ impl Tokenizer {
     }
 
     pub fn tokenize(&mut self) -> &Vec<Token> {
-        let besede = self.tekst.split_whitespace();
+        let besede = self.split_regex.split(&self.tekst);
 
         for beseda in besede {
             let mut i: usize = 0;
 
             while i < beseda.len() {
-                let (token, dolžina) = match self.literal_regex.find(&beseda[i..]) {
-                    Some(mat) => (Literal(mat.as_str().to_owned()), mat.end()),
-                    None => match self.ime_regex.find(&beseda[i..]) {
-                        Some(mat) => (Ime(mat.as_str().to_owned()), mat.end()),
-                        None => match self.število_regex.find(&beseda[i..]) {
-                            Some(mat) => (Število(mat.as_str().to_owned()), mat.end()),
-                            None => match self.niz_regex.find(&beseda[i..]) {
-                                Some(mat) => (Niz(mat.as_str().to_owned()), mat.end()),
-                                None => match self.ločilo_regex.find(&beseda[i..]) {
-                                    Some(mat) => (Ločilo(mat.as_str().to_owned()), mat.end()),
-                                    None => panic!("Napaka -- neznana beseda: {}", &beseda[i..]),
-                                }
-                            }
-                        }
-                    }
-                };
-
+                let (token, dolžina) = find_token(&mut self.regexi.clone(), &beseda[i..]);
                 self.tokens.push(token);
                 i += dolžina;
             }
@@ -83,4 +77,16 @@ impl Tokenizer {
         &self.tokens
     }
 
+}
+
+fn find_token(regexi: &mut [(Regex, Token)], beseda: &str) -> (Token, usize) {
+    match regexi[0].0.find(beseda) {
+        Some(mat) => (regexi[0].1.set(mat.as_str()).clone(), mat.end()),
+        None => if regexi.len() > 1 {
+            find_token(&mut regexi[1..], beseda)
+        }
+        else {
+            panic!("Napaka -- neznana beseda: \"{:?}\"", beseda)
+        },
+    }
 }
