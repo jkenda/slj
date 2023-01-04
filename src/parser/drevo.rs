@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{rc::Rc, fmt::Display};
 
 #[allow(dead_code)]
 #[derive(Clone)]
@@ -13,6 +13,22 @@ impl ToString for OdmikIme {
             OdmikIme::Odmik(odmik) => odmik.to_string(),
             OdmikIme::Ime(ime) => ime.clone(),
         }
+    }
+}
+
+pub struct Drevo {
+    root: Rc<Vozlišče>,
+}
+
+impl Drevo {
+    pub fn new(root: Rc<Vozlišče>) -> Drevo {
+        Drevo { root }
+    }
+}
+
+impl Display for Drevo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.root.drevo(0))
     }
 }
 
@@ -65,7 +81,7 @@ pub enum Vozlišče {
     Zaporedje(Vec<Rc<Vozlišče>>),
     Okvir{ zaporedje: Rc<Vozlišče>, št_spr: usize },
 
-    Funkcija{ ime: String, parametri: Vec<Vozlišče>, telo: Rc<Vozlišče>, prostor: usize },
+    Funkcija{ ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>, prostor: usize },
     FunkcijskiKlic{ funkcija: Rc<Vozlišče>, argumenti: Rc<Vozlišče> },
 
     Natisni(Vec<Rc<Vozlišče>>),
@@ -131,74 +147,74 @@ impl Vozlišče {
 
     pub fn drevo(&self, globina: usize) -> String {
         match self {
-            Prazno => "\t".repeat(globina) + "()\n",
+            Prazno => "  ".repeat(globina) + "()\n",
 
             Niz(_) | Število(_) | Spremenljivka {..} | Resnica | Laž => 
-                "\t".repeat(globina) + &self.to_string() + "\n",
+                "  ".repeat(globina) + &self.to_string() + "\n",
 
             Potenca(l, d) | Množenje(l, d) | Deljenje(l, d) | Modulo(l, d) | Seštevanje(l, d) | Odštevanje(l, d)
                 | Konjunkcija(l, d) | Disjunkcija(l, d) 
                 | Enako(l, d) | Večje(l, d) | VečjeEnako(l, d) | Manjše(l, d) | ManjšeEnako(l, d) =>
-                "\t".repeat(globina) + &self.to_string() + "\n"
+                "  ".repeat(globina) + &self.to_string() + "\n"
                 + &l.drevo(globina + 1) 
                 + &d.drevo(globina + 1),
 
             Zanikaj(vozlišče) =>
-                "\t".repeat(globina) + &self.to_string() + "\n"  
+                "  ".repeat(globina) + &self.to_string() + "\n"  
                 + &vozlišče.drevo(globina + 1),
 
             PogojniStavek { pogoj, resnica, laž } =>
-                "\t".repeat(globina) + "če (\n" 
+                "  ".repeat(globina) + "če (\n" 
                 + &pogoj.drevo(globina + 1) 
-                + &"\t".repeat(globina) + ")\n"
+                + &"  ".repeat(globina) + ")\n"
                 + &resnica.drevo(globina + 1)
                 + &match &**laž {
                     Prazno => "".to_owned(),
-                    _ => "\t".repeat(globina) + &"čene\n".to_owned() 
-                        + &laž.drevo(globina + 1),
+                    _ => "  ".repeat(globina) + &"čene ".to_owned() 
+                        + &laž.drevo(globina).trim_start(),
                 },
 
             Zanka { pogoj, telo } => 
-                "\t".repeat(globina) + "dokler(\n"
+                "  ".repeat(globina) + "dokler(\n"
                 + &pogoj.drevo(globina + 1)
-                + &"\t".repeat(globina) + ") {\n"
+                + &"  ".repeat(globina) + ") {\n"
                 + &telo.drevo(globina + 1)
-                + &"\t".repeat(globina) + "}\n",
+                + &"  ".repeat(globina) + "}\n",
 
             Prirejanje{ spremenljivka: _, izraz, z_odmikom: _ } => 
-                "\t".repeat(globina) + &self.to_string() + "\n" 
+                "  ".repeat(globina) + &self.to_string() + "\n" 
                 + &izraz.drevo(globina + 1),
 
             Vrni(prirejanje) => 
-                "\t".repeat(globina) + "vrni (\n"
+                "  ".repeat(globina) + "vrni (\n"
                 + &prirejanje.drevo(globina + 1)
-                + &"\t".repeat(globina) + ")\n",
+                + &"  ".repeat(globina) + ")\n",
 
-            Zaporedje(vozlišča) => vozlišča.into_iter().map(|v| v.drevo(globina + 1)).collect::<Vec<String>>().join(&("\t".repeat(globina) + ",\n")),
+            Zaporedje(vozlišča) => vozlišča.into_iter().map(|v| v.drevo(globina + 1)).collect::<Vec<String>>().join(&("  ".repeat(globina) + ",\n")),
 
             Okvir{ zaporedje, .. } => 
-                "\t".repeat(globina) + "{\n" 
+                "  ".repeat(globina) + "{\n" 
                 + &zaporedje.drevo(globina + 1)
-                + &"\t".repeat(globina) + "}\n",
+                + &"  ".repeat(globina) + "}\n",
 
             Funkcija { ime: _, parametri: _, telo, prostor: _ } =>
-                "\t".repeat(globina) + &self.to_string() + " {\n"
+                "  ".repeat(globina) + &self.to_string() + " {\n"
                 + &telo.drevo(globina + 1)
-                + &"\t".repeat(globina) + "}\n",
+                + &"  ".repeat(globina) + "}\n",
 
             FunkcijskiKlic { funkcija: _, argumenti } =>
-                "\t".repeat(globina) + &self.to_string() + "(\n"
+                "  ".repeat(globina) + &self.to_string() + "(\n"
                 + &argumenti.drevo(globina + 1)
                 + ")\n",
 
             Natisni(zaporedje) => 
-                "\t".repeat(globina) + "natisni(\n" 
+                "  ".repeat(globina) + "natisni(\n" 
                 + &zaporedje
                     .into_iter()
                     .map(|v| v.drevo(globina + 1))
                     .collect::<Vec<String>>()
-                    .join(&("\t".repeat(globina) + ",\n"))
-                + &"\t".repeat(globina) + ")\n",
+                    .join(&("  ".repeat(globina) + ",\n"))
+                + &"  ".repeat(globina) + ")\n",
 
             _ => "".to_owned()
         }
@@ -407,7 +423,7 @@ impl Vozlišče {
         Rc::new(self.clone())
     }
 
-    fn sprememba_stacka(&self) -> isize {
+    pub fn sprememba_stacka(&self) -> isize {
         match self {
             Število(_) => 1,
             Niz(niz)   => niz.len() as isize,
