@@ -95,8 +95,9 @@ impl<'a> Parser<'a> {
 
         while i < predproc.len() - 1 {
             i += match predproc[i..] {
-                [ Ločilo("{", ..),  Ločilo("\n", ..), .. ] => { predproc.remove(i+1); 1 },
-                [ Ločilo("\n", ..), Ločilo("}", ..),  .. ] => { predproc.remove(i+0); 1 },
+                [ Ločilo("{", ..),  Ločilo("\n", ..), .. ] => { predproc.remove(i+1); 0 },
+                [ Ločilo("\n", ..), Ločilo("}", ..),  .. ] => { predproc.remove(i+0); 0 },
+                [ Ločilo("\n", ..), Ločilo("\n", ..), .. ] => { predproc.remove(i+0); 0 }
                 _ => 1,
             };
         }
@@ -114,7 +115,7 @@ impl<'a> Parser<'a> {
     fn okvir<'b>(&mut self, izraz: &'b[Token<'a>]) -> Rc<Vozlišče>
         where 'a: 'b
     {
-        println!("okvir: {:?}", izraz);
+        //println!("okvir: {:?}", izraz);
 
         self.spremenljivke_stack.push(HashMap::new());
         self.funkcije_stack.push(HashMap::new());
@@ -138,7 +139,7 @@ impl<'a> Parser<'a> {
     fn zaporedje<'b>(&mut self, mut izraz: &'b[Token<'a>]) -> Rc<Vozlišče>
         where 'a: 'b
     {
-        println!("zaporedje: {:?}", izraz);
+        //println!("zaporedje: {:?}", izraz);
 
         let mut izrazi: Vec<Rc<Vozlišče>> = Vec::new();
 
@@ -162,7 +163,7 @@ impl<'a> Parser<'a> {
     fn stavek<'b>(&mut self, izraz: &'b[Token<'a>]) -> Rc<Vozlišče>
         where 'a: 'b
     {
-        println!("stavek: {:?}", izraz);
+        //println!("stavek: {:?}", izraz);
 
         match izraz {
             [ Ime(ime, ..), Operator("=", ..), ostanek @ .. ] => {
@@ -170,7 +171,7 @@ impl<'a> Parser<'a> {
                     spremenljivka: match self.spremenljivke.get(ime) {
                         Some(spr) => spr.clone(),
                         None => {
-                            let spr = Spremenljivka { ime: ime.to_string(), naslov: self.spremenljivke.len() as i64, z_odmikom: self.znotraj_funkcije }.rc();
+                            let spr = Spremenljivka { ime: ime.to_string(), naslov: self.spremenljivke.len() as u32, z_odmikom: self.znotraj_funkcije }.rc();
                             self.spremenljivke.insert(ime, spr.clone());
                             spr
                         }
@@ -207,7 +208,7 @@ impl<'a> Parser<'a> {
     fn pogojni_stavek<'b>(&mut self, izraz: &'b[Token<'a>]) -> Rc<Vozlišče>
         where 'a: 'b
     {
-        println!("pogojni_stavek: {:?}", izraz);
+        //println!("pogojni_stavek: {:?}", izraz);
 
         const PRAZEN_IZRAZ: &[Token] = &[];
 
@@ -226,16 +227,16 @@ impl<'a> Parser<'a> {
         };
 
         PogojniStavek {
-            pogoj: self.drevo(pogoj),
-            resnica: self.okvir(resnica).rc(),
-            laž: self.zaporedje(laž),
+            pogoj:   self.drevo(pogoj),
+            resnica: self.okvir(resnica),
+            laž:     self.okvir(laž),
         }.rc()
     }
 
     fn zanka<'b>(&mut self, izraz: &'b[Token<'a>]) -> Rc<Vozlišče>
         where 'a: 'b
     {
-        println!("zanka: {:?}", izraz);
+        //println!("zanka: {:?}", izraz);
 
         let (_, _, izraz) = poišči_spredaj(izraz, &["dokler"])
             .expect(&format!("Pričakovan 'dokler': {}", izraz[0].lokacija_str()));
@@ -256,7 +257,7 @@ impl<'a> Parser<'a> {
     fn funkcija<'b>(&mut self, izraz: &'b[Token<'a>]) -> Rc<Vozlišče>
         where 'a: 'b
     {
-        println!("funkcija: {:?}", izraz);
+        //println!("funkcija: {:?}", izraz);
         
         let prejšnje_spr = self.spremenljivke.clone();
         let mut spr_funkcije = HashMap::from([
@@ -295,13 +296,13 @@ impl<'a> Parser<'a> {
                 panic!("Imena parametrov morajo biti unikatna: {}", parameter.to_string());
             }
             else {
-                let naslov = spr_funkcije.len() as i64;
+                let naslov = spr_funkcije.len() as u32;
                 spr_funkcije.insert(parameter.as_str(), Spremenljivka { ime: parameter.to_string(), naslov, z_odmikom: true }.rc());
                 parametri.push(spr_funkcije[parameter.as_str()].clone());
             }
         }
 
-        spr_funkcije.insert("0_OF", Spremenljivka { ime: "0_OF".to_owned(), naslov: spr_funkcije.len() as i64, z_odmikom: true }.rc());
+        spr_funkcije.insert("0_OF", Spremenljivka { ime: "0_OF".to_owned(), naslov: spr_funkcije.len() as u32, z_odmikom: true }.rc());
 
         let fun  = Funkcija { ime: ime_funkcije.to_owned(), parametri: parametri.clone(), telo: Vozlišče::Število(0.0).rc(), prostor: 0 }.rc();
         self.funkcije_stack.last_mut().unwrap().insert(ime_funkcije, fun.clone());
@@ -320,7 +321,7 @@ impl<'a> Parser<'a> {
     }
 
     fn funkcijski_klic(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        println!("funkcijski_klic: {:?}", izraz);
+        //println!("funkcijski_klic: {:?}", izraz);
 
         let (_, ime, izraz) = poišči_spredaj(izraz, &["("])
              .expect(&format!("Pročakovan '(': {}", izraz[0].lokacija_str()));
@@ -336,12 +337,12 @@ impl<'a> Parser<'a> {
     }
 
     fn drevo(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        println!("drevo: {:?}", izraz);
+        //println!("drevo: {:?}", izraz);
         self.disjunktivni(izraz)
     }
 
     fn disjunktivni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        println!("disjunktivni: {:?}", izraz);
+        //println!("disjunktivni: {:?}", izraz);
 
         match poišči_zadaj(izraz, &["ali"]) {
             Some((_, l, d)) => Disjunkcija(
@@ -353,7 +354,7 @@ impl<'a> Parser<'a> {
     }
 
     fn konjunktivni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        println!("konjunktivni: {:?}", izraz);
+        //println!("konjunktivni: {:?}", izraz);
 
         match poišči_zadaj(izraz, &["in"]) {
             Some((_, l, d)) => Konjunkcija(
@@ -365,7 +366,7 @@ impl<'a> Parser<'a> {
     }
 
     fn primerjalni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        println!("primerjalni: {:?}", izraz);
+        //println!("primerjalni: {:?}", izraz);
 
         match poišči_zadaj(izraz, PRIMERJALNI.as_slice()) {
             Some((op, l, d)) => {
@@ -379,7 +380,7 @@ impl<'a> Parser<'a> {
     }
 
     fn aditivni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        println!("aditivni: {:?}", izraz);
+        //println!("aditivni: {:?}", izraz);
 
         match poišči_zadaj(izraz, &["+", "-"]) {
             None => self.multiplikativni(izraz),
@@ -390,7 +391,7 @@ impl<'a> Parser<'a> {
     }
 
     fn multiplikativni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        println!("multiplikativni: {:?}", izraz);
+        //println!("multiplikativni: {:?}", izraz);
 
         match poišči_zadaj(izraz, &["*", "/", "%"]) {
             None => self.potenčni(izraz),
@@ -402,7 +403,7 @@ impl<'a> Parser<'a> {
     }
 
     fn potenčni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        println!("potenčni: {:?}", izraz);
+        //println!("potenčni: {:?}", izraz);
 
         match poišči_zadaj(izraz, &["^"]) {
             None => self.osnovni(izraz),
@@ -411,7 +412,7 @@ impl<'a> Parser<'a> {
     }
 
     fn osnovni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        println!("osnovni: {:?}", izraz);
+        //println!("osnovni: {:?}", izraz);
 
         match izraz {
             [ Literal("resnica", ..) ] => Resnica.rc(),
@@ -423,7 +424,7 @@ impl<'a> Parser<'a> {
             [ Ime(..), Ločilo("(", ..), .., Ločilo(")", ..) ] => self.funkcijski_klic(izraz),
             [ Ime(ime, ..) ] => match self.spremenljivke.get(ime) {
                 Some(spr) => spr.clone(),
-                None => panic!("Neznana spremenljivka"),
+                None => panic!("Neznana spremenljivka: {}", ime),
             },
             [  ] => Prazno.rc(),
             _ => panic!("Neveljaven izraz: {:?}", izraz),
@@ -431,7 +432,7 @@ impl<'a> Parser<'a> {
     }
 
     fn argumenti(&self, mut izraz: &'a[Token<'a>]) -> Vec<Rc<Vozlišče>> {
-        println!("argumenti: {:?}", izraz);
+        //println!("argumenti: {:?}", izraz);
 
         let mut argumenti: Vec<Rc<Vozlišče>> = Vec::new();
 
@@ -457,7 +458,7 @@ fn poišči_spredaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &[&'static str]) -> Opt
     let mut zavitih:  isize = 0;
     let mut oglatih:  isize = 0;
 
-    //println!("Iščemo {:?}", nizi);
+    ////println!("Iščemo {:?}", nizi);
 
     for (i, tok) in izraz.iter().enumerate() {
         match tok.as_str() {
@@ -467,11 +468,11 @@ fn poišči_spredaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &[&'static str]) -> Opt
             _   => ()
         }
 
-        //println!("{}, {}, {} - \"{}\"", navadnih, zavitih, oglatih, tok.as_str());
+        ////println!("{}, {}, {} - \"{}\"", navadnih, zavitih, oglatih, tok.as_str());
 
         if navadnih <= 0 && zavitih <= 0 && oglatih <= 0
             && nizi.iter().any(|s| *s == tok.as_str()) {
-                //println!("{:?} najden", tok);
+                ////println!("{:?} najden", tok);
                 return Some((tok.as_str(), &izraz[..i], &izraz[i+1..]));
             }
 

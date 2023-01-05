@@ -1,7 +1,7 @@
 use std::{rc::Rc, fmt::Display};
 
 #[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum OdmikIme {
     Odmik(isize),
     Ime(String),
@@ -17,7 +17,7 @@ impl ToString for OdmikIme {
 }
 
 pub struct Drevo {
-    root: Rc<Vozlišče>,
+    pub root: Rc<Vozlišče>,
 }
 
 impl Drevo {
@@ -33,20 +33,20 @@ impl Display for Drevo {
 }
 
 #[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum Vozlišče {
     Prazno,
 
     Push(usize),
     Pop(usize),
-    Vrh(isize),
+    Vrh(i32),
 
     ShraniOdmik,
     NaložiOdmik,
 
     Niz(String),
     Število(f32),
-    Spremenljivka{ ime: String, naslov: i64, z_odmikom: bool },
+    Spremenljivka{ ime: String, naslov: u32, z_odmikom: bool },
 
     Resnica,
     Laž,
@@ -67,10 +67,10 @@ pub enum Vozlišče {
     Manjše(Rc<Vozlišče>, Rc<Vozlišče>),
     ManjšeEnako(Rc<Vozlišče>, Rc<Vozlišče>),
 
-    ProgramskiŠtevec(isize),
+    ProgramskiŠtevec(i32),
     Skok(OdmikIme),
     DinamičniSkok,
-    PogojniSkok(Rc<Vozlišče>, isize),
+    PogojniSkok(Rc<Vozlišče>, i32),
 
     PogojniStavek{ pogoj: Rc<Vozlišče>, resnica: Rc<Vozlišče>, laž: Rc<Vozlišče> },
     Zanka{ pogoj: Rc<Vozlišče>, telo: Rc<Vozlišče> },
@@ -96,12 +96,11 @@ impl ToString for Vozlišče {
 
             Niz(niz) => "\"".to_owned() 
                     + &niz
-                    .replace("\\", "\\\\")
-                    .replace("\n", "\\n")
-                    .replace("\t", "\\t")
-                    .replace("\r", "\\r")
-                    .replace("\"", "\\\"")
-                    .replace("\'", "\\'")
+                    .replace("\n", r"\n")
+                    .replace("\t", r"\t")
+                    .replace("\r", r"\r")
+                    .replace("\"", r#"\""#)
+                    .replace("\'", r"\'")
                     + "\"",
 
             Število(število) => število.to_string(),
@@ -165,13 +164,13 @@ impl Vozlišče {
 
             PogojniStavek { pogoj, resnica, laž } =>
                 "  ".repeat(globina) + "če (\n" 
-                + &pogoj.drevo(globina + 1) 
-                + &"  ".repeat(globina) + ")\n"
-                + &resnica.drevo(globina + 1)
+                + &pogoj.drevo(globina) 
+                + &"  ".repeat(globina) + ") "
+                + &resnica.drevo(globina).trim_start()
                 + &match &**laž {
                     Prazno => "".to_owned(),
                     _ => "  ".repeat(globina) + &"čene ".to_owned() 
-                        + &laž.drevo(globina).trim_start(),
+                        + &laž.drevo(globina + 1).trim_start(),
                 },
 
             Zanka { pogoj, telo } => 
@@ -220,214 +219,62 @@ impl Vozlišče {
         }
     }
 
-    pub fn prevedi(&self) -> String {
-        match self {
-            Prazno => String::new(),
-
-            Push(krat) => "PUSH #0\n".repeat(*krat),
-            Pop(krat) => "POP\n".repeat(*krat),
-            Vrh(odmik) => format!("TOP {}\n", odmik),
-
-            ShraniOdmik => "SOFF\n".to_owned(),
-            NaložiOdmik => "LOFF\n".to_owned(),
-
-            Niz(niz) => niz.chars().rev()
-                .map(|c| format!("PUSH '{}'\n", c.to_string()
-                                 .replace("\\", "\\\\")
-                                 .replace("\n", "\\n")
-                                 .replace("\t", "\\t")
-                                 .replace("\r", "\\r")
-                                 .replace("\"", "\\\"")
-                                 .replace("\'", "\\'")
-                                ))
-                .collect::<Vec<String>>()
-                .join(""),
-
-            Število(število) => format!("PUSH #{}\n", število),
-            Spremenljivka{ ime: _, naslov, z_odmikom } => if *z_odmikom { format!("LDOF +{}\n", naslov) } else { format!("LOAD @{}\n", naslov) },
-
-            Resnica => "PUSH #1\n".to_owned(),
-            Laž     => "PUSH #0\n".to_owned(),
-
-            Seštevanje(l, d) => 
-                d.prevedi() 
-                + &l.prevedi() 
-                + "ADD\n",
-
-            Odštevanje(l, d) => 
-                d.prevedi() 
-                + &l.prevedi() 
-                + "SUB\n",
-
-            Množenje(l, d) =>
-                d.prevedi() 
-                + &l.prevedi() 
-                + "MUL\n",
-
-            Deljenje(l, d) =>
-                d.prevedi() 
-                + &l.prevedi() 
-                + "DIV\n",
-
-            Modulo(l, d) =>
-                d.prevedi() 
-                + &l.prevedi() 
-                + "MOD\n",
-
-            Potenca(l, d) =>
-                d.prevedi() 
-                + &l.prevedi() 
-                + "POW\n",
-
-            Zanikaj(vozlišče) => Odštevanje(Število(1.0).rc(), vozlišče.clone()).prevedi(),
-            Konjunkcija(l, d) => Množenje(l.clone(), d.clone()).prevedi(),
-            Disjunkcija(l, d) =>
-                Seštevanje(l.clone(), d.clone()).prevedi() 
-                + "POS\n",
-
-            Enako(l, d) =>
-                Odštevanje(l.clone(), d.clone()).prevedi() 
-                + "ZERO\n",
-
-            Večje(l, d) =>
-                Odštevanje(l.clone(), d.clone()).prevedi() 
-                + "POS\n",
-
-            VečjeEnako(l, d) =>
-                Zaporedje(vec![
-                    Odštevanje(l.clone(), d.clone()).rc(), 
-                    Spremenljivka { ime: String::new(), naslov: -1, z_odmikom: true }.rc()
-                ]).prevedi()
-                + "POS\n"
-                + "ZERO\n",
-
-            Manjše(l, d)      => Večje(d.clone(), l.clone()).prevedi(),
-            ManjšeEnako(l, d) => VečjeEnako(d.clone(), l.clone()).prevedi(),
-
-            ProgramskiŠtevec(odmik) => format!("PC {}\n", odmik),
-            Skok(odmik_ime) => format!("JUMP {}{}\n", 
-                                       if let OdmikIme::Odmik(odmik) = odmik_ime { if *odmik >= 0 { "+" } else { "" } } else { "" },
-                                       &odmik_ime.to_string()),
-
-            DinamičniSkok => "JMPD\n".to_owned(),
-            PogojniSkok(pogoj, skok) =>
-                pogoj.prevedi()
-                + &format!("JMPC {}{}\n", if *skok >= 0 { "+" } else { "" }, skok),
-
-            PogojniStavek{ pogoj, resnica, laž } => {
-                let skok = Skok(OdmikIme::Odmik((resnica.len() + 1) as isize)).rc();
-                Zaporedje(vec![
-                          PogojniSkok(pogoj.clone(), (laž.len() + skok.len() + 1) as isize).rc(),
-                          laž.clone(),
-                          skok,
-                          resnica.clone(),
-                ]).prevedi()
-            },
-
-            Zanka{ pogoj, telo } => PogojniStavek{
-                    pogoj: pogoj.clone(),
-                    resnica: Zaporedje(vec![
-                        telo.clone(),
-                        Rc::new(Skok(OdmikIme::Odmik(-(telo.len() as isize) - pogoj.len() as isize - 2)))
-                    ]).rc(),
-                    laž: Prazno.rc(),
-                }.prevedi(),
-
-            Prirejanje{ spremenljivka, izraz, z_odmikom } => {
-                let naslov = if let Spremenljivka { ime: _, naslov, z_odmikom: _ } = &**spremenljivka { naslov.clone() } else { 0i64 };
-                let shrani = if *z_odmikom { format!("STOF +{}\n", naslov) } else { format!("STOR @{}\n", naslov) };
-                izraz.clone().prevedi()
-                + &shrani
-            },
-
-            Vrni(prirejanje) => prirejanje.prevedi(),
-            Zaporedje(vozlišča) => vozlišča.into_iter().map(|v| v.prevedi()).collect::<Vec<String>>().join(""),
-            Okvir{ zaporedje, št_spr } => Zaporedje(vec![
-                Push(*št_spr).rc(),
-                zaporedje.clone(),
-                Pop(*št_spr).rc()
-            ]).prevedi(),
-
-            Funkcija{ ime, parametri, telo, prostor } => {
-                let pred = Zaporedje(vec![
-                    NaložiOdmik.rc(),
-                       Vrh(
-                           -NaložiOdmik.sprememba_stacka()
-                           - parametri.len() as isize
-                           - ProgramskiŠtevec(0).sprememba_stacka()
-                           - Push(1).sprememba_stacka()).rc(),
-                       Push(*prostor).rc(),
-                ]);
-
-                let za = Zaporedje(vec![
-                    Pop(*prostor).rc(),
-                    ShraniOdmik.rc(),
-                    Pop(parametri.len()).rc(),
-                    DinamičniSkok.rc()
-                ]);
-
-                Skok(OdmikIme::Odmik((1 + pred.len() + telo.len() + za.len()) as isize)).prevedi()
-                + &format!(".{}\n", ime)
-                + &pred.prevedi()
-                + &telo.prevedi()
-                + &format!(".0konec{}\n", ime)
-                + &za.prevedi()
-            },
-
-            FunkcijskiKlic{ funkcija, argumenti } => {
-                let vrni = Push(1);
-                let skok = Skok(OdmikIme::Ime(format!(".{}", if let Funkcija { ime, parametri: _, telo: _, prostor: _ } = &**funkcija { ime } else { "" })));
-                let pc   = ProgramskiŠtevec((1 + argumenti.len() + skok.len()) as isize);
-
-                Zaporedje(vec![
-                    vrni.rc(),
-                    pc.rc(),
-                    argumenti.rc(),
-                    skok.rc(),
-                ]).prevedi()
-            },
-
-            Natisni(izrazi) => izrazi.into_iter()
-                .map(|izraz| {
-                    izraz.prevedi()
-                    + &match &**izraz {
-                        Niz(_) => "PRTC\n".repeat(izraz.sprememba_stacka() as usize),
-                        Število(_) | Spremenljivka{..} => "PRTN\n".to_owned(),
-                        _ => panic!("Neveljaven print: {}", izraz.to_string()),
-                    }
-                }).collect::<Vec<String>>().join(""),
-        }
-
-    }
-
-    fn len(&self) -> usize {
-        match self {
-            _ => {
-                let ukazi = self.prevedi();
-                if !ukazi.contains('\n') {
-                    0
-                }
-                else {
-                    ukazi.trim()
-                        .split('\n')
-                        .collect::<Vec<&str>>()
-                        .into_iter()
-                        .filter(|u| !u.starts_with('.'))
-                        .count()
-                }
-            },
-        }
-    }
-
     pub fn rc(&self) -> Rc<Self> {
         Rc::new(self.clone())
     }
 
     pub fn sprememba_stacka(&self) -> isize {
         match self {
+            Prazno => 0,
+
+            Push(krat) => *krat as isize,
+            Pop(krat)  => -(*krat as isize),
+            Vrh(_)     => 1,
+
+            ShraniOdmik => -1,
+            NaložiOdmik => 1,
+
+            Niz(niz) => niz.len() as isize,
             Število(_) => 1,
-            Niz(niz)   => niz.len() as isize,
-            _ => 0
+            Spremenljivka{ .. } => 1,
+
+            Resnica => 1,
+            Laž     => 1,
+
+            Seštevanje(l, d)    => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            Odštevanje(l, d)    => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            Množenje(l, d)      => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            Deljenje(l, d)      => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            Modulo(l, d)        => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            Potenca(l, d)       => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+
+            Zanikaj(izraz)      => izraz.sprememba_stacka(),
+            Konjunkcija(l, d)   => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            Disjunkcija(l, d)   => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            Enako(l, d)         => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            Večje(l, d)         => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            VečjeEnako(l, d)    => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            Manjše(l, d)        => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            ManjšeEnako(l, d)   => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+
+            ProgramskiŠtevec(_)     => 1,
+            Skok(_)                 => 0,
+            DinamičniSkok           => -1,
+            PogojniSkok(pogoj, _)   => pogoj.sprememba_stacka() - 1,
+
+            PogojniStavek{ pogoj, resnica, laž }    => pogoj.sprememba_stacka() - 1 + resnica.sprememba_stacka() + laž.sprememba_stacka(),
+            Zanka{ pogoj, telo }                    => pogoj.sprememba_stacka() - 1 + telo.sprememba_stacka(),
+
+            Prirejanje{ spremenljivka: _, izraz, .. } => 1 + izraz.sprememba_stacka() - 1,
+
+            Vrni(_)             => 0,
+            Zaporedje(izrazi)   => izrazi.iter().map(|i| i.sprememba_stacka()).sum(),
+            Okvir{ .. }         => 0,
+
+            Funkcija{ .. } => 0,
+            FunkcijskiKlic{ .. } => 1,
+
+            Natisni(_) => 0,
         }
     }
 
