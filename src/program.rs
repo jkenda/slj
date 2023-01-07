@@ -15,6 +15,12 @@ pub union Podatek {
     c: char,
 }
 
+impl PartialEq for Podatek {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe { self.i == other.i }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum UkazPodatek
 {
@@ -41,7 +47,7 @@ pub enum UkazPodatek
     DIV,
     MOD,
     POW,
-
+    NEG,
 }
 
 #[derive(Debug, Clone)]
@@ -79,9 +85,6 @@ const IMENA: [&str; 22] = [
 ];
 
 pub struct Program {
-    pc: u32,
-    addroff: u32,
-    stack: Vec<Podatek>,
     ukazi: Vec<UkazPodatek>,
 }
 
@@ -122,8 +125,8 @@ impl ToProgram for Drevo {
 }
 
 
-const RESNICA: f32 = 1.0;
-const LAŽ    : f32 = 0.0;
+const RESNICA: Podatek = Podatek { i: 1 };
+const LAŽ    : Podatek = Podatek { i: 0 };
 
 impl Prevedi for Vozlišče {
     fn prevedi(&self) -> Vec<UkazPodatekRelative> {
@@ -138,52 +141,49 @@ impl Prevedi for Vozlišče {
             NaložiOdmik => [Osnovni(LOFF)].to_vec(),
 
             Niz(niz) => niz.chars().rev()
-                .map(|c| Osnovni(PUSH(Podatek { c })))
+                .map(|znak| Osnovni(PUSH(Podatek { c: znak })))
                 .collect::<Vec<UkazPodatekRelative>>(),
-
             Število(število) => [Osnovni(PUSH(Podatek { f: *število }))].to_vec(),
             Spremenljivka{ ime: _, naslov, z_odmikom } => [if *z_odmikom { Osnovni(LDOF(*naslov)) } else { Osnovni(LOAD(*naslov)) }].to_vec(),
 
-            Resnica => [Osnovni(PUSH(Podatek { f: RESNICA }))].to_vec(),
-            Laž     => [Osnovni(PUSH(Podatek { f: LAŽ }))].to_vec(),
+            Resnica => [Osnovni(PUSH(RESNICA))].to_vec(),
+            Laž     => [Osnovni(PUSH(LAŽ))].to_vec(),
 
             Seštevanje(l, d) => [
                 d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
                 [Osnovni(ADD)].as_slice(),
             ].concat(),
-
             Odštevanje(l, d) => [
                 d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
                 [Osnovni(SUB)].as_slice(),
             ].concat(),
-
             Množenje(l, d) => [
                 d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
                 [Osnovni(MUL)].as_slice(),
             ].concat(),
-
             Deljenje(l, d) => [
                 d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
                 [Osnovni(DIV)].as_slice(),
             ].concat(),
-
             Modulo(l, d) => [
                 d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
                 [Osnovni(MOD)].as_slice(),
             ].concat(),
-
             Potenca(l, d) => [
                 d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
                 [Osnovni(POW)].as_slice(),
             ].concat(),
 
-            Zanikaj(vozlišče) => Odštevanje(Število(1.0).rc(), vozlišče.clone()).prevedi(),
+            Zanikaj(vozlišče) => [
+                vozlišče.prevedi().as_slice(),
+                [Osnovni(NEG)].as_slice(),
+            ].concat(),
             Konjunkcija(l, d) => Množenje(l.clone(), d.clone()).prevedi(),
             Disjunkcija(l, d) => [
                 Seštevanje(l.clone(), d.clone()).prevedi().as_slice(),
@@ -194,19 +194,19 @@ impl Prevedi for Vozlišče {
                 Odštevanje(l.clone(), d.clone()).prevedi().as_slice(),
                 [Osnovni(ZERO)].as_slice(),
             ].concat(),
+            NiEnako(l, d) => Zanikaj(Enako(l.clone(), d.clone()).rc()).prevedi(),
 
             Večje(l, d) => [
                 Odštevanje(l.clone(), d.clone()).prevedi().as_slice(),
                 [Osnovni(POS)].as_slice(),
             ].concat(),
-
             Manjše(l, d)      => Večje(d.clone(), l.clone()).prevedi(),
-            VečjeEnako(l, d)  => Manjše(d.clone(), l.clone()).prevedi(),
+            VečjeEnako(l, d)  => Zanikaj(Manjše(l.clone(), d.clone()).rc()).prevedi(),
             ManjšeEnako(l, d) => VečjeEnako(d.clone(), l.clone()).prevedi(),
 
             ProgramskiŠtevec(odmik) => [PC(*odmik)].to_vec(),
-            Skok(odmik_ime) => [JUMPRelative(odmik_ime.clone())].to_vec(),
 
+            Skok(odmik_ime) => [JUMPRelative(odmik_ime.clone())].to_vec(),
             DinamičniSkok => [Osnovni(JMPD).to_owned()].to_vec(),
             PogojniSkok(pogoj, skok) => [
                 pogoj.prevedi().as_slice(),
@@ -321,9 +321,6 @@ impl Prevedi for Vozlišče {
 impl From<&Drevo> for Program {
     fn from(drevo: &Drevo) -> Self {
         Program { 
-            pc: 0,
-            addroff: 0,
-            stack: { let mut s = Vec::new(); s.reserve(512); s },
             ukazi: drevo.prevedi().postprocesiraj(),
         }
     }
@@ -352,12 +349,12 @@ impl From<String> for Program {
                     }
                     else {
                         PUSH(Podatek { c: besede[1][1..besede[1].len()-1]
-                            .replace("\\\\", "\\")
-                                .replace("\\n", "\n")
-                                .replace("\\t", "\t")
-                                .replace("\\r", "\r")
-                                .replace("\\\"", "\"")
-                                .replace("\\\'", "\'")
+                            .replace(r"\\", "\\")
+                                .replace(r"\n", "\n")
+                                .replace(r"\t", "\t")
+                                .replace(r"\r", "\r")
+                                .replace(r#"\"""#, "\"")
+                                .replace(r"\'", "\'")
                                 .chars()
                                 .next()
                                 .unwrap() })
@@ -388,9 +385,7 @@ impl From<String> for Program {
             });
         }
 
-        let mut program = Program { pc: 0, addroff: 0, stack: Vec::new(), ukazi };
-        program.stack.reserve(512);
-        program
+        Program { ukazi }
     }
 }
 
@@ -452,41 +447,84 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
     }
 }
 
+
 impl Program {
-    pub fn run(&mut self) {
+    pub fn run(&self) {
         use UkazPodatek::*;
 
-        while (self.pc as usize) < self.ukazi.len() {
-            let ukaz_podatek = &self.ukazi[self.pc as usize];
+        let mut pc = 0;
+        let mut addroff = 0;
+        let mut stack: Vec<Podatek> = Vec::new();
+        stack.reserve(512);
 
-            self.pc = unsafe {
+        while (pc as usize) < self.ukazi.len() {
+            let ukaz_podatek = &self.ukazi[pc as usize];
+
+            pc = unsafe {
                 match ukaz_podatek {
-                    NOOP => self.pc + 1,
+                    NOOP => pc + 1,
                     JUMP(naslov) => naslov.clone(),
-                    JMPD => self.stack.pop().unwrap().i as u32,
-                    JMPC(naslov) => if self.stack.pop().unwrap().f != LAŽ { naslov.clone() } else { self.pc + 1 },
-                    PUSH(podatek) => { self.stack.push(*podatek); self.pc + 1 },
-                    POP => { self.stack.pop(); self.pc + 1 },
-                    POS => { self.stack.last_mut().unwrap().f = if self.stack.last().unwrap().f > 0.0 { RESNICA } else { LAŽ }; self.pc + 1 },
-                    ZERO => { self.stack.last_mut().unwrap().f = if self.stack.last().unwrap().f == 0.0 { RESNICA } else { LAŽ }; self.pc + 1 },
-                    LOAD(podatek) => { self.stack.push(self.stack[podatek.clone() as usize]); self.pc + 1 },
-                    LDOF(podatek) => { self.stack.push(self.stack[self.addroff as usize + podatek.clone() as usize]); self.pc + 1 },
-                    STOR(podatek) => { self.stack[podatek.clone() as usize] = self.stack.pop().unwrap(); self.pc + 1 },
-                    STOF(podatek) => { self.stack[self.addroff as usize + podatek.clone() as usize] = self.stack.pop().unwrap(); self.pc + 1 },
-                    TOP(podatek)  => { self.addroff = (self.stack.len() as i32 + podatek) as u32; self.pc + 1 },
-                    SOFF => { self.addroff = self.stack.pop().unwrap().i as u32; self.pc + 1 },
-                    LOFF => { self.stack.push(Podatek { i: self.addroff as i32 }); self.pc + 1 },
-                    PRTN => { print!("{}", self.stack.pop().unwrap().f); self.pc + 1 },
-                    PRTC => { print!("{}", self.stack.pop().unwrap().c); self.pc + 1 },
-                    ADD  => { self.stack.last_mut().unwrap().f = self.stack.pop().unwrap().f + self.stack.pop().unwrap().f; self.pc + 1 },
-                    SUB  => { self.stack.last_mut().unwrap().f = self.stack.pop().unwrap().f - self.stack.pop().unwrap().f; self.pc + 1 },
-                    MUL  => { self.stack.last_mut().unwrap().f = self.stack.pop().unwrap().f * self.stack.pop().unwrap().f; self.pc + 1 },
-                    DIV  => { self.stack.last_mut().unwrap().f = self.stack.pop().unwrap().f / self.stack.pop().unwrap().f; self.pc + 1 },
-                    MOD  => { self.stack.last_mut().unwrap().f = self.stack.pop().unwrap().f % self.stack.pop().unwrap().f; self.pc + 1 },
-                    POW  => { self.stack.last_mut().unwrap().f = self.stack.pop().unwrap().f.powf(self.stack.pop().unwrap().f); self.pc + 1 },
+                    JMPD => stack.pop().unwrap().i as u32,
+                    JMPC(naslov) => if stack.pop().unwrap() != LAŽ { naslov.clone() } else { pc + 1 },
+                    PUSH(podatek) => { stack.push(*podatek); pc + 1 },
+                    POP => { stack.pop(); pc + 1 },
+                    POS => { stack.last_mut().unwrap().i  = if stack.last().unwrap().f  > 0.0 { RESNICA.i } else { LAŽ.i }; pc + 1 },
+                    ZERO => { stack.last_mut().unwrap().i = if stack.last().unwrap().f == 0.0 { RESNICA.i } else { LAŽ.i }; pc + 1 },
+                    LOAD(podatek) => { stack.push(stack[podatek.clone() as usize]); pc + 1 },
+                    LDOF(podatek) => { stack.push(stack[addroff as usize + podatek.clone() as usize]); pc + 1 },
+                    STOR(podatek) => { stack[podatek.clone() as usize] = stack.pop().unwrap(); pc + 1 },
+                    STOF(podatek) => { stack[addroff as usize + podatek.clone() as usize] = stack.pop().unwrap(); pc + 1 },
+                    TOP(podatek)  => { addroff = (stack.len() as i32 + podatek) as u32; pc + 1 },
+                    SOFF => { addroff = stack.pop().unwrap().i as u32; pc + 1 },
+                    LOFF => { stack.push(Podatek { i: addroff as i32 }); pc + 1 },
+                    PRTN => { print!("{}", stack.pop().unwrap().f); pc + 1 },
+                    PRTC => { print!("{}", stack.pop().unwrap().c); pc + 1 },
+                    ADD  => { stack.last_mut().unwrap().f = stack.pop().unwrap().f + stack.pop().unwrap().f; pc + 1 },
+                    SUB  => { stack.last_mut().unwrap().f = stack.pop().unwrap().f - stack.pop().unwrap().f; pc + 1 },
+                    MUL  => { stack.last_mut().unwrap().f = stack.pop().unwrap().f * stack.pop().unwrap().f; pc + 1 },
+                    DIV  => { stack.last_mut().unwrap().f = stack.pop().unwrap().f / stack.pop().unwrap().f; pc + 1 },
+                    MOD  => { stack.last_mut().unwrap().f = stack.pop().unwrap().f % stack.pop().unwrap().f; pc + 1 },
+                    POW  => { stack.last_mut().unwrap().f = stack.pop().unwrap().f.powf(stack.pop().unwrap().f); pc + 1 },
+                    NEG  => { stack.last_mut().unwrap().i = 1 - stack.pop().unwrap().i; pc + 1 },
                 }
             };
         }
+
+    }
+
+    pub fn to_assembler(&self) -> String {
+        let mut str = String::new();
+
+        for ukaz_podatek in &self.ukazi {
+            str += &match ukaz_podatek {
+                NOOP          => "NOOP\n".to_string(),
+                JUMP(naslov)  => format!("JUMP #{}\n", naslov),
+                JMPD          => "JMPD\n".to_string(),
+                JMPC(naslov)  => format!("JMPC #{}\n", naslov),
+                PUSH(podatek) => format!("PUSH #{}\n", unsafe { podatek.f }),
+                POP           => "POP \n".to_string(),
+                POS           => "POS \n".to_string(),
+                ZERO          => "ZERO\n".to_string(),
+                LOAD(naslov)  => format!("LOAD @{}\n", naslov),
+                LDOF(naslov)  => format!("LDOF @{}\n", naslov),
+                STOR(naslov)  => format!("STOR @{}\n", naslov),
+                STOF(naslov)  => format!("STOF @{}\n", naslov),
+                TOP(odmik)    => format!("TOP  {}{}\n", if *odmik > 0 { "+" } else { "" }, odmik),
+                SOFF          => "SOFF\n".to_string(),
+                LOFF          => "LOFF\n".to_string(),
+                PRTN          => "PRTN\n".to_string(),
+                PRTC          => "PRTC\n".to_string(),
+                ADD           => "ADD \n".to_string(),
+                SUB           => "SUB \n".to_string(),
+                MUL           => "MUL \n".to_string(),
+                DIV           => "DIV \n".to_string(),
+                MOD           => "MOD \n".to_string(),
+                POW           => "POW \n".to_string(),
+                NEG           => "NEG \n".to_string(),
+            }
+        }
+
+        str
     }
 
     pub unsafe fn to_bytes(&self) -> &[UkazPodatek]  {

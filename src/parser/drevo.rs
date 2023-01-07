@@ -62,6 +62,7 @@ pub enum Vozlišče {
     Konjunkcija(Rc<Vozlišče>, Rc<Vozlišče>),
     Disjunkcija(Rc<Vozlišče>, Rc<Vozlišče>),
     Enako(Rc<Vozlišče>, Rc<Vozlišče>),
+    NiEnako(Rc<Vozlišče>, Rc<Vozlišče>),
     Večje(Rc<Vozlišče>, Rc<Vozlišče>),
     VečjeEnako(Rc<Vozlišče>, Rc<Vozlišče>),
     Manjše(Rc<Vozlišče>, Rc<Vozlišče>),
@@ -121,6 +122,7 @@ impl ToString for Vozlišče {
             Konjunkcija(..) => "in".to_owned(),
             Disjunkcija(..) => "ali".to_owned(),
             Enako(..)       => "==".to_owned(),
+            NiEnako(..)     => "!=".to_owned(),
             Večje(..)       => ">".to_owned(),
             VečjeEnako(..)  => ">=".to_owned(),
             Manjše(..)      => "<".to_owned(),
@@ -153,7 +155,7 @@ impl Vozlišče {
 
             Potenca(l, d) | Množenje(l, d) | Deljenje(l, d) | Modulo(l, d) | Seštevanje(l, d) | Odštevanje(l, d)
                 | Konjunkcija(l, d) | Disjunkcija(l, d) 
-                | Enako(l, d) | Večje(l, d) | VečjeEnako(l, d) | Manjše(l, d) | ManjšeEnako(l, d) =>
+                | Enako(l, d) | NiEnako(l, d) | Večje(l, d) | VečjeEnako(l, d) | Manjše(l, d) | ManjšeEnako(l, d) =>
                 "  ".repeat(globina) + &self.to_string() + "\n"
                 + &l.drevo(globina + 1) 
                 + &d.drevo(globina + 1),
@@ -164,13 +166,13 @@ impl Vozlišče {
 
             PogojniStavek { pogoj, resnica, laž } =>
                 "  ".repeat(globina) + "če (\n" 
-                + &pogoj.drevo(globina) 
+                + &pogoj.drevo(globina + 1) 
                 + &"  ".repeat(globina) + ") "
                 + &resnica.drevo(globina).trim_start()
                 + &match &**laž {
                     Prazno => "".to_owned(),
                     _ => "  ".repeat(globina) + &"čene ".to_owned() 
-                        + &laž.drevo(globina + 1).trim_start(),
+                        + &laž.drevo(globina).trim_start(),
                 },
 
             Zanka { pogoj, telo } => 
@@ -229,7 +231,7 @@ impl Vozlišče {
 
             Push(krat) => *krat as isize,
             Pop(krat)  => -(*krat as isize),
-            Vrh(_)     => 1,
+            Vrh(_)     => 0,
 
             ShraniOdmik => -1,
             NaložiOdmik => 1,
@@ -241,31 +243,25 @@ impl Vozlišče {
             Resnica => 1,
             Laž     => 1,
 
-            Seštevanje(l, d)    => l.sprememba_stacka() + d.sprememba_stacka() - 1,
-            Odštevanje(l, d)    => l.sprememba_stacka() + d.sprememba_stacka() - 1,
-            Množenje(l, d)      => l.sprememba_stacka() + d.sprememba_stacka() - 1,
-            Deljenje(l, d)      => l.sprememba_stacka() + d.sprememba_stacka() - 1,
-            Modulo(l, d)        => l.sprememba_stacka() + d.sprememba_stacka() - 1,
-            Potenca(l, d)       => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            Seštevanje(l, d) | Odštevanje(l, d) | Množenje(l, d) | Deljenje(l, d) | Modulo(l, d) | Potenca(l, d)
+                => l.sprememba_stacka() + d.sprememba_stacka() - 1,
 
-            Zanikaj(izraz)      => izraz.sprememba_stacka(),
-            Konjunkcija(l, d)   => l.sprememba_stacka() + d.sprememba_stacka() - 1,
-            Disjunkcija(l, d)   => l.sprememba_stacka() + d.sprememba_stacka() - 1,
-            Enako(l, d)         => l.sprememba_stacka() + d.sprememba_stacka() - 1,
-            Večje(l, d)         => l.sprememba_stacka() + d.sprememba_stacka() - 1,
-            VečjeEnako(l, d)    => l.sprememba_stacka() + d.sprememba_stacka() - 1,
-            Manjše(l, d)        => l.sprememba_stacka() + d.sprememba_stacka() - 1,
-            ManjšeEnako(l, d)   => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+            Zanikaj(izraz)
+                => izraz.sprememba_stacka(),
+
+            Konjunkcija(l, d) | Disjunkcija(l, d) |
+                Enako(l, d) | NiEnako(l, d) | Večje(l, d) | VečjeEnako(l, d) | Manjše(l, d) | ManjšeEnako(l, d)
+                => l.sprememba_stacka() + d.sprememba_stacka() - 1,
 
             ProgramskiŠtevec(_)     => 1,
             Skok(_)                 => 0,
             DinamičniSkok           => -1,
             PogojniSkok(pogoj, _)   => pogoj.sprememba_stacka() - 1,
 
-            PogojniStavek{ pogoj, resnica, laž }    => pogoj.sprememba_stacka() - 1 + resnica.sprememba_stacka() + laž.sprememba_stacka(),
+            PogojniStavek{ pogoj, resnica, laž }    => pogoj.sprememba_stacka() - 1 + resnica.sprememba_stacka().max(laž.sprememba_stacka()),
             Zanka{ pogoj, telo }                    => pogoj.sprememba_stacka() - 1 + telo.sprememba_stacka(),
 
-            Prirejanje{ spremenljivka: _, izraz, .. } => 1 + izraz.sprememba_stacka() - 1,
+            Prirejanje{ spremenljivka: _, izraz, .. } => izraz.sprememba_stacka() - 1,
 
             Vrni(_)             => 0,
             Zaporedje(izrazi)   => izrazi.iter().map(|i| i.sprememba_stacka()).sum(),

@@ -3,7 +3,7 @@ pub mod tokenizer;
 
 use std::{collections::HashMap, rc::Rc};
 
-use self::{drevo::{Drevo, Vozlišče::{*, self}}, tokenizer::Token::{*, self}};
+use self::{drevo::{Drevo, Vozlišče::{*, self}}, tokenizer::{Token::{*, self}, L::{*, self}}};
 
 struct Parser<'a> {
     spremenljivke_stack: Vec<HashMap<&'a str, Rc<Vozlišče>>>,
@@ -42,19 +42,20 @@ const PRIMERJALNI: [&str; 5] = [
 
 fn prirejalni_op(op: &str) -> fn(Rc<Vozlišče>, Rc<Vozlišče>) -> Vozlišče {
     match op {
-        "+=" => Seštevanje, 
-        "-=" => Odštevanje, 
-        "*=" => Množenje, 
-        "/=" => Deljenje, 
-        "%=" => Modulo,
-        "^=" => Potenca,
-        _    => unreachable!()
+        "+="  => Seštevanje,
+        "-="  => Odštevanje,
+        "*="  => Množenje,
+        "/="  => Deljenje,
+        "%="  => Modulo,
+        "**=" => Potenca,
+        _     => unreachable!()
     }
 }
 
 fn primerjalni_op(op: &str) -> fn(Rc<Vozlišče>, Rc<Vozlišče>) -> Vozlišče {
     match op {
         "==" => Enako,
+        "!=" => NiEnako,
         ">"  => Večje,
         ">=" => VečjeEnako,
         "<"  => Manjše,
@@ -108,8 +109,7 @@ impl<'a> Parser<'a> {
     fn parse<'b>(&mut self, izraz: &'b[Token<'a>]) -> Drevo 
         where 'a: 'b
     {
-        let predprocesiran = Parser::predprocesiran(izraz);
-        Drevo::new(self.okvir(&predprocesiran))
+        Drevo::new(self.okvir(&Parser::predprocesiran(izraz)))
     }
 
     fn okvir<'b>(&mut self, izraz: &'b[Token<'a>]) -> Rc<Vozlišče>
@@ -122,16 +122,18 @@ impl<'a> Parser<'a> {
 
         let zaporedje = self.zaporedje(izraz);
 
-        let št_spr = self.spremenljivke_stack.last().unwrap().values()
-            .map(|spr| spr.sprememba_stacka())
-            .count()
-            + self.funkcije_stack.last().unwrap().values()
-            .map(|spr| spr.sprememba_stacka())
-            .count();
+        println!("spremenljivke: {:?}", self.spremenljivke_stack.last().unwrap());
+        let št_spr = self.spremenljivke_stack.last().unwrap()
+            .values().map(|s| s.sprememba_stacka() as usize).sum();
 
         for (ime, _) in self.spremenljivke_stack.pop().unwrap() {
             self.spremenljivke.remove(&ime);
         }
+        for (ime, _) in self.funkcije_stack.pop().unwrap() {
+            self.funkcije.remove(&ime);
+        }
+
+        println!("št_spr: {}", št_spr);
 
         Okvir { zaporedje, št_spr }.rc()
     }
@@ -142,7 +144,6 @@ impl<'a> Parser<'a> {
         //println!("zaporedje: {:?}", izraz);
 
         let mut izrazi: Vec<Rc<Vozlišče>> = Vec::new();
-
         let mut ločeno = poišči_spredaj(izraz, &[";", "\n"]);
 
         while ločeno.is_some() {
@@ -152,12 +153,9 @@ impl<'a> Parser<'a> {
             izraz = ostanek;
             ločeno = poišči_spredaj(izraz, &[";", "\n"]);
         }
+        izrazi.push(self.stavek(izraz));
 
-        if izraz.len() > 0 {
-            izrazi.push(self.stavek(izraz))
-        }
-
-        Rc::new(Zaporedje(izrazi))
+        Zaporedje(izrazi).rc()
     }
 
     fn stavek<'b>(&mut self, izraz: &'b[Token<'a>]) -> Rc<Vozlišče>
@@ -171,7 +169,13 @@ impl<'a> Parser<'a> {
                     spremenljivka: match self.spremenljivke.get(ime) {
                         Some(spr) => spr.clone(),
                         None => {
-                            let spr = Spremenljivka { ime: ime.to_string(), naslov: self.spremenljivke.len() as u32, z_odmikom: self.znotraj_funkcije }.rc();
+                            println!("nova spr: {}", ime);
+                            let spr = Spremenljivka {
+                                ime: ime.to_string(),
+                                naslov: self.spremenljivke.len() as u32,
+                                z_odmikom: self.znotraj_funkcije
+                            }.rc();
+                            self.spremenljivke_stack.last_mut().unwrap().insert(ime, spr.clone());
                             self.spremenljivke.insert(ime, spr.clone());
                             spr
                         }
@@ -182,6 +186,9 @@ impl<'a> Parser<'a> {
             },
 
             [ Ime(ime_l, ..), Operator(operator, ..), ostanek @ .. ] => {
+                if !PRIREJALNI.contains(operator) {
+                    panic!("Neznan operator: {:?}", izraz[1]);
+                }
                 let operator = prirejalni_op(&operator);
                 Prirejanje {
                     spremenljivka: self.spremenljivke[ime_l].clone(),
@@ -192,10 +199,10 @@ impl<'a> Parser<'a> {
 
             [ Ločilo("{", ..), vmes @ .., Ločilo("}", ..) ] => self.okvir(vmes),
             [ Ime("natisni", ..), Ločilo("(", ..), vmes @ .., Ločilo(")", ..)] => Natisni(self.argumenti(vmes)).rc(),
-            [ Literal("če", ..), .. ] => self.pogojni_stavek(izraz),
-            [ Literal("dokler", ..), .., Ločilo("}", ..) ] => self.zanka(izraz),
-            [ Literal("funkcija", ..), .., Ločilo("}", ..) ] => self.funkcija(izraz),
-            [ Literal("vrni", ..), .. ] => Vrni(Prirejanje {
+            [ Rezerviranka("če", ..), .. ] => self.pogojni_stavek(izraz),
+            [ Rezerviranka("dokler", ..), .., Ločilo("}", ..) ] => self.zanka(izraz),
+            [ Rezerviranka("funkcija", ..), .., Ločilo("}", ..) ] => self.funkcija(izraz),
+            [ Rezerviranka("vrni", ..), .. ] => Vrni(Prirejanje {
                 spremenljivka: self.spremenljivke["vrni"].clone(),
                 izraz: self.drevo(&izraz[1..]),
                 z_odmikom: self.znotraj_funkcije
@@ -210,8 +217,6 @@ impl<'a> Parser<'a> {
     {
         //println!("pogojni_stavek: {:?}", izraz);
 
-        const PRAZEN_IZRAZ: &[Token] = &[];
-
         let (_, _, izraz) = poišči_spredaj(izraz, &["če"])
             .expect(&format!("Pričakovan 'če': {}", izraz[0].lokacija_str()));
 
@@ -222,14 +227,17 @@ impl<'a> Parser<'a> {
             .expect(&format!("Pričakovan '{}': {}", "}", izraz[1].lokacija_str()));
 
         let laž = match poišči_spredaj(izraz, &["čene"]) {
-            Some((_, _, d)) => d,
-            None => PRAZEN_IZRAZ,
+            Some((_, _, d)) => match d {
+                [ Rezerviranka("če", ..), .. ] | [ Ločilo("{", ..), .. ]  => d,
+                _ => panic!("Pričakovana 'če' ali '{}': {}", "{", d[0].lokacija_str()),
+            },
+            None => &[],
         };
 
         PogojniStavek {
             pogoj:   self.drevo(pogoj),
             resnica: self.okvir(resnica),
-            laž:     self.okvir(laž),
+            laž:     self.stavek(laž),
         }.rc()
     }
 
@@ -247,11 +255,12 @@ impl<'a> Parser<'a> {
         let (_, telo, _) = poišči_zadaj(izraz, &["}"])
             .expect(&format!("Pričakovan '{}': {}", "}", izraz[1].lokacija_str()));
 
-        let nove_spr: HashMap<String, Vozlišče> = HashMap::new();
         let pogoj = self.drevo(pogoj);
+        self.spremenljivke_stack.push(HashMap::new());
         let telo = self.zaporedje(telo);
+        let št_spr = self.spremenljivke_stack.pop().unwrap().len();
 
-        Okvir { zaporedje: Zanka { pogoj, telo }.rc(), št_spr: nove_spr.len() }.rc()
+        Okvir { zaporedje: Zanka { pogoj, telo }.rc(), št_spr }.rc()
     }
 
     fn funkcija<'b>(&mut self, izraz: &'b[Token<'a>]) -> Rc<Vozlišče>
@@ -344,7 +353,7 @@ impl<'a> Parser<'a> {
     fn disjunktivni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
         //println!("disjunktivni: {:?}", izraz);
 
-        match poišči_zadaj(izraz, &["ali"]) {
+        match poišči_zadaj(izraz, &["||"]) {
             Some((_, l, d)) => Disjunkcija(
                 self.disjunktivni(l),
                 self.konjunktivni(d)
@@ -356,7 +365,7 @@ impl<'a> Parser<'a> {
     fn konjunktivni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
         //println!("konjunktivni: {:?}", izraz);
 
-        match poišči_zadaj(izraz, &["in"]) {
+        match poišči_zadaj(izraz, &["&&"]) {
             Some((_, l, d)) => Konjunkcija(
                 self.konjunktivni(l),
                 self.primerjalni(d)
@@ -369,12 +378,10 @@ impl<'a> Parser<'a> {
         //println!("primerjalni: {:?}", izraz);
 
         match poišči_zadaj(izraz, PRIMERJALNI.as_slice()) {
-            Some((op, l, d)) => {
-                primerjalni_op(op)(
+            Some((op, l, d)) => primerjalni_op(op)(
                     self.konjunktivni(l),
                     self.primerjalni(d)
-                ).rc()
-            },
+                ).rc(),
             None => self.aditivni(izraz)
         }
     }
@@ -405,7 +412,7 @@ impl<'a> Parser<'a> {
     fn potenčni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
         //println!("potenčni: {:?}", izraz);
 
-        match poišči_zadaj(izraz, &["^"]) {
+        match poišči_zadaj(izraz, &["**"]) {
             None => self.osnovni(izraz),
             Some((_, l, d)) => Potenca(self.potenčni(l), self.osnovni(d)).rc()
         }
@@ -415,12 +422,12 @@ impl<'a> Parser<'a> {
         //println!("osnovni: {:?}", izraz);
 
         match izraz {
-            [ Literal("resnica", ..) ] => Resnica.rc(),
-            [ Literal("laž", ..) ] => Laž.rc(),
+            [ Literal(L::Bool("resnica", ..)) ] => Resnica.rc(),
+            [ Literal(L::Bool("laž", ..)) ] => Laž.rc(),
             [ Ločilo("!", ..), ostanek @ .. ] => Zanikaj(self.drevo(ostanek)).rc(),
             [ Ločilo("(", ..), ostanek @ .., Ločilo(")", ..) ] => self.drevo(ostanek),
-            [ Token::Število(število, ..) ] => Vozlišče::Število(število.parse().unwrap()).rc(),
-            [ Token::Niz(niz, ..) ] => Vozlišče::Niz(niz[1..niz.len()-1].to_string()).rc(),
+            [ Literal(L::Število(število, ..)) ] => Vozlišče::Število(število.parse().unwrap()).rc(),
+            [ Literal(L::Niz(niz, ..)) ] => Vozlišče::Niz(niz[1..niz.len()-1].to_string()).rc(),
             [ Ime(..), Ločilo("(", ..), .., Ločilo(")", ..) ] => self.funkcijski_klic(izraz),
             [ Ime(ime, ..) ] => match self.spremenljivke.get(ime) {
                 Some(spr) => spr.clone(),
@@ -499,6 +506,9 @@ fn poišči_zadaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &[&'static str]) -> Optio
     let mut oglatih:  isize = 0;
 
     for (i, tok) in izraz.iter().rev().enumerate() {
+        // obrni i, drugače ima zadnji element seznama i = 0, predzadnji 1 ...
+        let i = izraz.len() - 1 - i;
+
         match tok.as_str() {
             "(" => navadnih -= 1,
             "{" => zavitih -= 1,
