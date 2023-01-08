@@ -1,0 +1,30 @@
+funkcija je_deljivo(deljenec, delitelj) {
+    vrni deljenec % delitelj == 0
+}
+
+funkcija je_praštevilo(kandidat) {
+    praštevilo = resnica
+
+    i = 2
+    dokler i <= kandidat / 2 && praštevilo {
+        če je_deljivo(kandidat, i) {
+            praštevilo = laž
+        }
+        i += 1
+    }
+
+    vrni praštevilo
+}
+
+MEJA = 100_000
+praštevil = 2 # [2, 3]
+kandidat = 5
+
+dokler kandidat <= MEJA {
+    če je_praštevilo(kandidat) {
+        praštevil += 1
+    }
+    kandidat += 2
+}
+
+natisni("praštevil do ", MEJA, ": ", praštevil, "\n")

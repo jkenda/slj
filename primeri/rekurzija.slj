@@ -1,0 +1,10 @@
+
+funkcija faktoriela(a) {
+    če a <= 1 {
+        vrni 1
+    }
+    
+    vrni a * faktoriela(a - 1)
+}
+
+natisni("7! = ", faktoriela(7), "\n")

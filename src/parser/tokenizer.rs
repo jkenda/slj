@@ -119,25 +119,25 @@ impl<'a> Tokenizer {
         let regexi: Vec<(Regex, fn(&'a str, usize, usize) -> Token<'a>)> = vec![
             (Regex::new(&format!("^(in|ali|čene|če|dokler|za|funkcija|vrni|prekini){ZADNJA_MEJA}")).unwrap(), Rezerviranka),
             (Regex::new(&format!("^(resnica|laž){ZADNJA_MEJA}")).unwrap(), bool),
-            (Regex::new(&format!("^(\".*\")")).unwrap(), niz),
-            (Regex::new(&format!("^(-?(?:[1-9][0-9]*(?:.[0-9]+)?|[0-9])){ZADNJA_MEJA}")).unwrap(), število),
-            (Regex::new(&format!(r"^([_\p{{alpha}}][\w\d]*){ZADNJA_MEJA}")).unwrap(), Ime),
+            (Regex::new(&format!("^(\"[^\n\"]*\")")).unwrap(), niz),
+            (Regex::new(&format!(r"^([_\p{{Letter}}][\w\d]*){ZADNJA_MEJA}")).unwrap(), Ime),
             (Regex::new(r"^(?x)(
                         # zamik
                             <<= | >>= | << | >> |
                         # primerjava
                             == | != | <= | >= | < | > |
                         # spreminjanje vrednosti
-                            \*\*= | \|\|= | &&= | [+\-*/|&^]= |
+                            \*\*= | \|\|= | &&= | [+\-*/%|&^]= |
                         # Boolovi operatorji
                             \|\| | && | ! |
                         # aritmetika
-                            \*\* | [+\-*/] |
+                            \*\* | [+\-*/%] |
                         # binarna aritmetika
                             [|&^] |
                         # prirejanje
                             =
                         )").unwrap(), Operator),
+            (Regex::new(&format!(r"^(-?(\d+(\.\d+)?|\d{{1,3}}(_\d{{3}})+)(\.(\d{{3}}_)+\d{{1,3}})?){ZADNJA_MEJA}")).unwrap(), število),
             (Regex::new(r#"^([,;:#\n(){}\[\]])"#).unwrap(), Ločilo),
         ];
 
@@ -221,12 +221,13 @@ mod testi {
         assert_eq!("\"niz\"".to_owned().tokenize(), [Literal(Niz("\"niz\"", 1, 1))]);
         assert_eq!("\"3.14\"".to_owned().tokenize(), [Literal(Niz("\"3.14\"", 1, 1))]);
         assert_eq!("\"{}\\n\"".to_owned().tokenize(), [Literal(Niz("\"{}\\n\"", 1, 1))]);
+        assert_eq!("\"{}\\n\" \"smola\"".to_owned().tokenize(), [Literal(Niz("\"{}\\n\"", 1, 1)), Literal(Niz("\"smola\"", 1, 8))]);
 
         assert_eq!("0".to_owned().tokenize(), [Literal(Število("0", 1, 1))]);
         assert_eq!("13".to_owned().tokenize(), [Literal(Število("13", 1, 1))]);
-        assert_eq!("-42".to_owned().tokenize(), [Literal(Število("-42", 1, 1))]);
+        assert_eq!("0.5".to_owned().tokenize(), [Literal(Število("0.5", 1, 1))]);
         assert_eq!("3.14".to_owned().tokenize(), [Literal(Število("3.14", 1, 1))]);
-        assert_eq!("-2.71828".to_owned().tokenize(), [Literal(Število("-2.71828", 1, 1))]);
+        assert_eq!("1_000_000".to_owned().tokenize(), [Literal(Število("1_000_000", 1, 1))])
     }
 
     #[test]
@@ -238,6 +239,38 @@ mod testi {
         assert_eq!("kamelskaTelewizje".to_owned().tokenize(), [Ime("kamelskaTelewizje", 1, 1)]);
         assert_eq!("RabeljskoJezero123".to_owned().tokenize(), [Ime("RabeljskoJezero123", 1, 1)]);
         assert_ne!("0cyka".to_owned().tokenize(), [Ime("0cyka", 1, 1)]);
+    }
+
+    #[test]
+    fn operatorji() {
+        assert_eq!("a<<=b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("<<=", 1, 2), Ime("b", 1, 5)]);
+        assert_eq!("a<< b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("<<", 1, 2), Ime("b", 1, 5)]);
+        assert_eq!("a>>=b".to_owned().tokenize(), [Ime("a", 1, 1), Operator(">>=", 1, 2), Ime("b", 1, 5)]);
+        assert_eq!("a >>b".to_owned().tokenize(), [Ime("a", 1, 1), Operator(">>", 1, 3), Ime("b", 1, 5)]);
+
+        assert_eq!("a==b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("==", 1, 2), Ime("b", 1, 4)]);
+        assert_eq!("a!=b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("!=", 1, 2), Ime("b", 1, 4)]);
+        assert_eq!("a<=b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("<=", 1, 2), Ime("b", 1, 4)]);
+        assert_eq!("a>=b".to_owned().tokenize(), [Ime("a", 1, 1), Operator(">=", 1, 2), Ime("b", 1, 4)]);
+        assert_eq!("a<b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("<", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a>b".to_owned().tokenize(), [Ime("a", 1, 1), Operator(">", 1, 2), Ime("b", 1, 3)]);
+
+        assert_eq!("a+b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("+", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a-b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("-", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a*b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("*", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a/b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("/", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a%b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("%", 1, 2), Ime("b", 1, 3)]);
+
+        assert_eq!("3+2".to_owned().tokenize(), [Literal(Število("3", 1, 1)), Operator("+", 1, 2), Literal(Število("2", 1, 3))]);
+        assert_eq!("3-2".to_owned().tokenize(), [Literal(Število("3", 1, 1)), Operator("-", 1, 2), Literal(Število("2", 1, 3))]);
+        assert_eq!("3*2".to_owned().tokenize(), [Literal(Število("3", 1, 1)), Operator("*", 1, 2), Literal(Število("2", 1, 3))]);
+        assert_eq!("3/2".to_owned().tokenize(), [Literal(Število("3", 1, 1)), Operator("/", 1, 2), Literal(Število("2", 1, 3))]);
+        assert_eq!("3%2".to_owned().tokenize(), [Literal(Število("3", 1, 1)), Operator("%", 1, 2), Literal(Število("2", 1, 3))]);
+    }
+
+    #[test]
+    fn ločila() {
+        todo!()
     }
 
     #[test]

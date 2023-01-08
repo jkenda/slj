@@ -1,4 +1,4 @@
-use std::{rc::Rc, fmt::Display};
+use std::{rc::Rc, fmt::Display, mem::discriminant};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
@@ -140,6 +140,75 @@ impl ToString for Vozlišče {
             },
             FunkcijskiKlic{ funkcija, .. } => format!("{}(", if let Funkcija { ime, parametri: _, telo: _, prostor: _ } = &**funkcija { ime } else { "" }),
             _ => "".to_owned(),
+        }
+    }
+}
+
+impl PartialEq for Vozlišče {
+    fn eq(&self, other: &Self) -> bool {
+        if discriminant(self) != discriminant(other) {
+            return false;
+        }
+
+        match (self, other) {
+            (Prazno, Prazno) => true,
+
+            (Push(l), Push(d)) => l == d,
+            (Pop(l), Pop(d)) => l == d,
+            (Vrh(l), Vrh(d)) => l == d,
+
+            (ShraniOdmik, ShraniOdmik) => true,
+            (NaložiOdmik, NaložiOdmik) => true,
+
+            (Niz(l), Niz(d)) => l == d,
+            (Število(l), Število(d)) => l == d,
+            (Spremenljivka{ ime: li, naslov: ln, z_odmikom: lz }, Spremenljivka{ ime: di, naslov: dn, z_odmikom: dz }) =>
+                li == di && ln == dn && lz == dz,
+
+            (Resnica, Resnica) => true,
+            (Laž, Laž) => true,
+
+            (Seštevanje(ll, ld), Seštevanje(dl, dd)) |
+            (Odštevanje(ll, ld), Odštevanje(dl, dd)) |
+            (Množenje(ll, ld), Množenje(dl, dd)) |
+            (Deljenje(ll, ld), Deljenje(dl, dd)) |
+            (Modulo(ll, ld), Modulo(dl, dd)) |
+            (Potenca(ll, ld), Potenca(dl, dd)) => ll == dl && ld == dd,
+
+            (Zanikaj(l), Zanikaj(d)) => l == d,
+            (Konjunkcija(ll, ld), Konjunkcija(dl, dd)) |
+            (Disjunkcija(ll, ld), Disjunkcija(dl, dd)) |
+            (Enako(ll, ld), Enako(dl, dd)) |
+            (NiEnako(ll, ld), NiEnako(dl, dd)) |
+            (Večje(ll, ld), Večje(dl, dd)) |
+            (VečjeEnako(ll, ld), VečjeEnako(dl, dd)) |
+            (Manjše(ll, ld), Manjše(dl, dd)) |
+            (ManjšeEnako(ll, ld), ManjšeEnako(dl, dd)) => ll == dl && ld == dd,
+
+            (PogojniSkok(ll, ld), PogojniSkok(dl, dd)) => ll == dl && ld == dd,
+
+            (PogojniStavek{ pogoj: lp, resnica: lr, laž: ll }, PogojniStavek{ pogoj: dp, resnica: dr, laž: dl }) =>
+                lp == dp && lr == dr && ll == dl,
+
+            (Zanka{ pogoj: lp, telo: lt }, Zanka{ pogoj: dp, telo: dt }) =>
+                lp == dp && lt == dt,
+
+            (Prirejanje{ spremenljivka: ls, izraz: li }, Prirejanje{ spremenljivka: ds, izraz: di }) =>
+                ls == ds && li == di,
+
+            (Vrni(l), Vrni(d)) => l == d,
+            (Zaporedje(l), Zaporedje(d)) => l == d,
+            (Okvir{ zaporedje: lz, št_spr: lš }, Okvir{ zaporedje: dz, št_spr: dš }) => lz == dz && lš == dš,
+
+            (Funkcija{ ime: li, parametri: lp, telo: lt, prostor: lpr }, Funkcija{ ime: di, parametri: dp, telo: dt, prostor: dpr }) =>
+                li == di && lp == dp && lt == dt && lpr == dpr,
+
+            (FunkcijskiKlic{ funkcija: lf, argumenti: la }, FunkcijskiKlic{ funkcija: df, argumenti: da }) =>
+                lf == df && la == da,
+
+            (Natisni(l), Natisni(d)) => l == d,
+
+            _ => false
         }
     }
 }

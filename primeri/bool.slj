@@ -1,0 +1,28 @@
+natisni("laž, resnica\n")
+natisni(laž, "\n")
+natisni(resnica, "\n")
+
+natisni("\n!laž, !resnica\n")
+natisni(!laž, "\n")
+natisni(!resnica, "\n")
+
+natisni("\nIN\n")
+natisni(laž && laž, "\n")
+natisni(laž && resnica, "\n")
+natisni(resnica && laž, "\n")
+natisni(resnica && resnica, "\n")
+
+natisni("\nALI\n")
+natisni(laž || laž, "\n")
+natisni(laž || resnica, "\n")
+natisni(resnica || laž, "\n")
+natisni(resnica || resnica, "\n")
+
+x = 1; y = 2
+natisni("\nx = ", x, ", y = ", y , "\n\n")
+
+natisni("x == y: ", x == y, "\n")
+natisni("x < y: " , x < y, "\n")
+natisni("x <= y: ", x <= y, "\n")
+natisni("x > y: " , x > y, "\n")
+natisni("x >= y: ", x >= y, "\n")
