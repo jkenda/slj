@@ -1,7 +1,7 @@
 use std::{rc::Rc, fmt::Display};
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OdmikIme {
     Odmik(isize),
     Ime(String),
@@ -76,7 +76,7 @@ pub enum Vozlišče {
     PogojniStavek{ pogoj: Rc<Vozlišče>, resnica: Rc<Vozlišče>, laž: Rc<Vozlišče> },
     Zanka{ pogoj: Rc<Vozlišče>, telo: Rc<Vozlišče> },
 
-    Prirejanje{ spremenljivka: Rc<Vozlišče>, izraz: Rc<Vozlišče>, z_odmikom: bool },
+    Prirejanje{ spremenljivka: Rc<Vozlišče>, izraz: Rc<Vozlišče> },
 
     Vrni(Rc<Vozlišče>),
     Zaporedje(Vec<Rc<Vozlišče>>),
@@ -182,7 +182,8 @@ impl Vozlišče {
                 + &telo.drevo(globina + 1)
                 + &"  ".repeat(globina) + "}\n",
 
-            Prirejanje{ spremenljivka: _, izraz, z_odmikom: _ } => 
+
+            Prirejanje{ spremenljivka: _, izraz } => 
                 "  ".repeat(globina) + &self.to_string() + "\n" 
                 + &izraz.drevo(globina + 1),
 
@@ -236,7 +237,7 @@ impl Vozlišče {
             ShraniOdmik => -1,
             NaložiOdmik => 1,
 
-            Niz(niz) => niz.len() as isize,
+            Niz(niz) => niz.chars().count() as isize,
             Število(_) => 1,
             Spremenljivka{ .. } => 1,
 

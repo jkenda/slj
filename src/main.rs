@@ -12,14 +12,9 @@ fn main() {
 
     let datoteka = fs::read_to_string(pot).unwrap_or("{}".to_owned());
 
-    let drevo = datoteka
+    datoteka
         .tokenize()
-        .parse();
-
-    let program = drevo.to_program();
-
-    println!("{drevo}");
-    println!("{}", program.to_assembler());
-
-    program.run()
+        .parse()
+        .to_program()
+        .zaženi();
 }

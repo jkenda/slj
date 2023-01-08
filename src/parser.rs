@@ -181,7 +181,6 @@ impl<'a> Parser<'a> {
                         }
                     },
                     izraz: self.drevo(ostanek),
-                    z_odmikom: self.znotraj_funkcije
                 }.rc()
             },
 
@@ -193,7 +192,6 @@ impl<'a> Parser<'a> {
                 Prirejanje {
                     spremenljivka: self.spremenljivke[ime_l].clone(),
                     izraz: operator(self.spremenljivke[ime_l].clone(), self.drevo(ostanek)).rc(),
-                    z_odmikom: self.znotraj_funkcije
                 }.rc()
             },
 
@@ -205,7 +203,6 @@ impl<'a> Parser<'a> {
             [ Rezerviranka("vrni", ..), .. ] => Vrni(Prirejanje {
                 spremenljivka: self.spremenljivke["vrni"].clone(),
                 izraz: self.drevo(&izraz[1..]),
-                z_odmikom: self.znotraj_funkcije
             }.rc()).rc(),
             [  ] => Prazno.rc(),
             _ => panic!("Neznan stavek: {:?}", izraz),
@@ -427,7 +424,14 @@ impl<'a> Parser<'a> {
             [ Ločilo("!", ..), ostanek @ .. ] => Zanikaj(self.drevo(ostanek)).rc(),
             [ Ločilo("(", ..), ostanek @ .., Ločilo(")", ..) ] => self.drevo(ostanek),
             [ Literal(L::Število(število, ..)) ] => Vozlišče::Število(število.parse().unwrap()).rc(),
-            [ Literal(L::Niz(niz, ..)) ] => Vozlišče::Niz(niz[1..niz.len()-1].to_string()).rc(),
+            [ Literal(L::Niz(niz, ..)) ] => Vozlišče::Niz(niz[1..niz.len()-1]
+                                                          .to_string()
+                                                          .replace(r"\\", "\\")
+                                                          .replace(r"\n", "\n")
+                                                          .replace(r"\t", "\t")
+                                                          .replace(r"\r", "\r")
+                                                          .replace(r#"\"""#, "\"")
+                                                          .replace(r"\'", "\'")).rc(),
             [ Ime(..), Ločilo("(", ..), .., Ločilo(")", ..) ] => self.funkcijski_klic(izraz),
             [ Ime(ime, ..) ] => match self.spremenljivke.get(ime) {
                 Some(spr) => spr.clone(),
