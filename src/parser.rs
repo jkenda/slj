@@ -23,7 +23,7 @@ impl Parse for Vec<Token<'_>> {
     }
 }
 
-const PRIREJALNI: [&str; 6] = [
+const PRIREDITVENI: [&str; 6] = [
     "+=",
     "-=",
     "*=",
@@ -32,8 +32,9 @@ const PRIREJALNI: [&str; 6] = [
     "^=",
 ];
 
-const PRIMERJALNI: [&str; 5] = [
+const PRIMERJALNI: [&str; 6] = [
     "==",
+    "!=",
     ">",
     ">=",
     "<",
@@ -177,7 +178,7 @@ impl<'a> Parser<'a> {
             },
 
             [ Ime(ime_l, ..), Operator(operator, ..), ostanek @ .. ] => {
-                if !PRIREJALNI.contains(operator) {
+                if !PRIREDITVENI.contains(operator) {
                     panic!("Neznan operator: {:?}", izraz[1]);
                 }
                 let operator = prireditveni_op(&operator);
@@ -330,40 +331,72 @@ impl<'a> Parser<'a> {
         self.disjunktivni(izraz)
     }
 
+    // LOGIČNI IZRAZI (razen negacije, ki je pri osnovnih)
+
     fn disjunktivni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        match poišči_spredaj(izraz, &["||"]) {
+        match poišči_zadaj(izraz, &["||"]) {
             Some((_, l, d)) => Disjunkcija(
                 self.disjunktivni(l),
-                self.disjunktivni(d)
+                self.konjunktivni(d)
             ).rc(),
             None => self.konjunktivni(izraz)
         }
     }
 
     fn konjunktivni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        match poišči_spredaj(izraz, &["&&"]) {
+        match poišči_zadaj(izraz, &["&&"]) {
             Some((_, l, d)) => Konjunkcija(
                 self.konjunktivni(l),
-                self.konjunktivni(d)
+                self.primerjalni(d)
             ).rc(),
             None => self.primerjalni(izraz)
         }
     }
 
+    // BITNI OPERATORJI
+
+    fn bitni_ali(&self, izraz: &[Token]) -> Rc<Vozlišče> {
+        match poišči_zadaj(izraz, &["|"]) {
+            None => self.potenčni(izraz),
+            Some(("|", l, d)) => BitniAli(self.bitni_ali(l), self.bitni_xor(d)).rc(),
+            _ => panic!("Neveljaven izraz: {}", izraz.iter().map(|t| t.as_str()).collect::<Vec<&str>>().join(" "))
+        }
+    }
+
+    fn bitni_xor(&self, izraz: &[Token]) -> Rc<Vozlišče> {
+        match poišči_zadaj(izraz, &["&"]) {
+            None => self.potenčni(izraz),
+            Some(("|", l, d)) => BitniXor(self.bitni_xor(l), self.bitni_in(d)).rc(),
+            _ => panic!("Neveljaven izraz: {}", izraz.iter().map(|t| t.as_str()).collect::<Vec<&str>>().join(" "))
+        }
+    }
+
+    fn bitni_in(&self, izraz: &[Token]) -> Rc<Vozlišče> {
+        match poišči_zadaj(izraz, &["^"]) {
+            None => self.potenčni(izraz),
+            Some(("|", l, d)) => BitniIn(self.bitni_in(l), self.primerjalni(d)).rc(),
+            _ => panic!("Neveljaven izraz: {}", izraz.iter().map(|t| t.as_str()).collect::<Vec<&str>>().join(" "))
+        }
+    }
+
+    // PRIMERJALNI IZRAZI
+
     fn primerjalni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        match poišči_spredaj(izraz, PRIMERJALNI.as_slice()) {
+        match poišči_zadaj(izraz, PRIMERJALNI.as_slice()) {
             Some((op, l, d)) => primerjalni_op(op)(
                     self.primerjalni(l),
-                    self.primerjalni(d)
+                    self.aditivni(d)
                 ).rc(),
             None => self.aditivni(izraz)
         }
     }
 
+    // ARITMETIČNI IZRAZI
+
     fn aditivni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        match poišči_spredaj(izraz, &["+", "-"]) {
+        match poišči_zadaj(izraz, &["+", "-"]) {
             None => self.multiplikativni(izraz),
-            Some(("+", l, d)) => Seštevanje(self.aditivni(l), self.aditivni(d)).rc(),
+            Some(("+", l, d)) => Seštevanje(self.aditivni(l), self.multiplikativni(d)).rc(),
             Some(("-", l, d)) => match l {
                 // [.., Operator(..)] => ,
                 _ => Odštevanje(self.aditivni(l), self.aditivni(d)).rc()
@@ -373,19 +406,20 @@ impl<'a> Parser<'a> {
     }
 
     fn multiplikativni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        match poišči_spredaj(izraz, &["*", "/", "%"]) {
+        match poišči_zadaj(izraz, &["*", "/", "%"]) {
             None => self.potenčni(izraz),
-            Some(("*", l, d)) => Množenje(self.multiplikativni(l), self.multiplikativni(d)).rc(),
-            Some(("/", l, d)) => Deljenje(self.multiplikativni(l), self.multiplikativni(d)).rc(),
-            Some(("%", l, d)) => Modulo(self.multiplikativni(l), self.multiplikativni(d)).rc(),
+            Some(("*", l, d)) => Množenje(self.multiplikativni(l), self.potenčni(d)).rc(),
+            Some(("/", l, d)) => Deljenje(self.multiplikativni(l), self.potenčni(d)).rc(),
+            Some(("%", l, d)) => Modulo  (self.multiplikativni(l), self.potenčni(d)).rc(),
             _ => panic!("Neveljaven izraz: {}", izraz.iter().map(|t| t.as_str()).collect::<Vec<&str>>().join(" "))
         }
     }
 
+    // potenčni aritmetični izraz - zadnji ima prednost
     fn potenčni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        match poišči_spredaj(izraz, &["**"]) {
+        match poišči_zadaj(izraz, &["**"]) {
             None => self.osnovni(izraz),
-            Some((_, l, d)) => Potenca(self.potenčni(l), self.potenčni(d)).rc()
+            Some((_, l, d)) => Potenca(self.potenčni(l), self.osnovni(d)).rc()
         }
     }
 
@@ -561,6 +595,35 @@ mod testi {
 
     #[test]
     fn aritmetični() {
-        todo!();
+        let parser = Parser::new();
+        assert_eq!(parser.drevo([ Literal(L::Število("3", 1, 1)), Operator("+", 1, 2), Literal(L::Število("2", 1, 3)) ].as_slice()),
+        Seštevanje(Število(3.0).rc(), Število(2.0).rc()).rc());
+        assert_eq!(parser.drevo([ Literal(L::Število("3", 1, 1)), Operator("-", 1, 2), Literal(L::Število("2", 1, 3)) ].as_slice()),
+        Odštevanje(Število(3.0).rc(), Število(2.0).rc()).rc());
+        assert_eq!(parser.drevo([ Literal(L::Število("3", 1, 1)), Operator("*", 1, 2), Literal(L::Število("2", 1, 3)) ].as_slice()),
+        Množenje(Število(3.0).rc(), Število(2.0).rc()).rc());
+        assert_eq!(parser.drevo([ Literal(L::Število("3", 1, 1)), Operator("/", 1, 2), Literal(L::Število("2", 1, 3)) ].as_slice()),
+        Deljenje(Število(3.0).rc(), Število(2.0).rc()).rc());
+        assert_eq!(parser.drevo([ Literal(L::Število("3", 1, 1)), Operator("%", 1, 2), Literal(L::Število("2", 1, 3)) ].as_slice()),
+        Modulo(Število(3.0).rc(), Število(2.0).rc()).rc());
+        assert_eq!(parser.drevo([ Literal(L::Število("3", 1, 1)), Operator("**", 1, 2), Literal(L::Število("2", 1, 4)) ].as_slice()),
+        Potenca(Število(3.0).rc(), Število(2.0).rc()).rc());
+    }
+
+    #[test]
+    fn primerjalni() {
+        let parser = Parser::new();
+        assert_eq!(parser.primerjalni([ Literal(L::Število("3", 1, 1)), Operator("==", 1, 2), Literal(L::Število("2", 1, 3)) ].as_slice()),
+        Enako(Število(3.0).rc(), Število(2.0).rc()).rc());
+        assert_eq!(parser.primerjalni([ Literal(L::Število("3", 1, 1)), Operator("!=", 1, 2), Literal(L::Število("2", 1, 3)) ].as_slice()),
+        NiEnako(Število(3.0).rc(), Število(2.0).rc()).rc());
+        assert_eq!(parser.primerjalni([ Literal(L::Število("3", 1, 1)), Operator("<=", 1, 2), Literal(L::Število("2", 1, 3)) ].as_slice()),
+        ManjšeEnako(Število(3.0).rc(), Število(2.0).rc()).rc());
+        assert_eq!(parser.primerjalni([ Literal(L::Število("3", 1, 1)), Operator(">=", 1, 2), Literal(L::Število("2", 1, 3)) ].as_slice()),
+        VečjeEnako(Število(3.0).rc(), Število(2.0).rc()).rc());
+        assert_eq!(parser.primerjalni([ Literal(L::Število("3", 1, 1)), Operator("<", 1, 2), Literal(L::Število("2", 1, 3)) ].as_slice()),
+        Manjše(Število(3.0).rc(), Število(2.0).rc()).rc());
+        assert_eq!(parser.primerjalni([ Literal(L::Število("3", 1, 1)), Operator(">", 1, 2), Literal(L::Število("2", 1, 4)) ].as_slice()),
+        Večje(Število(3.0).rc(), Število(2.0).rc()).rc());
     }
 }

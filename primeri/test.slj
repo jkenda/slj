@@ -7,3 +7,5 @@ natisni(x, "\n")
 natisni(y, "\n")
 natisni(x + 3, "\n")
 natisni(z, "\n")
+
+natisni("5 + 3 * 2 = ", 5 + 3 * 2, "\n");

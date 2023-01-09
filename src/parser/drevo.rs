@@ -61,6 +61,11 @@ pub enum Vozlišče {
     Zanikaj(Rc<Vozlišče>),
     Konjunkcija(Rc<Vozlišče>, Rc<Vozlišče>),
     Disjunkcija(Rc<Vozlišče>, Rc<Vozlišče>),
+
+    BitniAli(Rc<Vozlišče>, Rc<Vozlišče>),
+    BitniXor(Rc<Vozlišče>, Rc<Vozlišče>),
+    BitniIn(Rc<Vozlišče>, Rc<Vozlišče>),
+
     Enako(Rc<Vozlišče>, Rc<Vozlišče>),
     NiEnako(Rc<Vozlišče>, Rc<Vozlišče>),
     Večje(Rc<Vozlišče>, Rc<Vozlišče>),
@@ -118,9 +123,9 @@ impl ToString for Vozlišče {
             Modulo(..)     => "mod".to_owned(),
             Potenca(..)    => "^".to_owned(),
 
-            Zanikaj(..)     => "ne".to_owned(),
-            Konjunkcija(..) => "in".to_owned(),
-            Disjunkcija(..) => "ali".to_owned(),
+            Zanikaj(..)     => "!".to_owned(),
+            Konjunkcija(..) => "&&".to_owned(),
+            Disjunkcija(..) => "||".to_owned(),
             Enako(..)       => "==".to_owned(),
             NiEnako(..)     => "!=".to_owned(),
             Večje(..)       => ">".to_owned(),
@@ -223,7 +228,7 @@ impl Vozlišče {
                 "  ".repeat(globina) + &self.to_string() + "\n",
 
             Potenca(l, d) | Množenje(l, d) | Deljenje(l, d) | Modulo(l, d) | Seštevanje(l, d) | Odštevanje(l, d)
-                | Konjunkcija(l, d) | Disjunkcija(l, d) 
+                | Konjunkcija(l, d) | Disjunkcija(l, d) | BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d)
                 | Enako(l, d) | NiEnako(l, d) | Večje(l, d) | VečjeEnako(l, d) | Manjše(l, d) | ManjšeEnako(l, d) =>
                 "  ".repeat(globina) + &self.to_string() + "\n"
                 + &l.drevo(globina + 1) 
@@ -320,6 +325,7 @@ impl Vozlišče {
                 => izraz.sprememba_stacka(),
 
             Konjunkcija(l, d) | Disjunkcija(l, d) |
+                BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d) |
                 Enako(l, d) | NiEnako(l, d) | Večje(l, d) | VečjeEnako(l, d) | Manjše(l, d) | ManjšeEnako(l, d)
                 => l.sprememba_stacka() + d.sprememba_stacka() - 1,
 

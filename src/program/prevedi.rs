@@ -37,34 +37,34 @@ impl Prevedi for Vozlišče {
             Laž     => [Osnovni(PUSH(LAŽ))].to_vec(),
 
             Seštevanje(l, d) => [
-                d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
-                [Osnovni(ADD)].as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(ADDF)].as_slice(),
             ].concat(),
             Odštevanje(l, d) => [
-                d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
-                [Osnovni(SUB)].as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(SUBF)].as_slice(),
             ].concat(),
             Množenje(l, d) => [
-                d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
-                [Osnovni(MUL)].as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(MULF)].as_slice(),
             ].concat(),
             Deljenje(l, d) => [
-                d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
-                [Osnovni(DIV)].as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(DIVF)].as_slice(),
             ].concat(),
             Modulo(l, d) => [
-                d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
-                [Osnovni(MOD)].as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(MODF)].as_slice(),
             ].concat(),
             Potenca(l, d) => [
-                d.prevedi().as_slice(),
                 l.prevedi().as_slice(),
-                [Osnovni(POW)].as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(POWF)].as_slice(),
             ].concat(),
 
             Zanikaj(vozlišče) => Odštevanje(Število(1.0).rc(), vozlišče.clone()).prevedi(),
@@ -72,6 +72,22 @@ impl Prevedi for Vozlišče {
             Disjunkcija(l, d) => [
                 Seštevanje(l.clone(), d.clone()).prevedi().as_slice(),
                 [Osnovni(POS)].as_slice(),
+            ].concat(),
+
+            BitniAli(l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(BOR)].as_slice(),
+            ].concat(),
+            BitniXor(l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(BXOR)].as_slice(),
+            ].concat(),
+            BitniIn(l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(BAND)].as_slice(),
             ].concat(),
 
             Enako(l, d) => [
@@ -248,68 +264,68 @@ mod test {
         assert_eq!(Laž.prevedi(), [Osnovni(PUSH(LAŽ))].to_vec());
 
         assert_eq!(Seštevanje(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
-                   Osnovni(PUSH(Podatek { f: 2.0 })),
                    Osnovni(PUSH(Podatek { f: 1.0 })),
-                   Osnovni(ADD),
+                   Osnovni(PUSH(Podatek { f: 2.0 })),
+                   Osnovni(ADDF),
         ]);
         assert_eq!(Odštevanje(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
-                   Osnovni(PUSH(Podatek { f: 2.0 })),
                    Osnovni(PUSH(Podatek { f: 1.0 })),
-                   Osnovni(SUB),
+                   Osnovni(PUSH(Podatek { f: 2.0 })),
+                   Osnovni(SUBF),
         ]);
         assert_eq!(Množenje(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
-                   Osnovni(PUSH(Podatek { f: 2.0 })),
                    Osnovni(PUSH(Podatek { f: 1.0 })),
-                   Osnovni(MUL),
+                   Osnovni(PUSH(Podatek { f: 2.0 })),
+                   Osnovni(MULF),
         ]);
         assert_eq!(Deljenje(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
-                   Osnovni(PUSH(Podatek { f: 2.0 })),
                    Osnovni(PUSH(Podatek { f: 1.0 })),
-                   Osnovni(DIV),
+                   Osnovni(PUSH(Podatek { f: 2.0 })),
+                   Osnovni(DIVF),
         ]);
         assert_eq!(Modulo(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
-                   Osnovni(PUSH(Podatek { f: 2.0 })),
                    Osnovni(PUSH(Podatek { f: 1.0 })),
-                   Osnovni(MOD),
+                   Osnovni(PUSH(Podatek { f: 2.0 })),
+                   Osnovni(MODF),
         ]);
         assert_eq!(Potenca(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
-                   Osnovni(PUSH(Podatek { f: 2.0 })),
                    Osnovni(PUSH(Podatek { f: 1.0 })),
-                   Osnovni(POW),
+                   Osnovni(PUSH(Podatek { f: 2.0 })),
+                   Osnovni(POWF),
         ]);
 
         assert_eq!(Zanikaj(Resnica.rc()).prevedi(), [
                    Osnovni(PUSH(RESNICA)),
                    Osnovni(PUSH(Podatek { f: 1.0 })),
-                   Osnovni(SUB),
+                   Osnovni(SUBF),
         ]);
         assert_eq!(Zanikaj(Laž.rc()).prevedi(), [
-                   Osnovni(PUSH(LAŽ)),
                    Osnovni(PUSH(Podatek { f: 1.0 })),
-                   Osnovni(SUB),
+                   Osnovni(PUSH(LAŽ)),
+                   Osnovni(SUBF),
         ]);
         assert_eq!(Konjunkcija(Laž.rc(), Resnica.rc()).prevedi(), [
-                   Osnovni(PUSH(RESNICA)),
                    Osnovni(PUSH(LAŽ)),
-                   Osnovni(MUL),
+                   Osnovni(PUSH(RESNICA)),
+                   Osnovni(MULF),
         ]);
         assert_eq!(Disjunkcija(Laž.rc(), Resnica.rc()).prevedi(), [
-                   Osnovni(PUSH(RESNICA)),
                    Osnovni(PUSH(LAŽ)),
-                   Osnovni(ADD),
+                   Osnovni(PUSH(RESNICA)),
+                   Osnovni(ADDF),
                    Osnovni(POS),
         ]);
 
         assert_eq!(Enako(Število(3.14).rc(), Število(3.14159268).rc()).prevedi(), [
-                   Osnovni(PUSH(Podatek { f: 3.14159268 })),
                    Osnovni(PUSH(Podatek { f: 3.14 })),
-                   Osnovni(SUB),
+                   Osnovni(PUSH(Podatek { f: 3.14159268 })),
+                   Osnovni(SUBF),
                    Osnovni(ZERO),
         ]);
         assert_eq!(Večje(Število(13.0).rc(), Število(42.0).rc()).prevedi(), [
-                   Osnovni(PUSH(Podatek { f: 42.0 })),
                    Osnovni(PUSH(Podatek { f: 13.0 })),
-                   Osnovni(SUB),
+                   Osnovni(PUSH(Podatek { f: 42.0 })),
+                   Osnovni(SUBF),
                    Osnovni(POS),
 
         ]);
@@ -351,9 +367,9 @@ mod test {
                 izraz: Število(27.0).rc(),
             }.rc(),
         }.prevedi(), [
-            Osnovni(PUSH(LAŽ)),
             Osnovni(PUSH(Podatek { f: 1.0 })),
-            Osnovni(SUB),
+            Osnovni(PUSH(LAŽ)),
+            Osnovni(SUBF),
             JMPCRelative(4),
             Osnovni(PUSH(Podatek { f: 27.0 })),
             Osnovni(STOR(25)),
