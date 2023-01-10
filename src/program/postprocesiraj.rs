@@ -1,9 +1,10 @@
 use super::*;
 
 impl Postprocesiraj for Vec<UkazPodatekRelative> {
-    fn postprocesiraj(&self) -> Vec<UkazPodatek> {
+    fn postprocesiraj(&self) -> (Vec<UkazPodatek>, Vec<Tip>) {
         let mut postproc1 = self.clone();
         let mut postproc: Vec<UkazPodatek> = Vec::new();
+        let mut push_tipi = Vec::new();
 
         // nadomesti "vrni" z JUMP x
         let mut i: usize = 0;
@@ -48,17 +49,20 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
         for (št_vrstice, ukaz_podatek) in postproc1.iter().enumerate() {
             postproc.push(match ukaz_podatek {
                 Osnovni(osnovni_ukaz) => osnovni_ukaz.clone(),
+                PUSHI(celo) => { push_tipi.push(Tip::CELO); PUSH(Podatek { i: *celo }) },
+                PUSHF(real) => { push_tipi.push(Tip::REAL); PUSH(Podatek { f: *real }) },
+                PUSHC(znak) => { push_tipi.push(Tip::ZNAK); PUSH(Podatek { c: *znak }) },
                 JUMPRelative(odmik_ime) => match odmik_ime {
                     OdmikIme::Odmik(rel_skok) => JUMP((št_vrstice as isize + rel_skok) as u32),
                     OdmikIme::Ime(ime)        => JUMP(oznake_vrstic[ime]),
                 },
                 JMPCRelative(rel_skok) => JMPC((št_vrstice as i32 + rel_skok) as u32),
-                PC(odmik) => PUSH(Podatek { i: št_vrstice as i32 + odmik }),
+                PC(odmik) => { push_tipi.push(Tip::CELO); PUSH(Podatek { i: št_vrstice as i32 + odmik }) },
                 Oznaka(_) => NOOP,
             });
         }
 
-        postproc
+        (postproc, push_tipi)
     }
 }
 

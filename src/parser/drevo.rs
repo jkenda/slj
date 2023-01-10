@@ -120,8 +120,8 @@ impl ToString for Vozlišče {
             Odštevanje(..) => "-".to_owned(),
             Množenje(..)   => "*".to_owned(),
             Deljenje(..)   => "/".to_owned(),
-            Modulo(..)     => "mod".to_owned(),
-            Potenca(..)    => "^".to_owned(),
+            Modulo(..)     => "%".to_owned(),
+            Potenca(..)    => "**".to_owned(),
 
             Zanikaj(..)     => "!".to_owned(),
             Konjunkcija(..) => "&&".to_owned(),
@@ -141,7 +141,7 @@ impl ToString for Vozlišče {
 
             Funkcija{ ime, parametri, .. } => {
                 let parametri = parametri.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", ");
-                format!("{}({})", ime, parametri)
+                format!("funkcija {}({})", ime, parametri)
             },
             FunkcijskiKlic{ funkcija, .. } => if let Funkcija { ime, parametri: _, telo: _, prostor: _ } = &**funkcija { ime.clone() } else { "".to_string() },
             _ => "".to_owned(),

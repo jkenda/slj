@@ -19,7 +19,7 @@ trait Prevedi {
 }
 
 trait Postprocesiraj {
-    fn postprocesiraj(&self) -> Vec<UkazPodatek>;
+    fn postprocesiraj(&self) -> (Vec<UkazPodatek>, Vec<Tip>);
 }
 
 #[derive(Clone, Copy)]
@@ -77,6 +77,9 @@ enum UkazPodatek
 #[derive(Debug, Clone, PartialEq)]
 enum UkazPodatekRelative {
     Osnovni(UkazPodatek),
+    PUSHI(i32),
+    PUSHF(f32),
+    PUSHC(char),
     JUMPRelative(OdmikIme),
     JMPCRelative(i32),
     PC(i32),
@@ -84,7 +87,15 @@ enum UkazPodatekRelative {
 }
 
 #[derive(Debug, PartialEq)]
+enum Tip {
+    CELO,
+    REAL,
+    ZNAK,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Program {
+    push_tipi: Vec<Tip>,
     ukazi: Vec<UkazPodatek>,
 }
 
@@ -108,8 +119,11 @@ const LAŽ    : Podatek = Podatek { i: 0 };
 
 impl From<&Drevo> for Program {
     fn from(drevo: &Drevo) -> Self {
+        let (ukazi, push_tipi) = drevo.prevedi().postprocesiraj();
+
         Program { 
-            ukazi: drevo.prevedi().postprocesiraj(),
+            push_tipi,
+            ukazi,
         }
     }
 }
@@ -119,6 +133,7 @@ impl From<String> for Program {
         use UkazPodatek::*;
 
         let mut ukazi: Vec<UkazPodatek> = Vec::new();
+        let mut push_tipi = Vec::new();
         let vrstice = assembler.split('\n');
 
         for vrstica in vrstice {
@@ -129,19 +144,22 @@ impl From<String> for Program {
                 "PUSH" => {
                     if besede[2].chars().nth(0).unwrap() == '#' {
                         if besede[2].contains('.') {
+                            push_tipi.push(Tip::REAL);
                             PUSH(Podatek { f:  besede[2][1..].parse().unwrap() })
                         }
                         else {
+                            push_tipi.push(Tip::CELO);
                             PUSH(Podatek { i:  besede[2][1..].parse().unwrap() })
                         }
                     }
                     else {
+                        push_tipi.push(Tip::ZNAK);
                         PUSH(Podatek { c: besede[2][1..besede[1].len()-1]
                             .replace(r"\\", "\\")
                                 .replace(r"\n", "\n")
                                 .replace(r"\t", "\t")
                                 .replace(r"\r", "\r")
-                                .replace(r#"\"""#, "\"")
+                                .replace(r#"\""#, "\"")
                                 .replace(r"\'", "\'")
                                 .chars()
                                 .next()
@@ -184,7 +202,7 @@ impl From<String> for Program {
             });
         }
 
-        Program { ukazi }
+        Program { push_tipi, ukazi }
     }
 }
 
@@ -205,6 +223,7 @@ impl Program {
 
     pub fn to_assembler(&self) -> String {
         let mut str = String::new();
+        let mut j = 0;
 
         for (i, ukaz_podatek) in self.ukazi.iter().enumerate() {
             str += &format!("{i:3} ");
@@ -213,7 +232,22 @@ impl Program {
                 JUMP(naslov)  => format!("JUMP #{naslov}\n"),
                 JMPD          => "JMPD\n".to_string(),
                 JMPC(naslov)  => format!("JMPC #{naslov}\n"),
-                PUSH(podatek) => format!("PUSH #{}\n", unsafe { podatek.f }),
+                PUSH(podatek) => {
+                    j += 1;
+                    match self.push_tipi[j - 1] {
+                        Tip::REAL => format!("PUSH #{:?}\n", unsafe { podatek.f }),
+                        Tip::CELO => format!("PUSH #{}\n", unsafe { podatek.i }),
+                        Tip::ZNAK => format!("PUSH '{}'\n", unsafe { podatek.c
+                            .to_string()
+                            .replace("\\", r"\\")
+                                .replace("\n", r"\n")
+                                .replace("\t", r"\t")
+                                .replace("\r", r"\r")
+                                .replace("\"", r#"\""#)
+                                .replace("\'", r"\'")
+                        }),
+                    }
+                },
                 POP           => "POP \n".to_string(),
                 POS           => "POS \n".to_string(),
                 ZERO          => "ZERO\n".to_string(),
@@ -314,12 +348,20 @@ mod test {
     #[test]
     fn to_assembler_from_assembler() {
         let program = Program {
+            push_tipi: vec![
+                Tip::REAL,
+                Tip::REAL,
+                Tip::CELO,
+                Tip::ZNAK,
+                Tip::ZNAK,
+            ],
             ukazi: [
                 NOOP,
                 JUMP(23),
                 JMPD,
                 JMPC(18),
                 PUSH(Podatek { f: 3.14159268 }),
+                PUSH(Podatek { f: 0.0 }),
                 PUSH(Podatek { i: 42 }),
                 PUSH(Podatek { c: 'c' }),
                 PUSH(Podatek { c: '\n' }),
