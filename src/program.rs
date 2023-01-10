@@ -1,7 +1,6 @@
 mod prevedi;
 mod postprocesiraj;
 
-use core::slice;
 use std::collections::HashMap;
 use std::{mem::size_of, fmt::Debug};
 use std::fmt;
@@ -103,8 +102,8 @@ impl ToProgram for Drevo {
 }
 
 
-const RESNICA: Podatek = Podatek { f: 1.0 };
-const LAŽ    : Podatek = Podatek { f: 0.0 };
+const RESNICA: Podatek = Podatek { i: 1 };
+const LAŽ    : Podatek = Podatek { i: 0 };
 
 
 impl From<&Drevo> for Program {
@@ -126,18 +125,18 @@ impl From<String> for Program {
             if vrstica.len() == 0 { continue; }
             let besede: Vec<&str> = vrstica.split_whitespace().collect();
 
-            ukazi.push(match besede[0] {
+            ukazi.push(match besede[1] {
                 "PUSH" => {
-                    if besede[1].chars().nth(0).unwrap() == '#' {
-                        if besede[1].contains('.') {
-                            PUSH(Podatek { f:  besede[1][1..].parse().unwrap() })
+                    if besede[2].chars().nth(0).unwrap() == '#' {
+                        if besede[2].contains('.') {
+                            PUSH(Podatek { f:  besede[2][1..].parse().unwrap() })
                         }
                         else {
-                            PUSH(Podatek { i:  besede[1][1..].parse().unwrap() })
+                            PUSH(Podatek { i:  besede[2][1..].parse().unwrap() })
                         }
                     }
                     else {
-                        PUSH(Podatek { c: besede[1][1..besede[1].len()-1]
+                        PUSH(Podatek { c: besede[2][1..besede[1].len()-1]
                             .replace(r"\\", "\\")
                                 .replace(r"\n", "\n")
                                 .replace(r"\t", "\t")
@@ -149,13 +148,13 @@ impl From<String> for Program {
                                 .unwrap() })
                     }
                 },
-                "JUMP" => JUMP(besede[1][1..].parse().unwrap()),
-                "JMPC" => JMPC(besede[1][1..].parse().unwrap()),
-                "LOAD" => LOAD(besede[1][1..].parse().unwrap()),
-                "LDOF" => LDOF(besede[1][1..].parse().unwrap()),
-                "STOR" => STOR(besede[1][1..].parse().unwrap()),
-                "STOF" => STOF(besede[1][1..].parse().unwrap()),
-                "TOP"  => TOP(besede[1][0..].parse().unwrap()),
+                "JUMP" => JUMP(besede[2][1..].parse().unwrap()),
+                "JMPC" => JMPC(besede[2][1..].parse().unwrap()),
+                "LOAD" => LOAD(besede[2][1..].parse().unwrap()),
+                "LDOF" => LDOF(besede[2][1..].parse().unwrap()),
+                "STOR" => STOR(besede[2][1..].parse().unwrap()),
+                "STOF" => STOF(besede[2][1..].parse().unwrap()),
+                "TOP"  => TOP(besede[2][0..].parse().unwrap()),
                 "JMPD" => JMPD,
                 "POP"  => POP,
                 "POS"  => POS,
@@ -197,14 +196,18 @@ impl Program {
         stack.reserve(512);
 
         while (pc as usize) < self.ukazi.len() {
-            Program::korak(&self.ukazi[pc as usize], &mut stack, &mut pc, &mut addroff);
+            match Program::korak(&self.ukazi[pc as usize], &mut stack, &mut pc, &mut addroff) {
+                Some(_) => (),
+                None => panic!("Napaka v ukazu #{pc}: {:?}", &self.ukazi[pc as usize]),
+            }
         }
     }
 
     pub fn to_assembler(&self) -> String {
         let mut str = String::new();
 
-        for ukaz_podatek in &self.ukazi {
+        for (i, ukaz_podatek) in self.ukazi.iter().enumerate() {
+            str += &format!("{i:3} ");
             str += &match ukaz_podatek {
                 NOOP          => "NOOP\n".to_string(),
                 JUMP(naslov)  => format!("JUMP #{naslov}\n"),
@@ -215,9 +218,9 @@ impl Program {
                 POS           => "POS \n".to_string(),
                 ZERO          => "ZERO\n".to_string(),
                 LOAD(naslov)  => format!("LOAD @{naslov}\n"),
-                LDOF(naslov)  => format!("LDOF @{naslov}\n"),
+                LDOF(naslov)  => format!("LDOF +{naslov}\n"),
                 STOR(naslov)  => format!("STOR @{naslov}\n"),
-                STOF(naslov)  => format!("STOF @{naslov}\n"),
+                STOF(naslov)  => format!("STOF +{naslov}\n"),
                 TOP(odmik)    => format!("TOP  {}{odmik}\n", if *odmik > 0 { "+" } else { "" }),
                 SOFF          => "SOFF\n".to_string(),
                 LOFF          => "LOFF\n".to_string(),
@@ -246,57 +249,60 @@ impl Program {
         str
     }
 
-    pub unsafe fn to_bytes(&self) -> &[UkazPodatek]  {
-        slice::from_raw_parts(self.ukazi.as_ptr(), self.ukazi.len() * size_of::<UkazPodatek>())
+    pub unsafe fn to_bytes(&self) -> (*const u8, usize)  {
+        (self.ukazi.as_ptr().cast::<u8>(), size_of::<UkazPodatek>() * self.ukazi.len())
     }
 
-    fn korak(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut u32, addroff: &mut u32) {
+    fn korak(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut u32, addroff: &mut u32) -> Option<()> {
         *pc = unsafe {
             match ukaz_podatek {
                 NOOP => *pc + 1,
+
                 JUMP(naslov) => naslov.clone(),
-                JMPD => stack.pop().unwrap().i as u32,
-                JMPC(naslov) => if stack.pop().unwrap() != LAŽ { naslov.clone() } else { *pc + 1 },
+                JMPD => stack.pop()?.i as u32,
+                JMPC(naslov) => if stack.pop()? != LAŽ { naslov.clone() } else { *pc + 1 },
+
                 PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
                 POP => { stack.pop(); *pc + 1 },
 
-                POS  => { stack.last_mut().unwrap().i = if stack.last().unwrap().f  > 0.0 { RESNICA.i } else { LAŽ.i }; *pc + 1 },
-                ZERO => { stack.last_mut().unwrap().i = if stack.last().unwrap().f == 0.0 { RESNICA.i } else { LAŽ.i }; *pc + 1 },
+                POS  => { stack.last_mut()?.i = if stack.last()?.f  > 0.0 { RESNICA.i } else { LAŽ.i }; *pc + 1 },
+                ZERO => { stack.last_mut()?.i = if stack.last()?.f == 0.0 { RESNICA.i } else { LAŽ.i }; *pc + 1 },
 
-                LOAD(podatek) => { stack.push(stack[podatek.clone() as usize]); *pc + 1 },
-                LDOF(podatek) => { stack.push(stack[*addroff as usize + podatek.clone() as usize]); *pc + 1 },
-                STOR(podatek) => { stack[podatek.clone() as usize] = stack.pop().unwrap(); *pc + 1 },
-                STOF(podatek) => { stack[*addroff as usize + podatek.clone() as usize] = stack.pop().unwrap(); *pc + 1 },
-                TOP (podatek) => { *addroff = (stack.len() as i32 + podatek) as u32; *pc + 1 },
+                LOAD(naslov) => { stack.push(*stack.get(naslov.clone() as usize)?); *pc + 1 },
+                LDOF(naslov) => { stack.push(*stack.get(*addroff as usize + naslov.clone() as usize)?); *pc + 1 },
+                STOR(naslov) => { stack.get_mut(naslov.clone() as usize)?.f = stack.pop()?.f; *pc + 1 },
+                STOF(naslov) => { stack.get_mut(*addroff as usize + naslov.clone() as usize)?.i = stack.pop()?.i; *pc + 1 },
+                TOP (naslov) => { *addroff = (stack.len() as i32 + naslov) as u32; *pc + 1 },
 
-                SOFF => { *addroff = stack.pop().unwrap().i as u32;   *pc + 1 },
+                SOFF => { *addroff = stack.pop()?.i as u32;   *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff as i32 }); *pc + 1 },
 
-                PRTN => { print!("{}", stack.pop().unwrap().f); *pc + 1 },
-                PRTC => { print!("{}", stack.pop().unwrap().c); *pc + 1 },
+                PRTN => { print!("{}", stack.pop()?.f); *pc + 1 },
+                PRTC => { print!("{}", stack.pop()?.c); *pc + 1 },
 
-                ADDF => { stack.last_mut().unwrap().f = stack[stack.len()-2].f    + stack.pop().unwrap().f;  *pc + 1 },
-                SUBF => { stack.last_mut().unwrap().f = stack[stack.len()-2].f    - stack.pop().unwrap().f;  *pc + 1 },
-                MULF => { stack.last_mut().unwrap().f = stack[stack.len()-2].f    * stack.pop().unwrap().f;  *pc + 1 },
-                DIVF => { stack.last_mut().unwrap().f = stack[stack.len()-2].f    / stack.pop().unwrap().f;  *pc + 1 },
-                MODF => { stack.last_mut().unwrap().f = stack[stack.len()-2].f    % stack.pop().unwrap().f;  *pc + 1 },
-                POWF => { stack.last_mut().unwrap().f = stack[stack.len()-2].f.powf(stack.pop().unwrap().f); *pc + 1 },
+                ADDF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f    + stack.pop()?.f;  *pc + 1 },
+                SUBF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f    - stack.pop()?.f;  *pc + 1 },
+                MULF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f    * stack.pop()?.f;  *pc + 1 },
+                DIVF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f    / stack.pop()?.f;  *pc + 1 },
+                MODF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f    % stack.pop()?.f;  *pc + 1 },
+                POWF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f.powf(stack.pop()?.f); *pc + 1 },
 
-                ADDI => { stack.last_mut().unwrap().i = stack[stack.len()-2].i   + stack.pop().unwrap().i;         *pc + 1 },
-                SUBI => { stack.last_mut().unwrap().i = stack[stack.len()-2].i   - stack.pop().unwrap().i;         *pc + 1 },
-                MULI => { stack.last_mut().unwrap().i = stack[stack.len()-2].i   * stack.pop().unwrap().i;         *pc + 1 },
-                DIVI => { stack.last_mut().unwrap().i = stack[stack.len()-2].i   / stack.pop().unwrap().i;         *pc + 1 },
-                MODI => { stack.last_mut().unwrap().i = stack[stack.len()-2].i   % stack.pop().unwrap().i;         *pc + 1 },
-                POWI => { stack.last_mut().unwrap().i = stack[stack.len()-2].i.pow(stack.pop().unwrap().i as u32); *pc + 1 },
+                ADDI => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i   + stack.pop()?.i;         *pc + 1 },
+                SUBI => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i   - stack.pop()?.i;         *pc + 1 },
+                MULI => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i   * stack.pop()?.i;         *pc + 1 },
+                DIVI => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i   / stack.pop()?.i;         *pc + 1 },
+                MODI => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i   % stack.pop()?.i;         *pc + 1 },
+                POWI => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i.pow(stack.pop()?.i as u32); *pc + 1 },
 
-                BOR  => { stack.last_mut().unwrap().i = stack[stack.len()-2].i | stack.pop().unwrap().i;  *pc + 1 },
-                BXOR => { stack.last_mut().unwrap().i = stack[stack.len()-2].i | stack.pop().unwrap().i;  *pc + 1 },
-                BAND => { stack.last_mut().unwrap().i = stack[stack.len()-2].i | stack.pop().unwrap().i;  *pc + 1 },
+                BOR  => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i | stack.pop()?.i;  *pc + 1 },
+                BXOR => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i | stack.pop()?.i;  *pc + 1 },
+                BAND => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i | stack.pop()?.i;  *pc + 1 },
 
-                FTOI => { stack.last_mut().unwrap().i = stack.last().unwrap().f as i32; *pc + 1 },
-                ITOF => { stack.last_mut().unwrap().f = stack.last().unwrap().i as f32; *pc + 1 },
+                FTOI => { stack.last_mut()?.i = stack.last()?.f as i32; *pc + 1 },
+                ITOF => { stack.last_mut()?.f = stack.last()?.i as f32; *pc + 1 },
             }
         };
+        Some(())
     }
 
 }
@@ -395,13 +401,13 @@ mod test {
 
         // y > x (y - x > 0 <=> y > x)
         Program::korak(&POS, &mut stack, &mut pc, &mut addroff);
-        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }]);
+        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 6);
         assert_eq!(addroff, 0);
 
         // NOOP
         Program::korak(&NOOP, &mut stack, &mut pc, &mut addroff);
-        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }]);
+        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 7);
         assert_eq!(addroff, 0);
 
@@ -437,19 +443,19 @@ mod test {
 
         // ZERO (0.0 == 0.0)
         Program::korak(&ZERO, &mut stack, &mut pc, &mut addroff);
-        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }]);
+        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 15);
         assert_eq!(addroff, 0);
 
         // PUSH 'c'
         Program::korak(&PUSH(Podatek { c: '\n' }), &mut stack, &mut pc, &mut addroff);
-        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }, Podatek { c: '\n' }]);
+        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }, Podatek { c: '\n' }]);
         assert_eq!(pc, 16);
         assert_eq!(addroff, 0);
 
         // PUSH '\n'
         Program::korak(&PUSH(Podatek { c: 'c' }), &mut stack, &mut pc, &mut addroff);
-        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }, Podatek { c: '\n' }, Podatek { c: 'c' }]);
+        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }, Podatek { c: '\n' }, Podatek { c: 'c' }]);
         assert_eq!(pc, 17);
         assert_eq!(addroff, 0);
 
@@ -457,80 +463,92 @@ mod test {
         // PRTC
         Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff);
         Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff);
-        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }]);
+        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 19);
+        assert_eq!(addroff, 0);
+
+        // POP
+        Program::korak(&POP, &mut stack, &mut pc, &mut addroff);
+        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
+        assert_eq!(pc, 20);
+        assert_eq!(addroff, 0);
+
+        // PUSH #1.0
+        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff);
+        assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }]);
+        assert_eq!(pc, 21);
         assert_eq!(addroff, 0);
 
         // PUSH #0.0
         Program::korak(&PUSH(Podatek { f: 0.0 }), &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }, Podatek { f: 0.0 }]);
-        assert_eq!(pc, 20);
+        assert_eq!(pc, 22);
         assert_eq!(addroff, 0);
 
         // MUL (0.0 * 1.0) = 0.0
         Program::korak(&MULF, &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 0.0 }]);
-        assert_eq!(pc, 21);
+        assert_eq!(pc, 23);
         assert_eq!(addroff, 0);
 
         // STOR @0 (x = 0.0)
         Program::korak(&STOR(0), &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }]);
-        assert_eq!(pc, 22);
+        assert_eq!(pc, 24);
         assert_eq!(addroff, 0);
 
         // LOFF
         Program::korak(&LOFF, &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }]);
-        assert_eq!(pc, 23);
+        assert_eq!(pc, 25);
         assert_eq!(addroff, 0);
 
         // PUSH #3.01
         Program::korak(&PUSH(Podatek { f: 3.01 }), &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 }]);
-        assert_eq!(pc, 24);
+        assert_eq!(pc, 26);
         assert_eq!(addroff, 0);
 
         // TOP -3
         Program::korak(&TOP(-3), &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 }]);
-        assert_eq!(pc, 25);
+        assert_eq!(pc, 27);
         assert_eq!(addroff, 1);
 
         // LDOF @0
         Program::korak(&LDOF(0), &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 }, Podatek { f: 3.14 }]);
-        assert_eq!(pc, 26);
+        assert_eq!(pc, 28);
         assert_eq!(addroff, 1);
 
         // ADD
         Program::korak(&ADDF, &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 + 3.14 }]);
-        assert_eq!(pc, 27);
+        assert_eq!(pc, 29);
         assert_eq!(addroff, 1);
 
         // PUSH 1.0
         Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 + 3.14 }, Podatek { f: 1.0 }]);
-        assert_eq!(pc, 28);
+        assert_eq!(pc, 30);
         assert_eq!(addroff, 1);
 
         // DIV
         Program::korak(&DIVF, &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: (3.01 + 3.14) / 1.0 }]);
-        assert_eq!(pc, 29);
+        assert_eq!(pc, 31);
         assert_eq!(addroff, 1);
 
         // STOF @0
         Program::korak(&STOF(0), &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.01 + 3.14 }, Podatek { i: 0 }]);
-        assert_eq!(pc, 30);
+        assert_eq!(pc, 32);
         assert_eq!(addroff, 1);
 
         // SOFF
         Program::korak(&SOFF, &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.01 + 3.14 }]);
-        assert_eq!(pc, 31);
+        assert_eq!(pc, 33);
         assert_eq!(addroff, 0);
 
         stack[0].f = 5.0;
@@ -539,7 +557,7 @@ mod test {
         // MOD
         Program::korak(&MODF, &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 2.0 }]);
-        assert_eq!(pc, 32);
+        assert_eq!(pc, 34);
         assert_eq!(addroff, 0);
 
         stack.push(Podatek { f: 5.0 });
@@ -547,7 +565,7 @@ mod test {
         // POW
         Program::korak(&POWF, &mut stack, &mut pc, &mut addroff);
         assert_eq!(stack, [Podatek { f: 32.0 }]);
-        assert_eq!(pc, 33);
+        assert_eq!(pc, 35);
         assert_eq!(addroff, 0);
     }
 

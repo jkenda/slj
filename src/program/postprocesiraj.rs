@@ -4,7 +4,6 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
     fn postprocesiraj(&self) -> Vec<UkazPodatek> {
         let mut postproc1 = self.clone();
         let mut postproc: Vec<UkazPodatek> = Vec::new();
-        let mut oznake_vrstic: HashMap<String, u32> = HashMap::new();
 
         // nadomesti "vrni" z JUMP x
         let mut i: usize = 0;
@@ -17,8 +16,11 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
                     loop {
                         match &postproc1[konec] {
                             Oznaka(oznaka) => if oznaka.starts_with("konec_funkcije") {
-                                postproc1[konec] = JUMPRelative(OdmikIme::Ime(oznaka.split_whitespace().last().unwrap().to_string()));
+                                postproc1[i] = JUMPRelative(OdmikIme::Ime(oznaka.clone()));
                                 break;
+                            }
+                            else {
+                                konec += 1;
                             },
                             _ => konec += 1,
                         }
@@ -28,13 +30,15 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
             i += 1;
         }
 
+        let mut oznake_vrstic: HashMap<String, u32> = HashMap::new();
+
         // preberi oznake vrstic in jih odstrani
         let mut i: usize = 0;
         while i < postproc1.len() {
             match &postproc1[i] {
                 Oznaka(oznaka) => {
                     oznake_vrstic.insert(oznaka.clone(), i as u32);
-                    postproc.remove(i);
+                    postproc1.remove(i);
                 }
                 _ => i += 1,
             }

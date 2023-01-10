@@ -194,7 +194,10 @@ impl<'a> Parser<'a> {
             [ Rezerviranka("dokler", ..), .., Ločilo("}", ..) ] => self.zanka_dokler(izraz),
             [ Rezerviranka("funkcija", ..), .., Ločilo("}", ..) ] => self.funkcija(izraz),
             [ Rezerviranka("vrni", ..), .. ] => Vrni(Prirejanje {
-                spremenljivka: self.spremenljivke["vrni"].clone(),
+                spremenljivka: match self.spremenljivke.get("0_vrni") {
+                    Some(spr) => spr.clone(),
+                    None => panic!("nepričakovana beseda: 'vrni', uprabljena zunaj funkcije: {}", izraz[0].lokacija_str()),
+                },
                 izraz: self.drevo(&izraz[1..]),
             }.rc()).rc(),
             [  ] => Prazno.rc(),
@@ -254,7 +257,7 @@ impl<'a> Parser<'a> {
     {
         let prejšnje_spr = self.spremenljivke.clone();
         let mut spr_funkcije = HashMap::from([
-            ("vrni", Spremenljivka { ime: "vrni".to_owned(), naslov: 0, z_odmikom: true }.rc()),
+            ("0_vrni", Spremenljivka { ime: "vrni".to_owned(), naslov: 0, z_odmikom: true }.rc()),
             ("0_PC", Spremenljivka { ime: "0_PC".to_owned(), naslov: 1, z_odmikom: true }.rc()),
         ]);
 

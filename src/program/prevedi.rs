@@ -67,10 +67,20 @@ impl Prevedi for Vozlišče {
                 [Osnovni(POWF)].as_slice(),
             ].concat(),
 
-            Zanikaj(vozlišče) => Odštevanje(Število(1.0).rc(), vozlišče.clone()).prevedi(),
-            Konjunkcija(l, d) => Množenje(l.clone(), d.clone()).prevedi(),
+            Zanikaj(vozlišče) => [
+                [Osnovni(PUSH(RESNICA))].as_slice(),
+                vozlišče.prevedi().as_slice(),
+                [Osnovni(SUBI)].as_slice(),
+            ].concat(),
+            Konjunkcija(l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(MULI)].as_slice(),
+            ].concat(),
             Disjunkcija(l, d) => [
-                Seštevanje(l.clone(), d.clone()).prevedi().as_slice(),
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(ADDI)].as_slice(),
                 [Osnovni(POS)].as_slice(),
             ].concat(),
 
@@ -157,14 +167,16 @@ impl Prevedi for Vozlišče {
             ]).prevedi(),
 
             Funkcija{ ime, parametri, telo, prostor } => {
+                let parametri_velikost = parametri.iter().map(|p| p.sprememba_stacka()).sum::<isize>();
                 let pred = Zaporedje(vec![
                     NaložiOdmik.rc(),
-                       Vrh((
-                           -NaložiOdmik.sprememba_stacka()
-                           - parametri.len() as isize
-                           - ProgramskiŠtevec(0).sprememba_stacka()
-                           - Push(1).sprememba_stacka()) as i32).rc(),
-                       Push(*prostor).rc(),
+                    Vrh((                                           // NA STACKU:
+                        - Push(1).sprememba_stacka()                // vrni (+0)
+                        - ProgramskiŠtevec(0).sprememba_stacka()    // PC (+1)
+                        - parametri_velikost                        // [ argumenti ] (+2 ...)
+                        - NaložiOdmik.sprememba_stacka()            // prejšnji odmik
+                    ) as i32).rc(),
+                    Push(*prostor).rc(),
                 ]);
 
                 let za = Zaporedje(vec![
@@ -197,7 +209,8 @@ impl Prevedi for Vozlišče {
                 ]).prevedi()
             },
 
-            Natisni(izrazi) => izrazi.into_iter()
+            Natisni(izrazi) => {
+                izrazi.into_iter()
                 .map(|izraz| [
                     izraz.prevedi().as_slice(),
                     match &**izraz {
@@ -206,7 +219,8 @@ impl Prevedi for Vozlišče {
                             .collect(),
                         _ => [Osnovni(PRTN)].to_vec(),
                     }.as_slice()
-                ].concat()).flatten().collect(),
+                ].concat()).flatten().collect()
+            },
         }
     }
 
@@ -215,7 +229,7 @@ impl Prevedi for Vozlišče {
             _ => {
                 self.prevedi()
                     .iter()
-                    .filter(|u| if let Oznaka(..) = u { false } else { true })
+                    .filter(|u| if let Oznaka(oznaka) = u { oznaka == "vrni" } else { true })
                     .count()
             },
         }
@@ -295,24 +309,24 @@ mod test {
         ]);
 
         assert_eq!(Zanikaj(Resnica.rc()).prevedi(), [
+                   Osnovni(PUSH(Podatek { i: 1 })),
                    Osnovni(PUSH(RESNICA)),
-                   Osnovni(PUSH(Podatek { f: 1.0 })),
-                   Osnovni(SUBF),
+                   Osnovni(SUBI),
         ]);
         assert_eq!(Zanikaj(Laž.rc()).prevedi(), [
-                   Osnovni(PUSH(Podatek { f: 1.0 })),
+                   Osnovni(PUSH(Podatek { i: 1 })),
                    Osnovni(PUSH(LAŽ)),
-                   Osnovni(SUBF),
+                   Osnovni(SUBI),
         ]);
         assert_eq!(Konjunkcija(Laž.rc(), Resnica.rc()).prevedi(), [
                    Osnovni(PUSH(LAŽ)),
                    Osnovni(PUSH(RESNICA)),
-                   Osnovni(MULF),
+                   Osnovni(MULI),
         ]);
         assert_eq!(Disjunkcija(Laž.rc(), Resnica.rc()).prevedi(), [
                    Osnovni(PUSH(LAŽ)),
                    Osnovni(PUSH(RESNICA)),
-                   Osnovni(ADDF),
+                   Osnovni(ADDI),
                    Osnovni(POS),
         ]);
 
@@ -367,9 +381,9 @@ mod test {
                 izraz: Število(27.0).rc(),
             }.rc(),
         }.prevedi(), [
-            Osnovni(PUSH(Podatek { f: 1.0 })),
+            Osnovni(PUSH(Podatek { i: 1 })),
             Osnovni(PUSH(LAŽ)),
-            Osnovni(SUBF),
+            Osnovni(SUBI),
             JMPCRelative(4),
             Osnovni(PUSH(Podatek { f: 27.0 })),
             Osnovni(STOR(25)),
@@ -425,7 +439,10 @@ mod test {
 
         let funkcija = Funkcija {
             ime: "ena".to_string(),
-            parametri: vec![],
+            parametri: vec![
+                Spremenljivka { ime: "x".to_string(), naslov: 2, z_odmikom: true }.rc(),
+                Spremenljivka { ime: "y".to_string(), naslov: 3, z_odmikom: true }.rc(),
+            ],
             telo: Vrni(Prirejanje {
                 spremenljivka: Spremenljivka { ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
                 izraz: Število(1.0).rc()
@@ -434,24 +451,28 @@ mod test {
         }.rc();
 
         assert_eq!(funkcija.clone().prevedi(), [
-            JUMPRelative(OdmikIme::Odmik(7)),
+            JUMPRelative(OdmikIme::Odmik(10)),
             Oznaka("ena".to_string()),
             Osnovni(LOFF),
-            Osnovni(TOP(-3)),
+            Osnovni(TOP(-5)),
             Osnovni(PUSH(Podatek { f: 1.0 })),
             Osnovni(STOF(0)),
             Oznaka("vrni".to_string()),
             Oznaka("konec_funkcije ena".to_string()),
             Osnovni(SOFF),
+            Osnovni(POP),
+            Osnovni(POP),
             Osnovni(JMPD),
         ]);
 
         assert_eq!(FunkcijskiKlic {
             funkcija: funkcija.clone(),
-            argumenti: Prazno.rc(),
+            argumenti: Zaporedje(vec![Število(1.0).rc(), Število(2.0).rc()]).rc(),
         }.prevedi(), [
             Osnovni(PUSH(NIČ)),
-            PC(2),
+            PC(4),
+            Osnovni(PUSH(Podatek { f: 1.0 })),
+            Osnovni(PUSH(Podatek { f: 2.0 })),
             JUMPRelative(OdmikIme::Ime("ena".to_string())),
         ]);
 

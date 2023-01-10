@@ -143,7 +143,7 @@ impl ToString for Vozlišče {
                 let parametri = parametri.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", ");
                 format!("{}({})", ime, parametri)
             },
-            FunkcijskiKlic{ funkcija, .. } => format!("{}(", if let Funkcija { ime, parametri: _, telo: _, prostor: _ } = &**funkcija { ime } else { "" }),
+            FunkcijskiKlic{ funkcija, .. } => if let Funkcija { ime, parametri: _, telo: _, prostor: _ } = &**funkcija { ime.clone() } else { "".to_string() },
             _ => "".to_owned(),
         }
     }
@@ -263,7 +263,7 @@ impl Vozlišče {
 
             Vrni(prirejanje) => 
                 "  ".repeat(globina) + "vrni (\n"
-                + &prirejanje.drevo(globina + 1)
+                + &if let Prirejanje { spremenljivka: _, izraz } = &**prirejanje { izraz.drevo(globina + 1) } else { "".to_string() }
                 + &"  ".repeat(globina) + ")\n",
 
             Zaporedje(vozlišča) => vozlišča.into_iter().map(|v| v.drevo(globina + 1)).collect::<Vec<String>>().join(&("  ".repeat(globina) + ",\n")),
@@ -281,7 +281,7 @@ impl Vozlišče {
             FunkcijskiKlic { funkcija: _, argumenti } =>
                 "  ".repeat(globina) + &self.to_string() + "(\n"
                 + &argumenti.drevo(globina + 1)
-                + ")\n",
+                + &"  ".repeat(globina) + ")\n",
 
             Natisni(zaporedje) => 
                 "  ".repeat(globina) + "natisni(\n" 

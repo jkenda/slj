@@ -1,0 +1,22 @@
+MEJA = 100_000
+praštevil = 2 # [2, 3]
+kandidat = 5
+
+dokler kandidat <= MEJA {
+    praštevilo = resnica
+
+    i = 2
+    dokler i <= kandidat / 2 && praštevilo {
+        če kandidat % i == 0 {
+            praštevilo = laž
+        }
+        i += 1
+    }
+    kandidat += 2
+
+    če praštevilo {
+        praštevil += 1
+    }
+}
+
+natisni("praštevil do ", MEJA, ": ", praštevil, "\n")
