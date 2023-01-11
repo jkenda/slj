@@ -214,10 +214,25 @@ impl Program {
         stack.reserve(512);
 
         while (pc as usize) < self.ukazi.len() {
-            match Program::korak(&self.ukazi[pc as usize], &mut stack, &mut pc, &mut addroff) {
+            Program::korak(&self.ukazi[pc as usize], &mut stack, &mut pc, &mut addroff);
+        }
+    }
+
+    pub fn zaženi_debug(&self) {
+        let mut pc: u32 = 0;
+        let mut addroff: u32 = 0;
+        let mut stack: Vec<Podatek> = Vec::new();
+        stack.reserve(512);
+
+        while (pc as usize) < self.ukazi.len() {
+            let ukaz = &self.ukazi[pc as usize];
+
+            print!("{addroff}, {pc}, {ukaz:?}: ");
+            match Program::korak_debug(ukaz, &mut stack, &mut pc, &mut addroff) {
                 Some(_) => (),
-                None => panic!("Napaka v ukazu #{pc}: {:?}", &self.ukazi[pc as usize]),
+                None => panic!("Napaka v ukazu #{pc}: {:?}", ukaz),
             }
+            println!("{stack:?}");
         }
     }
 
@@ -236,8 +251,8 @@ impl Program {
                     j += 1;
                     match self.push_tipi[j - 1] {
                         Tip::REAL => format!("PUSH #{:?}\n", unsafe { podatek.f }),
-                        Tip::CELO => format!("PUSH #{}\n", unsafe { podatek.i }),
-                        Tip::ZNAK => format!("PUSH '{}'\n", unsafe { podatek.c
+                        Tip::CELO => format!("PUSH #{}\n",   unsafe { podatek.i }),
+                        Tip::ZNAK => format!("PUSH '{}'\n",  unsafe { podatek.c
                             .to_string()
                             .replace("\\", r"\\")
                                 .replace("\n", r"\n")
@@ -287,7 +302,58 @@ impl Program {
         (self.ukazi.as_ptr().cast::<u8>(), size_of::<UkazPodatek>() * self.ukazi.len())
     }
 
-    fn korak(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut u32, addroff: &mut u32) -> Option<()> {
+    fn korak(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut u32, addroff: &mut u32) {
+        *pc = unsafe {
+            match ukaz_podatek {
+                NOOP => *pc + 1,
+
+                JUMP(naslov) => naslov.clone(),
+                JMPD => stack.pop().unwrap().i as u32,
+                JMPC(naslov) => if stack.pop().unwrap() != LAŽ { naslov.clone() } else { *pc + 1 },
+
+                PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
+                POP => { stack.pop(); *pc + 1 },
+
+                POS  => { *stack.last_mut().unwrap() = if stack.last().unwrap().f  > 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
+                ZERO => { *stack.last_mut().unwrap() = if stack.last().unwrap().f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
+
+                LOAD(naslov) => { stack.push(*stack.get(naslov.clone() as usize).unwrap()); *pc + 1 },
+                LDOF(naslov) => { stack.push(*stack.get(*addroff as usize + naslov.clone() as usize).unwrap()); *pc + 1 },
+                STOR(naslov) => { *stack.get_mut(naslov.clone() as usize).unwrap() = stack.pop().unwrap(); *pc + 1 },
+                STOF(naslov) => { *stack.get_mut(*addroff as usize + naslov.clone() as usize).unwrap() = stack.pop().unwrap(); *pc + 1 },
+                TOP (naslov) => { *addroff = (stack.len() as i32 + naslov) as u32; *pc + 1 },
+
+                SOFF => { *addroff = stack.pop().unwrap().i as u32;   *pc + 1 },
+                LOFF => { stack.push(Podatek { i: *addroff as i32 }); *pc + 1 },
+
+                PRTN => { print!("{}", stack.pop().unwrap().f); *pc + 1 },
+                PRTC => { print!("{}", stack.pop().unwrap().c); *pc + 1 },
+
+                ADDF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    + stack.pop().unwrap().f;  *pc + 1 },
+                SUBF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    - stack.pop().unwrap().f;  *pc + 1 },
+                MULF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    * stack.pop().unwrap().f;  *pc + 1 },
+                DIVF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    / stack.pop().unwrap().f;  *pc + 1 },
+                MODF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    % stack.pop().unwrap().f;  *pc + 1 },
+                POWF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f.powf(stack.pop().unwrap().f); *pc + 1 },
+
+                ADDI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i   + stack.pop().unwrap().i;         *pc + 1 },
+                SUBI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i   - stack.pop().unwrap().i;         *pc + 1 },
+                MULI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i   * stack.pop().unwrap().i;         *pc + 1 },
+                DIVI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i   / stack.pop().unwrap().i;         *pc + 1 },
+                MODI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i   % stack.pop().unwrap().i;         *pc + 1 },
+                POWI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.pow(stack.pop().unwrap().i as u32); *pc + 1 },
+
+                BOR  => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i | stack.pop().unwrap().i;  *pc + 1 },
+                BXOR => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i | stack.pop().unwrap().i;  *pc + 1 },
+                BAND => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i | stack.pop().unwrap().i;  *pc + 1 },
+
+                FTOI => { stack.last_mut().unwrap().i = stack.last().unwrap().f as i32; *pc + 1 },
+                ITOF => { stack.last_mut().unwrap().f = stack.last().unwrap().i as f32; *pc + 1 },
+            }
+        };
+    }
+
+    fn korak_debug(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut u32, addroff: &mut u32) -> Option<()> {
         *pc = unsafe {
             match ukaz_podatek {
                 NOOP => *pc + 1,
@@ -299,13 +365,13 @@ impl Program {
                 PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
                 POP => { stack.pop(); *pc + 1 },
 
-                POS  => { stack.last_mut()?.i = if stack.last()?.f  > 0.0 { RESNICA.i } else { LAŽ.i }; *pc + 1 },
-                ZERO => { stack.last_mut()?.i = if stack.last()?.f == 0.0 { RESNICA.i } else { LAŽ.i }; *pc + 1 },
+                POS  => { *stack.last_mut()? = if stack.last()?.f  > 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
+                ZERO => { *stack.last_mut()? = if stack.last()?.f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
 
                 LOAD(naslov) => { stack.push(*stack.get(naslov.clone() as usize)?); *pc + 1 },
                 LDOF(naslov) => { stack.push(*stack.get(*addroff as usize + naslov.clone() as usize)?); *pc + 1 },
-                STOR(naslov) => { stack.get_mut(naslov.clone() as usize)?.f = stack.pop()?.f; *pc + 1 },
-                STOF(naslov) => { stack.get_mut(*addroff as usize + naslov.clone() as usize)?.i = stack.pop()?.i; *pc + 1 },
+                STOR(naslov) => { *stack.get_mut(naslov.clone() as usize)? = stack.pop()?; *pc + 1 },
+                STOF(naslov) => { *stack.get_mut(*addroff as usize + naslov.clone() as usize)? = stack.pop()?; *pc + 1 },
                 TOP (naslov) => { *addroff = (stack.len() as i32 + naslov) as u32; *pc + 1 },
 
                 SOFF => { *addroff = stack.pop()?.i as u32;   *pc + 1 },

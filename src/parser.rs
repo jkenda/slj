@@ -5,6 +5,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use self::{drevo::{Drevo, Vozlišče::{*, self}}, tokenizer::{Token::{*, self}, L}};
 
+#[derive(Debug)]
 struct Parser<'a> {
     spremenljivke_stack: Vec<HashMap<&'a str, Rc<Vozlišče>>>,
     funkcije_stack: Vec<HashMap<&'a str, Rc<Vozlišče>>>,
@@ -127,19 +128,30 @@ impl<'a> Parser<'a> {
     }
 
     fn okvir<'b>(&mut self, izraz: &'b[Token<'a>]) -> Rc<Vozlišče> where 'a: 'b {
-        self.spremenljivke_stack.push(HashMap::new());
-        self.funkcije_stack.push(HashMap::new());
+        if !self.znotraj_funkcije {
+            self.spremenljivke_stack.push(HashMap::new());
+            self.funkcije_stack.push(HashMap::new());
+        }
 
         let zaporedje = self.zaporedje(izraz);
 
-        let št_spr = self.spremenljivke_stack.last().unwrap()
-            .values().map(|s| s.sprememba_stacka() as usize).sum();
-
-        for (ime, _) in self.spremenljivke_stack.pop().unwrap() {
-            self.spremenljivke.remove(&ime);
+        let št_spr = if !self.znotraj_funkcije {
+            self.spremenljivke_stack.last().unwrap()
+                .values()
+                .map(|s| s.sprememba_stacka() as usize)
+                .sum()
         }
-        for (ime, _) in self.funkcije_stack.pop().unwrap() {
-            self.funkcije.remove(&ime);
+        else {
+            0
+        };
+
+        if !self.znotraj_funkcije {
+            for (ime, _) in self.spremenljivke_stack.pop().unwrap() {
+                self.spremenljivke.remove(&ime);
+            }
+            for (ime, _) in self.funkcije_stack.pop().unwrap() {
+                self.funkcije.remove(&ime);
+            }
         }
 
         Okvir { zaporedje, št_spr }.rc()
@@ -252,6 +264,14 @@ impl<'a> Parser<'a> {
     }
 
     fn funkcija<'b>(&mut self, izraz: &'b[Token<'a>]) -> Rc<Vozlišče> where 'a: 'b {
+        let mut okolje_funkcije = Parser {
+            spremenljivke_stack: self.spremenljivke_stack.clone(),
+            funkcije_stack: self.funkcije_stack.clone(),
+            spremenljivke: self.spremenljivke.clone(),
+            funkcije: self.funkcije.clone(),
+            znotraj_funkcije: true,
+        };
+
         let mut spr_funkcije = HashMap::from([
             ("0_vrni", Spremenljivka { ime: "0_vrni".to_owned(), naslov: 0, z_odmikom: true }.rc()),
             ("0_PC", Spremenljivka { ime: "0_PC".to_owned(), naslov: 1, z_odmikom: true }.rc()),
@@ -293,22 +313,21 @@ impl<'a> Parser<'a> {
 
         spr_funkcije.insert("0_OF", Spremenljivka { ime: "0_OF".to_owned(), naslov: spr_funkcije.len() as u32, z_odmikom: true }.rc());
 
-        let fun  = Funkcija { ime: ime_funkcije.to_owned(), parametri: parametri.clone(), telo: Vozlišče::Število(0.0).rc(), prostor: 0 }.rc();
+        let fun = Funkcija { ime: ime_funkcije.to_owned(), parametri: parametri.clone(), telo: Vozlišče::Število(0.0).rc(), prostor: 0 }.rc();
         self.funkcije_stack.last_mut().unwrap().insert(ime_funkcije, fun.clone());
-        self.funkcije.insert(ime_funkcije, fun.clone());
+        self.funkcije.insert(ime_funkcije, fun);
 
-        let mut okolje_funkcije = Parser::new();
-        okolje_funkcije.spremenljivke = spr_funkcije;
-        okolje_funkcije.funkcije = self.funkcije.clone();
-        okolje_funkcije.znotraj_funkcije = true;
+        okolje_funkcije.spremenljivke_stack.push(spr_funkcije.clone());
+        okolje_funkcije.spremenljivke.extend(spr_funkcije);
+        okolje_funkcije.spremenljivke_stack.push(HashMap::new());
 
         let telo = okolje_funkcije.zaporedje(telo);
-
-        let prostor = parametri.len();
+        let prostor = okolje_funkcije.spremenljivke_stack.last().unwrap().values().map(|s| s.sprememba_stacka() as usize).sum();
         let fun = Funkcija { ime: ime_funkcije.to_string(), parametri, telo, prostor }.rc();
+
         self.funkcije_stack.last_mut().unwrap().insert(ime_funkcije, fun.clone());
         self.funkcije.insert(ime_funkcije, fun.clone());
-        self.funkcije.get(ime_funkcije).unwrap().clone()
+        fun
     }
 
     fn funkcijski_klic(&self, izraz: &[Token]) -> Rc<Vozlišče> {
@@ -536,10 +555,12 @@ mod testi {
         parser.funkcije.insert("fun", Funkcija {
                 ime: "fun".to_string(),
                 parametri: vec![],
-                telo: Vrni(Prirejanje {
-                    spremenljivka: Spremenljivka { ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
-                    izraz: Število(1.0).rc(),
-                }.rc()).rc(),
+                telo: Zaporedje(vec![
+                                Vrni(Prirejanje {
+                                    spremenljivka: Spremenljivka { ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
+                                    izraz: Število(1.0).rc(),
+                                }.rc()).rc()
+                ]).rc(),
                 prostor: 0,
             }.rc());
         assert_eq!(parser.osnovni([ Ime("fun", 1, 1), Ločilo("(", 1, 4), Ločilo(")", 1, 5)].as_slice()), FunkcijskiKlic { 

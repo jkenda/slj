@@ -12,7 +12,7 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
             if let Oznaka(oznaka) = &postproc1[i] {
                 if oznaka == "vrni" {
                     // poišči oznako za konec funkcije
-                    // nadomesti oznako "vrni" z relativnim skokom
+                    // nadomesti oznako "vrni" z relativnim skokom do oznake
                     let mut konec = i + 1;
                     loop {
                         match &postproc1[konec] {
@@ -40,7 +40,10 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
                 Oznaka(oznaka) => {
                     oznake_vrstic.insert(oznaka.clone(), i as u32);
                     postproc1.remove(i);
-                }
+                },
+                JUMPRelative(OdmikIme::Odmik(1)) => {
+                    postproc1.remove(i);
+                },
                 _ => i += 1,
             }
         }
