@@ -270,7 +270,18 @@ mod testi {
 
     #[test]
     fn ločila() {
-        todo!()
+        assert_eq!("a,b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo(",",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a;b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo(";",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a:b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo(":",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a#b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("#",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a(b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("(",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a)b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo(")",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a)b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo(")",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a{b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("{",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a}b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("}",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a[b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("[",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a]b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("]",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a\nb".to_owned().tokenize(), [Ime("a", 1, 1), Ločilo("\n", 1, 2), Ime("b", 2, 1)]);
     }
 
     #[test]

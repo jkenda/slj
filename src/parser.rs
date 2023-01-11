@@ -24,15 +24,6 @@ impl Parse for Vec<Token<'_>> {
     }
 }
 
-const LOGIČNI_OP: [&str; 2] = ["||", "&&"];
-fn logični_op(op: &str) -> fn(Rc<Vozlišče>, Rc<Vozlišče>) -> Vozlišče {
-    match op {
-        "||"  => Disjunkcija,
-        "&&"  => Konjunkcija,
-        _     => unreachable!()
-    }
-}
-
 const PRIREDITVENI_OP: [&str; 6] = ["+=", "-=", "*=", "/=", "%=", "^="];
 fn prireditveni_op(op: &str) -> fn(Rc<Vozlišče>, Rc<Vozlišče>) -> Vozlišče {
     match op {
@@ -59,17 +50,6 @@ fn primerjalni_op(op: &str) -> fn(Rc<Vozlišče>, Rc<Vozlišče>) -> Vozlišče 
     }
 }
 
-const BITNI_OP: [&str; 3] = ["|", "^", "&"];
-fn bitni_op(op: &str) -> fn(Rc<Vozlišče>, Rc<Vozlišče>) -> Vozlišče {
-    match op {
-        "|" => BitniAli,
-        "^" => BitniXor,
-        "&" => BitniIn,
-        _   => unreachable!()
-    }
-}
-
-const ARITMETIČNI_OP: [&str; 6] = ["+", "-", "*", "/", "%", "**"];
 fn aritmetični_op(op: &str) -> fn(Rc<Vozlišče>, Rc<Vozlišče>) -> Vozlišče {
     match op {
         "+"  => Seštevanje,
@@ -114,8 +94,19 @@ impl<'a> Parser<'a> {
         while i < predproc.len() - 1 {
             i += match predproc[i..] {
                 [ Ločilo("\n", ..),  Ločilo("{", ..), .. ] => { predproc.remove(i+0); 0 },
+                [ Ločilo("\n", ..),  Ločilo("}", ..), .. ] => { predproc.remove(i+0); 0 },
                 [ Ločilo("{", ..),  Ločilo("\n", ..), .. ] => { predproc.remove(i+1); 0 },
-                [ Ločilo("\n", ..), Ločilo("}", ..),  .. ] => { predproc.remove(i+0); 0 },
+
+                [ Ločilo("\n", ..),  Ločilo("(", ..), .. ] => { predproc.remove(i+0); 0 },
+                [ Ločilo("\n", ..),  Ločilo(")", ..), .. ] => { predproc.remove(i+0); 0 },
+                [ Ločilo("(", ..),  Ločilo("\n", ..), .. ] => { predproc.remove(i+1); 0 },
+
+                [ Ločilo("\n", ..),  Ločilo("=", ..), .. ] => { predproc.remove(i+0); 0 },
+                [ Ločilo("=", ..),  Ločilo("\n", ..), .. ] => { predproc.remove(i+1); 0 },
+
+                [ Ločilo("\n", ..), Rezerviranka("čene", ..) , .. ] => { predproc.remove(i+1); 0 },
+                [ Rezerviranka(..),  Ločilo("\n", ..), .. ] => { predproc.remove(i+1); 0 },
+
                 [ Ločilo("\n", ..), Ločilo("\n", ..), .. ] => { predproc.remove(i+0); 0 }
                 _ => 1,
             };
@@ -348,23 +339,41 @@ impl<'a> Parser<'a> {
 
     // logični izrazi (razen negacije, ki je pri osnovnih)
     fn logični(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        match poišči_zadaj(izraz, LOGIČNI_OP.as_slice()) {
-            Some((op, l, d)) => logični_op(op)(
+        match poišči_zadaj(izraz, &["||"]) {
+            Some((_, l, d)) => Disjunkcija(
                 self.logični(l),
                 self.logični(d)
-            ).rc(),
-            None => self.bitni(izraz),
+                ).rc(),
+            None => match poišči_zadaj(izraz, &["&&"]) {
+                Some((_, l, d)) => Konjunkcija(
+                    self.logični(l),
+                    self.logični(d)
+                    ).rc(),
+                None => self.bitni(izraz),
+            }
         }
     }
 
     // izrazi bitne manipulacije
     fn bitni(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        match poišči_zadaj(izraz, BITNI_OP.as_slice()) {
-            Some((op, l, d)) => bitni_op(op)(
+        match poišči_zadaj(izraz, &["|"]) {
+            Some((_, l, d)) => BitniAli(
                 self.bitni(l),
                 self.bitni(d)
             ).rc(),
-            None => self.primerjalni(izraz),
+            None => match poišči_zadaj(izraz, &["^"]) {
+                Some((_, l, d)) => BitniXor(
+                    self.bitni(l),
+                    self.bitni(d)
+                ).rc(),
+                None => match poišči_zadaj(izraz, &["&"]) {
+                    Some((_, l, d)) => BitniIn(
+                        self.bitni(l),
+                        self.bitni(d)
+                    ).rc(),
+                    None => self.primerjalni(izraz),
+                }
+            }
         }
     }
 
@@ -381,20 +390,31 @@ impl<'a> Parser<'a> {
 
     // aritmetični izrazi
     fn aritmetični(&self, izraz: &[Token]) -> Rc<Vozlišče> {
-        match poišči_zadaj(izraz, ARITMETIČNI_OP.as_slice()) {
+        match poišči_zadaj(izraz, &["+", "-"]) {
             // negativno število
-            Some(("-", [], [Literal(L::Število(str, ..))])) =>
-                Število(-str.parse::<f32>().unwrap()).rc(),
+            Some(("-", [], [Literal(L::Število(str, ..))])) => Število(-str.parse::<f32>().unwrap()).rc(),
             // "-" kot unarni operator
             Some(("-", [], d)) => Odštevanje(
                 Število(0.0).rc(),
                 self.aritmetični(d),
             ).rc(),
             Some((op, l, d)) => aritmetični_op(op)(
+                self.aritmetični(l),
+                self.aritmetični(d)
+            ).rc(),
+            None => match poišči_zadaj(izraz, &["*", "/", "%"]) {
+                Some((op, l, d)) => aritmetični_op(op)(
                     self.aritmetični(l),
                     self.aritmetični(d)
-            ).rc(),
-            None => self.osnovni(izraz),
+                ).rc(),
+                None => match poišči_zadaj(izraz, &["**"]) {
+                    Some((op, l, d)) => aritmetični_op(op)(
+                        self.aritmetični(l),
+                        self.aritmetični(d)
+                    ).rc(),
+                    None => self.osnovni(izraz),
+                }
+            }
         }
     }
 
