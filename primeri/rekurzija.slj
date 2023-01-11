@@ -1,4 +1,5 @@
-funkcija faktoriela(a) {
+funkcija faktoriela(a)
+{
     če a <= 1 {
         vrni 1
     }

@@ -113,6 +113,7 @@ impl<'a> Parser<'a> {
         // da se pravilno prevede
         while i < predproc.len() - 1 {
             i += match predproc[i..] {
+                [ Ločilo("\n", ..),  Ločilo("{", ..), .. ] => { predproc.remove(i+0); 0 },
                 [ Ločilo("{", ..),  Ločilo("\n", ..), .. ] => { predproc.remove(i+1); 0 },
                 [ Ločilo("\n", ..), Ločilo("}", ..),  .. ] => { predproc.remove(i+0); 0 },
                 [ Ločilo("\n", ..), Ločilo("\n", ..), .. ] => { predproc.remove(i+0); 0 }
@@ -313,13 +314,10 @@ impl<'a> Parser<'a> {
 
         spr_funkcije.insert("0_OF", Spremenljivka { ime: "0_OF".to_owned(), naslov: spr_funkcije.len() as u32, z_odmikom: true }.rc());
 
-        let fun = Funkcija { ime: ime_funkcije.to_owned(), parametri: parametri.clone(), telo: Vozlišče::Število(0.0).rc(), prostor: 0 }.rc();
-        self.funkcije_stack.last_mut().unwrap().insert(ime_funkcije, fun.clone());
-        self.funkcije.insert(ime_funkcije, fun);
-
         okolje_funkcije.spremenljivke_stack.push(spr_funkcije.clone());
-        okolje_funkcije.spremenljivke.extend(spr_funkcije);
         okolje_funkcije.spremenljivke_stack.push(HashMap::new());
+        okolje_funkcije.spremenljivke.extend(spr_funkcije);
+        okolje_funkcije.funkcije.insert(ime_funkcije, Funkcija { ime: ime_funkcije.to_owned(), parametri: parametri.clone(), telo: Prazno.rc(), prostor: 0 }.rc());
 
         let telo = okolje_funkcije.zaporedje(telo);
         let prostor = okolje_funkcije.spremenljivke_stack.last().unwrap().values().map(|s| s.sprememba_stacka() as usize).sum();
