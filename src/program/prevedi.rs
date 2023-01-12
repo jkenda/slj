@@ -24,46 +24,84 @@ impl Prevedi for Vozlišče {
             ShraniOdmik => [Osnovni(SOFF)].to_vec(),
             NaložiOdmik => [Osnovni(LOFF)].to_vec(),
 
+            Znak(znak) => [PUSHC(*znak)].to_vec(),
             Niz(niz) => niz
                 .chars().rev()
                 .map(|znak| PUSHC(znak))
                 .collect::<Vec<UkazPodatekRelative>>(),
-            Število(število) => [PUSHF(*število)].to_vec(),
-            Spremenljivka{ ime: _, naslov, z_odmikom } => [if *z_odmikom { Osnovni(LDOF(*naslov)) } else { Osnovni(LOAD(*naslov)) }].to_vec(),
+            Celo(število) => [PUSHI(*število)].to_vec(),
+            Real(število) => [PUSHF(*število)].to_vec(),
+            Spremenljivka{ tip: _, ime: _, naslov, z_odmikom } => [if *z_odmikom { Osnovni(LDOF(*naslov)) } else { Osnovni(LOAD(*naslov)) }].to_vec(),
 
             Resnica => [PUSHI(1)].to_vec(),
             Laž     => [PUSHI(0)].to_vec(),
 
-            Seštevanje(l, d) => [
+            Seštevanje(Tip::Celo, l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(ADDI)].as_slice(),
+            ].concat(),
+            Seštevanje(Tip::Real, l, d) => [
                 l.prevedi().as_slice(),
                 d.prevedi().as_slice(),
                 [Osnovni(ADDF)].as_slice(),
             ].concat(),
-            Odštevanje(l, d) => [
+            Seštevanje(..) => unreachable!(),
+            Odštevanje(Tip::Celo, l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(SUBI)].as_slice(),
+            ].concat(),
+            Odštevanje(Tip::Real, l, d) => [
                 l.prevedi().as_slice(),
                 d.prevedi().as_slice(),
                 [Osnovni(SUBF)].as_slice(),
             ].concat(),
-            Množenje(l, d) => [
+            Odštevanje(..) => unreachable!(),
+            Množenje(Tip::Celo, l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(MULI)].as_slice(),
+            ].concat(),
+            Množenje(Tip::Real, l, d) => [
                 l.prevedi().as_slice(),
                 d.prevedi().as_slice(),
                 [Osnovni(MULF)].as_slice(),
             ].concat(),
-            Deljenje(l, d) => [
+            Množenje(..) => unreachable!(),
+            Deljenje(Tip::Celo, l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(DIVI)].as_slice(),
+            ].concat(),
+            Deljenje(Tip::Real, l, d) => [
                 l.prevedi().as_slice(),
                 d.prevedi().as_slice(),
                 [Osnovni(DIVF)].as_slice(),
             ].concat(),
-            Modulo(l, d) => [
+            Deljenje(..) => unreachable!(),
+            Modulo(Tip::Celo, l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(MODI)].as_slice(),
+            ].concat(),
+            Modulo(Tip::Real, l, d) => [
                 l.prevedi().as_slice(),
                 d.prevedi().as_slice(),
                 [Osnovni(MODF)].as_slice(),
             ].concat(),
-            Potenca(l, d) => [
+            Modulo(..) => unreachable!(),
+            Potenca(Tip::Celo, l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(POWI)].as_slice(),
+            ].concat(),
+            Potenca(Tip::Real, l, d) => [
                 l.prevedi().as_slice(),
                 d.prevedi().as_slice(),
                 [Osnovni(POWF)].as_slice(),
             ].concat(),
+            Potenca(..) => unreachable!(),
 
             Zanikaj(vozlišče) => [
                 [PUSHI(1)].as_slice(),
@@ -98,19 +136,19 @@ impl Prevedi for Vozlišče {
                 [Osnovni(BAND)].as_slice(),
             ].concat(),
 
-            Enako(l, d) => [
-                Odštevanje(l.clone(), d.clone()).prevedi().as_slice(),
+            Enako(tip, l, d) => [
+                Odštevanje(*tip, l.clone(), d.clone()).prevedi().as_slice(),
                 [Osnovni(ZERO)].as_slice(),
             ].concat(),
-            NiEnako(l, d) => Zanikaj(Enako(l.clone(), d.clone()).rc()).prevedi(),
+            NiEnako(tip, l, d) => Zanikaj(Enako(*tip, l.clone(), d.clone()).rc()).prevedi(),
 
-            Večje(l, d) => [
-                Odštevanje(l.clone(), d.clone()).prevedi().as_slice(),
+            Večje(tip, l, d) => [
+                Odštevanje(*tip, l.clone(), d.clone()).prevedi().as_slice(),
                 [Osnovni(POS)].as_slice(),
             ].concat(),
-            Manjše(l, d)      => Večje(d.clone(), l.clone()).prevedi(),
-            VečjeEnako(l, d)  => Zanikaj(Manjše(l.clone(), d.clone()).rc()).prevedi(),
-            ManjšeEnako(l, d) => VečjeEnako(d.clone(), l.clone()).prevedi(),
+            Manjše(tip, l, d)      => Večje(*tip, d.clone(), l.clone()).prevedi(),
+            VečjeEnako(tip, l, d)  => Zanikaj(Manjše(*tip, l.clone(), d.clone()).rc()).prevedi(),
+            ManjšeEnako(tip, l, d) => VečjeEnako(*tip, d.clone(), l.clone()).prevedi(),
 
             ProgramskiŠtevec(odmik) => [PC(*odmik)].to_vec(),
 
@@ -144,7 +182,7 @@ impl Prevedi for Vozlišče {
             },
 
             Prirejanje{ spremenljivka, izraz } => {
-                let (naslov, z_odmikom) = if let Spremenljivka { ime: _, naslov, z_odmikom } = &**spremenljivka { (naslov.clone(), *z_odmikom) } else { (0, false) };
+                let (naslov, z_odmikom) = if let Spremenljivka { tip: _, ime: _, naslov, z_odmikom } = &**spremenljivka { (naslov.clone(), *z_odmikom) } else { (0, false) };
                 let shrani = if z_odmikom { Osnovni(STOF(naslov)) } else { Osnovni(STOR(naslov)) };
                 [
                     izraz.clone().prevedi().as_slice(),
@@ -164,7 +202,7 @@ impl Prevedi for Vozlišče {
                 Pop(*št_spr).rc()
             ]).prevedi(),
 
-            Funkcija{ ime, parametri, telo, prostor } => {
+            Funkcija{ tip: _, ime, parametri, telo, prostor } => {
                 let parametri_velikost = parametri.iter().map(|p| p.sprememba_stacka()).sum::<isize>();
                 let pred = Zaporedje(vec![
                     NaložiOdmik.rc(),
@@ -196,7 +234,7 @@ impl Prevedi for Vozlišče {
 
             FunkcijskiKlic{ funkcija, argumenti } => {
                 let vrni = Push(1);
-                let skok = Skok(OdmikIme::Ime(if let Funkcija { ime, parametri: _, telo: _, prostor: _ } = &**funkcija { ime.clone() } else { "".to_string() }));
+                let skok = Skok(OdmikIme::Ime(if let Funkcija { tip: _, ime, parametri: _, telo: _, prostor: _ } = &**funkcija { ime.clone() } else { "".to_string() }));
                 let pc   = ProgramskiŠtevec((1 + argumenti.len() + skok.len()) as i32);
 
                 Zaporedje(vec![
@@ -215,7 +253,12 @@ impl Prevedi for Vozlišče {
                         Niz(_) => iter::repeat(Osnovni(PRTC))
                             .take(izraz.sprememba_stacka() as usize)
                             .collect(),
-                        _ => [Osnovni(PRTN)].to_vec(),
+                        _ => if izraz.tip() == Tip::Real {
+                            [Osnovni(PRTF)].to_vec()
+                        }
+                        else {
+                            [Osnovni(PRTI)].to_vec()
+                        }
                     }.as_slice()
                 ].concat()).flatten().collect()
             },
@@ -268,39 +311,39 @@ mod test {
                    PUSHC('i'),
                    PUSHC('š'),
         ]);
-        assert_eq!(Število(-3.14).prevedi(), [PUSHF(-3.14)]);
-        assert_eq!(Spremenljivka { ime: "šmir".to_string(), naslov: 55, z_odmikom: true  }.prevedi(), [Osnovni(LDOF(55))].to_vec());
-        assert_eq!(Spremenljivka { ime: "šmir".to_string(), naslov: 55, z_odmikom: false }.prevedi(), [Osnovni(LOAD(55))].to_vec());
+        assert_eq!(Real(-3.14).prevedi(), [PUSHF(-3.14)]);
+        assert_eq!(Spremenljivka { tip: Tip::Real, ime: "šmir".to_string(), naslov: 55, z_odmikom: true  }.prevedi(), [Osnovni(LDOF(55))].to_vec());
+        assert_eq!(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false }.prevedi(), [Osnovni(LOAD(55))].to_vec());
 
         assert_eq!(Resnica.prevedi(), [PUSHI(1)].to_vec());
         assert_eq!(Laž.prevedi(), [PUSHI(0)].to_vec());
 
-        assert_eq!(Seštevanje(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
+        assert_eq!(Seštevanje(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(ADDF),
         ]);
-        assert_eq!(Odštevanje(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
+        assert_eq!(Odštevanje(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(SUBF),
         ]);
-        assert_eq!(Množenje(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
+        assert_eq!(Množenje(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(MULF),
         ]);
-        assert_eq!(Deljenje(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
+        assert_eq!(Deljenje(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(DIVF),
         ]);
-        assert_eq!(Modulo(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
+        assert_eq!(Modulo(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(MODF),
         ]);
-        assert_eq!(Potenca(Število(1.0).rc(), Število(2.0).rc()).prevedi(), [
+        assert_eq!(Potenca(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(POWF),
@@ -328,16 +371,16 @@ mod test {
                    Osnovni(POS),
         ]);
 
-        assert_eq!(Enako(Število(3.14).rc(), Število(3.14159268).rc()).prevedi(), [
+        assert_eq!(Enako(Tip::Real, Real(3.14).rc(), Real(3.14159268).rc()).prevedi(), [
                    PUSHF(3.14),
                    PUSHF(3.14159268),
                    Osnovni(SUBF),
                    Osnovni(ZERO),
         ]);
-        assert_eq!(Večje(Število(13.0).rc(), Število(42.0).rc()).prevedi(), [
-                   PUSHF(13.0),
-                   PUSHF(42.0),
-                   Osnovni(SUBF),
+        assert_eq!(Večje(Tip::Celo, Celo(13).rc(), Celo(42).rc()).prevedi(), [
+                   PUSHI(13),
+                   PUSHI(42),
+                   Osnovni(SUBI),
                    Osnovni(POS),
 
         ]);
@@ -375,8 +418,8 @@ mod test {
         assert_eq!(Zanka {
             pogoj: Laž.rc(), 
             telo: Prirejanje { 
-                spremenljivka: Spremenljivka { ime: "x".to_string(), naslov: 25, z_odmikom: false }.rc(),
-                izraz: Število(27.0).rc(),
+                spremenljivka: Spremenljivka { tip: Tip::Real, ime: "x".to_string(), naslov: 25, z_odmikom: false }.rc(),
+                izraz: Real(27.0).rc(),
             }.rc(),
         }.prevedi(), [
             PUSHI(1),
@@ -389,16 +432,16 @@ mod test {
         ]);
 
         assert_eq!(Prirejanje {
-            spremenljivka: Spremenljivka { ime: "x".to_string(), naslov: 3, z_odmikom: true }.rc(),
-            izraz: Število(-3.14).rc(),
+            spremenljivka: Spremenljivka { tip: Tip::Real, ime: "x".to_string(), naslov: 3, z_odmikom: true }.rc(),
+            izraz: Real(-3.14).rc(),
         }.prevedi(), [
             PUSHF(-3.14),
             Osnovni(STOF(3)),
         ]);
 
         assert_eq!(Vrni(Prirejanje {
-            spremenljivka: Spremenljivka { ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
-            izraz: Število(2.0).rc()
+            spremenljivka: Spremenljivka { tip: Tip::Real, ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
+            izraz: Real(2.0).rc()
         }.rc()).prevedi(), [
                    PUSHF(2.0),
                    Osnovni(STOF(0)),
@@ -406,8 +449,8 @@ mod test {
         ]);
 
         assert_eq!(Zaporedje(vec![
-                             Število(1.0).rc(),
-                             Število(2.0).rc(),
+                             Real(1.0).rc(),
+                             Real(2.0).rc(),
                              Resnica.rc(),
                              Laž.rc(),
         ]).prevedi(), [
@@ -420,8 +463,8 @@ mod test {
         assert_eq!(Okvir {
             zaporedje: Zaporedje(vec![
                                  Vrni(Prirejanje {
-                                     spremenljivka: Spremenljivka { ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
-                                     izraz: Spremenljivka { ime: "x".to_string(), naslov: 1, z_odmikom: true }.rc(),
+                                     spremenljivka: Spremenljivka { tip: Tip::Celo, ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
+                                     izraz: Spremenljivka { tip: Tip::Celo, ime: "x".to_string(), naslov: 1, z_odmikom: true }.rc(),
                                  }.rc()).rc(),
             ]).rc(),
             št_spr: 2
@@ -436,14 +479,15 @@ mod test {
         ]);
 
         let funkcija = Funkcija {
+            tip: Tip::Real,
             ime: "ena".to_string(),
             parametri: vec![
-                Spremenljivka { ime: "x".to_string(), naslov: 2, z_odmikom: true }.rc(),
-                Spremenljivka { ime: "y".to_string(), naslov: 3, z_odmikom: true }.rc(),
+                Spremenljivka { tip: Tip::Celo, ime: "x".to_string(), naslov: 2, z_odmikom: true }.rc(),
+                Spremenljivka { tip: Tip::Celo, ime: "y".to_string(), naslov: 3, z_odmikom: true }.rc(),
             ],
             telo: Vrni(Prirejanje {
-                spremenljivka: Spremenljivka { ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
-                izraz: Število(1.0).rc()
+                spremenljivka: Spremenljivka { tip: Tip::Real, ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
+                izraz: Real(1.0).rc()
             }.rc()).rc(),
             prostor: 0,
         }.rc();
@@ -465,7 +509,7 @@ mod test {
 
         assert_eq!(FunkcijskiKlic {
             funkcija: funkcija.clone(),
-            argumenti: Zaporedje(vec![Število(1.0).rc(), Število(2.0).rc()]).rc(),
+            argumenti: Zaporedje(vec![Real(1.0).rc(), Real(2.0).rc()]).rc(),
         }.prevedi(), [
             PUSHI(0),
             PC(4),
@@ -474,9 +518,13 @@ mod test {
             JUMPRelative(OdmikIme::Ime("ena".to_string())),
         ]);
 
-        assert_eq!(Natisni([Število(13.0).rc()].to_vec()).prevedi(), [
+        assert_eq!(Natisni([Real(13.0).rc()].to_vec()).prevedi(), [
                    PUSHF(13.0),
-                   Osnovni(PRTN),
+                   Osnovni(PRTF),
+        ]);
+        assert_eq!(Natisni([Celo(13).rc()].to_vec()).prevedi(), [
+                   PUSHI(13),
+                   Osnovni(PRTI),
         ]);
         assert_eq!(Natisni([Niz("đins\n".to_string()).rc()].to_vec()).prevedi(), [
                    PUSHC('\n'),

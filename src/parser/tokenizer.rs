@@ -7,14 +7,17 @@ pub enum Token<'a> {
     Operator    (&'a str, usize, usize),
     Rezerviranka(&'a str, usize, usize),
     Ime         (&'a str, usize, usize),
+    Tip         (&'a str, usize, usize),
     Literal     (L<'a>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum L<'a> {
-    Bool    (&'a str, usize, usize),
-    Število (&'a str, usize, usize),
-    Niz     (&'a str, usize, usize),
+    Bool(&'a str, usize, usize),
+    Celo(&'a str, usize, usize),
+    Real(&'a str, usize, usize),
+    Znak(&'a str, usize, usize),
+    Niz (&'a str, usize, usize),
 }
 
 fn bool<'a>(val: &'a str, v: usize, z: usize) -> Token {
@@ -23,10 +26,22 @@ fn bool<'a>(val: &'a str, v: usize, z: usize) -> Token {
     Literal(Bool(val, v, z))
 }
 
-fn število<'a>(val: &'a str, v: usize, z: usize) -> Token {
+fn celo<'a>(val: &'a str, v: usize, z: usize) -> Token {
     use Token::*;
     use L::*;
-    Literal(Število(val, v, z))
+    Literal(Celo(val, v, z))
+}
+
+fn real<'a>(val: &'a str, v: usize, z: usize) -> Token {
+    use Token::*;
+    use L::*;
+    Literal(Real(val, v, z))
+}
+
+fn znak<'a>(val: &'a str, v: usize, z: usize) -> Token {
+    use Token::*;
+    use L::*;
+    Literal(Znak(val, v, z))
 }
 
 fn niz<'a>(val: &'a str, v: usize, z: usize) -> Token {
@@ -40,9 +55,9 @@ impl<'a> Token<'a> {
         use Token::*;
         use L::*;
         match self {
-            Operator(.., v, z) | Ločilo(.., v, z) | Rezerviranka(.., v, z) | Ime(.., v, z) => format!("({}. vrstica, {}. znak)", v, z),
+            Operator(.., v, z) | Ločilo(.., v, z) | Rezerviranka(.., v, z) | Ime(.., v, z) | Tip(.., v, z) => format!("({}. vrstica, {}. znak)", v, z),
             Token::Literal(literal) => match literal {
-                Bool(.., v, z) | Število(.., v, z) | Niz(.., v, z) => format!("({}. vrstica, {}. znak)", v, z),
+                Bool(.., v, z) | Celo(.., v, z) | Real(.., v, z) | Znak(.., v, z) | Niz(.., v, z) => format!("({}. vrstica, {}. znak)", v, z),
             }
         }
     }
@@ -51,9 +66,9 @@ impl<'a> Token<'a> {
         use Token::*;
         use L::*;
         match self {
-            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) => val.len(),
+            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) => val.len(),
             Token::Literal(literal) => match literal {
-                Bool(val, ..) | Število(val, ..) | Niz(val, ..) => val.len(),
+                Bool(val, ..) | Celo(val, ..) | Real(val, ..) | Znak(val, ..) | Niz(val, ..) => val.len(),
             }
         }
     }
@@ -62,9 +77,9 @@ impl<'a> Token<'a> {
         use Token::*;
         use L::*;
         match self {
-            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..)=> val,
+            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) => val,
             Token::Literal(literal) => match literal {
-                Bool(val, ..) | Število(val, ..) | Niz(val, ..) => val,
+                Bool(val, ..) | Celo(val, ..) | Real(val, ..) | Znak(val, ..) | Niz(val, ..) => val,
             }
         }
     }
@@ -75,9 +90,9 @@ impl ToString for Token<'_> {
         use Token::*;
         use L::*;
         match self {
-            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) => val.to_string(),
+            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) => val.to_string(),
             Token::Literal(literal) => match literal {
-                Bool(val, ..) | Število(val, ..) | Niz(val, ..) => val.to_string(),
+                Bool(val, ..) | Celo(val, ..) | Real(val, ..) | Znak(val, ..) | Niz(val, ..) => val.to_string(),
             }
         }
     }
@@ -88,9 +103,9 @@ impl Hash for Token<'_> {
         use Token::*;
         use L::*;
         match self {
-            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) => val.hash(state),
+            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) => val.hash(state),
             Token::Literal(literal) => match literal {
-                Bool(val, ..) | Število(val, ..) | Niz(val, ..) => val.hash(state),
+                Bool(val, ..) | Celo(val, ..) | Real(val, ..) | Znak(val, ..) | Niz(val, ..) => val.hash(state),
             }
         }
     }
@@ -118,9 +133,14 @@ impl<'a> Tokenizer {
 
         let regexi: Vec<(Regex, fn(&'a str, usize, usize) -> Token<'a>)> = vec![
             (Regex::new(&format!("^(in|ali|čene|če|dokler|za|funkcija|vrni|prekini){ZADNJA_MEJA}")).unwrap(), Rezerviranka),
+            (Regex::new(&format!("^(brez|bool|celo|real|znak|niz){ZADNJA_MEJA}")).unwrap(), Tip),
             (Regex::new(&format!("^(resnica|laž){ZADNJA_MEJA}")).unwrap(), bool),
+            (Regex::new(&format!("^('[^\n\']')")).unwrap(), znak),
             (Regex::new(&format!("^(\"[^\n\"]*\")")).unwrap(), niz),
+            (Regex::new(&format!(r"^(\d+\.\d+|\d{{1,3}}(_\d{{3}})+\.(\d{{3}}_)+\d{{1,3}}){ZADNJA_MEJA}")).unwrap(), real),
+            (Regex::new(&format!(r"^(\d+|\d{{1,3}}(_\d{{3}})+){ZADNJA_MEJA}")).unwrap(), celo),
             (Regex::new(&format!(r"^([_\p{{Letter}}][\w\d]*){ZADNJA_MEJA}")).unwrap(), Ime),
+            (Regex::new(r#"^([,;:#\n(){}\[\]]|->)"#).unwrap(), Ločilo),
             (Regex::new(r"^(?x)(
                         # zamik
                             <<= | >>= | << | >> |
@@ -137,8 +157,6 @@ impl<'a> Tokenizer {
                         # prirejanje
                             =
                         )").unwrap(), Operator),
-            (Regex::new(&format!(r"^(-?(\d+(\.\d+)?|\d{{1,3}}(_\d{{3}})+)(\.(\d{{3}}_)+\d{{1,3}})?){ZADNJA_MEJA}")).unwrap(), število),
-            (Regex::new(r#"^([,;:#\n(){}\[\]])"#).unwrap(), Ločilo),
         ];
 
         let mut tokeni: Vec<Token> = Vec::new();
@@ -223,11 +241,12 @@ mod testi {
         assert_eq!("\"{}\\n\"".to_owned().tokenize(), [Literal(Niz("\"{}\\n\"", 1, 1))]);
         assert_eq!("\"{}\\n\" \"smola\"".to_owned().tokenize(), [Literal(Niz("\"{}\\n\"", 1, 1)), Literal(Niz("\"smola\"", 1, 8))]);
 
-        assert_eq!("0".to_owned().tokenize(), [Literal(Število("0", 1, 1))]);
-        assert_eq!("13".to_owned().tokenize(), [Literal(Število("13", 1, 1))]);
-        assert_eq!("0.5".to_owned().tokenize(), [Literal(Število("0.5", 1, 1))]);
-        assert_eq!("3.14".to_owned().tokenize(), [Literal(Število("3.14", 1, 1))]);
-        assert_eq!("1_000_000".to_owned().tokenize(), [Literal(Število("1_000_000", 1, 1))])
+        assert_eq!("0".to_owned().tokenize(), [Literal(Celo("0", 1, 1))]);
+        assert_eq!("13".to_owned().tokenize(), [Literal(Celo("13", 1, 1))]);
+        assert_eq!("1_000_000".to_owned().tokenize(), [Literal(Celo("1_000_000", 1, 1))]);
+
+        assert_eq!("0.5".to_owned().tokenize(), [Literal(Real("0.5", 1, 1))]);
+        assert_eq!("3.14".to_owned().tokenize(), [Literal(Real("3.14", 1, 1))]);
     }
 
     #[test]
@@ -261,11 +280,11 @@ mod testi {
         assert_eq!("a/b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("/", 1, 2), Ime("b", 1, 3)]);
         assert_eq!("a%b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("%", 1, 2), Ime("b", 1, 3)]);
 
-        assert_eq!("3+2".to_owned().tokenize(), [Literal(Število("3", 1, 1)), Operator("+", 1, 2), Literal(Število("2", 1, 3))]);
-        assert_eq!("3-2".to_owned().tokenize(), [Literal(Število("3", 1, 1)), Operator("-", 1, 2), Literal(Število("2", 1, 3))]);
-        assert_eq!("3*2".to_owned().tokenize(), [Literal(Število("3", 1, 1)), Operator("*", 1, 2), Literal(Število("2", 1, 3))]);
-        assert_eq!("3/2".to_owned().tokenize(), [Literal(Število("3", 1, 1)), Operator("/", 1, 2), Literal(Število("2", 1, 3))]);
-        assert_eq!("3%2".to_owned().tokenize(), [Literal(Število("3", 1, 1)), Operator("%", 1, 2), Literal(Število("2", 1, 3))]);
+        assert_eq!("3+2".to_owned().tokenize(), [Literal(Celo("3", 1, 1)), Operator("+", 1, 2), Literal(Celo("2", 1, 3))]);
+        assert_eq!("3-2".to_owned().tokenize(), [Literal(Celo("3", 1, 1)), Operator("-", 1, 2), Literal(Celo("2", 1, 3))]);
+        assert_eq!("3*2".to_owned().tokenize(), [Literal(Celo("3", 1, 1)), Operator("*", 1, 2), Literal(Celo("2", 1, 3))]);
+        assert_eq!("3/2".to_owned().tokenize(), [Literal(Celo("3", 1, 1)), Operator("/", 1, 2), Literal(Celo("2", 1, 3))]);
+        assert_eq!("3%2".to_owned().tokenize(), [Literal(Celo("3", 1, 1)), Operator("%", 1, 2), Literal(Celo("2", 1, 3))]);
     }
 
     #[test]

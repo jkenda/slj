@@ -22,7 +22,7 @@ x = 1; y = 2
 natisni("\nx = ", x, ", y = ", y , "\n\n")
 
 natisni("x == y: ", x == y, "\n")
-natisni("x < y: " , x < y, "\n")
+natisni("x < y:  " , x < y, "\n")
 natisni("x <= y: ", x <= y, "\n")
-natisni("x > y: " , x > y, "\n")
+natisni("x > y:  " , x > y, "\n")
 natisni("x >= y: ", x >= y, "\n")

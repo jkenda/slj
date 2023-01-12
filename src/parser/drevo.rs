@@ -32,6 +32,16 @@ impl Display for Drevo {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Tip {
+    Brez,
+    Bool,
+    Celo,
+    Real,
+    Znak,
+    Niz,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Vozlišče {
@@ -44,19 +54,21 @@ pub enum Vozlišče {
     ShraniOdmik,
     NaložiOdmik,
 
+    Celo(i32),
+    Real(f32),
+    Znak(char),
     Niz(String),
-    Število(f32),
-    Spremenljivka{ ime: String, naslov: u32, z_odmikom: bool },
+    Spremenljivka{ tip: Tip, ime: String, naslov: u32, z_odmikom: bool },
 
     Resnica,
     Laž,
 
-    Seštevanje(Rc<Vozlišče>, Rc<Vozlišče>),
-    Odštevanje(Rc<Vozlišče>, Rc<Vozlišče>),
-    Množenje(Rc<Vozlišče>, Rc<Vozlišče>),
-    Deljenje(Rc<Vozlišče>, Rc<Vozlišče>),
-    Modulo(Rc<Vozlišče>, Rc<Vozlišče>),
-    Potenca(Rc<Vozlišče>, Rc<Vozlišče>),
+    Seštevanje(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Odštevanje(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Množenje(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Deljenje(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Modulo(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Potenca(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
 
     Zanikaj(Rc<Vozlišče>),
     Konjunkcija(Rc<Vozlišče>, Rc<Vozlišče>),
@@ -66,12 +78,12 @@ pub enum Vozlišče {
     BitniXor(Rc<Vozlišče>, Rc<Vozlišče>),
     BitniIn(Rc<Vozlišče>, Rc<Vozlišče>),
 
-    Enako(Rc<Vozlišče>, Rc<Vozlišče>),
-    NiEnako(Rc<Vozlišče>, Rc<Vozlišče>),
-    Večje(Rc<Vozlišče>, Rc<Vozlišče>),
-    VečjeEnako(Rc<Vozlišče>, Rc<Vozlišče>),
-    Manjše(Rc<Vozlišče>, Rc<Vozlišče>),
-    ManjšeEnako(Rc<Vozlišče>, Rc<Vozlišče>),
+    Enako(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    NiEnako(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Večje(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    VečjeEnako(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Manjše(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    ManjšeEnako(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
 
     ProgramskiŠtevec(i32),
     Skok(OdmikIme),
@@ -87,17 +99,45 @@ pub enum Vozlišče {
     Zaporedje(Vec<Rc<Vozlišče>>),
     Okvir{ zaporedje: Rc<Vozlišče>, št_spr: usize },
 
-    Funkcija{ ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>, prostor: usize },
+    Funkcija{ tip: Tip, ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>, prostor: usize },
     FunkcijskiKlic{ funkcija: Rc<Vozlišče>, argumenti: Rc<Vozlišče> },
 
     Natisni(Vec<Rc<Vozlišče>>),
 }
 
+impl From<&str> for Tip {
+    fn from(value: &str) -> Self {
+        match value {
+            "brez" => Tip::Brez,
+            "bool" => Tip::Bool,
+            "celo" => Tip::Celo,
+            "real" => Tip::Real,
+            "znak" => Tip::Znak,
+            "niz"  => Tip::Niz,
+            _ => panic!("Neznan tip: {value}"),
+        }
+    }
+}
+
+impl Display for Tip {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Tip::*;
+        write!(f, "{}", match self {
+            Brez => "brez",
+            Bool => "bool",
+            Celo => "celo",
+            Real => "real",
+            Znak => "znak",
+            Niz  => "niz",
+        })
+    }
+}
+
 use Vozlišče::*;
 
-impl ToString for Vozlišče {
-    fn to_string(&self) -> String {
-        match self {
+impl Display for Vozlišče {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&match self {
             Prazno => "()".to_owned(),
 
             Niz(niz) => "\"".to_owned() 
@@ -109,9 +149,10 @@ impl ToString for Vozlišče {
                     .replace("\'", r"\'")
                     + "\"",
 
-            Število(število) => število.to_string(),
-            Spremenljivka{ ime, naslov, z_odmikom } => format!("{} ({}{})", ime,
-                if *z_odmikom { "+" } else { "@" }, naslov),
+            Celo(število) => število.to_string(),
+            Real(število) => število.to_string(),
+            Znak(znak)    => znak.to_string(),
+            Spremenljivka{ tip, ime, naslov, z_odmikom } => format!("{ime}: {tip} ({}{naslov})", if *z_odmikom { "+" } else { "@" }),
 
             Resnica => "resnica".to_owned(),
             Laž     => "laž".to_owned(),
@@ -143,9 +184,9 @@ impl ToString for Vozlišče {
                 let parametri = parametri.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", ");
                 format!("funkcija {}({})", ime, parametri)
             },
-            FunkcijskiKlic{ funkcija, .. } => if let Funkcija { ime, parametri: _, telo: _, prostor: _ } = &**funkcija { ime.clone() } else { "".to_string() },
+            FunkcijskiKlic{ funkcija, .. } => if let Funkcija { tip: _, ime, .. } = &**funkcija { ime.clone() } else { "".to_string() },
             _ => "".to_owned(),
-        }
+        })
     }
 }
 
@@ -165,30 +206,33 @@ impl PartialEq for Vozlišče {
             (ShraniOdmik, ShraniOdmik) => true,
             (NaložiOdmik, NaložiOdmik) => true,
 
+            (Celo(l), Celo(d)) => l == d,
+            (Real(l), Real(d)) => l == d,
+            (Znak(l), Znak(d)) => l == d,
             (Niz(l), Niz(d)) => l == d,
-            (Število(l), Število(d)) => l == d,
-            (Spremenljivka{ ime: li, naslov: ln, z_odmikom: lz }, Spremenljivka{ ime: di, naslov: dn, z_odmikom: dz }) =>
-                li == di && ln == dn && lz == dz,
+            (Spremenljivka{ tip: lt, ime: li, naslov: ln, z_odmikom: lz }, Spremenljivka{ tip: dt, ime: di, naslov: dn, z_odmikom: dz }) =>
+                lt == dt && li == di && ln == dn && lz == dz,
 
             (Resnica, Resnica) => true,
             (Laž, Laž) => true,
 
-            (Seštevanje(ll, ld), Seštevanje(dl, dd)) |
-            (Odštevanje(ll, ld), Odštevanje(dl, dd)) |
-            (Množenje(ll, ld), Množenje(dl, dd)) |
-            (Deljenje(ll, ld), Deljenje(dl, dd)) |
-            (Modulo(ll, ld), Modulo(dl, dd)) |
-            (Potenca(ll, ld), Potenca(dl, dd)) => ll == dl && ld == dd,
+            (Seštevanje(lt, ll, ld), Seštevanje(dt, dl, dd)) |
+            (Odštevanje(lt, ll, ld), Odštevanje(dt, dl, dd)) |
+            (Množenje(lt, ll, ld), Množenje(dt, dl, dd)) |
+            (Deljenje(lt, ll, ld), Deljenje(dt, dl, dd)) |
+            (Modulo(lt, ll, ld), Modulo(dt, dl, dd)) |
+            (Potenca(lt, ll, ld), Potenca(dt, dl, dd)) => lt == dt && ll == dl && ld == dd,
 
             (Zanikaj(l), Zanikaj(d)) => l == d,
             (Konjunkcija(ll, ld), Konjunkcija(dl, dd)) |
-            (Disjunkcija(ll, ld), Disjunkcija(dl, dd)) |
-            (Enako(ll, ld), Enako(dl, dd)) |
-            (NiEnako(ll, ld), NiEnako(dl, dd)) |
-            (Večje(ll, ld), Večje(dl, dd)) |
-            (VečjeEnako(ll, ld), VečjeEnako(dl, dd)) |
-            (Manjše(ll, ld), Manjše(dl, dd)) |
-            (ManjšeEnako(ll, ld), ManjšeEnako(dl, dd)) => ll == dl && ld == dd,
+            (Disjunkcija(ll, ld), Disjunkcija(dl, dd)) => ll == dl && ld == dd,
+
+            (Enako(lt, ll, ld), Enako(dt, dl, dd)) |
+            (NiEnako(lt, ll, ld), NiEnako(dt, dl, dd)) |
+            (Večje(lt, ll, ld), Večje(dt, dl, dd)) |
+            (VečjeEnako(lt, ll, ld), VečjeEnako(dt, dl, dd)) |
+            (Manjše(lt, ll, ld), Manjše(dt, dl, dd)) |
+            (ManjšeEnako(lt, ll, ld), ManjšeEnako(dt, dl, dd)) => lt == dt && ll == dl && ld == dd,
 
             (PogojniSkok(ll, ld), PogojniSkok(dl, dd)) => ll == dl && ld == dd,
 
@@ -205,8 +249,8 @@ impl PartialEq for Vozlišče {
             (Zaporedje(l), Zaporedje(d)) => l == d,
             (Okvir{ zaporedje: lz, št_spr: lš }, Okvir{ zaporedje: dz, št_spr: dš }) => lz == dz && lš == dš,
 
-            (Funkcija{ ime: li, parametri: lp, telo: lt, prostor: lpr }, Funkcija{ ime: di, parametri: dp, telo: dt, prostor: dpr }) =>
-                li == di && lp == dp && lt == dt && lpr == dpr,
+            (Funkcija{ tip: ltip, ime: li, parametri: lp, telo: lt, prostor: lpr }, Funkcija{ tip: dtip, ime: di, parametri: dp, telo: dt, prostor: dpr }) =>
+                ltip == dtip && li == di && lp == dp && lt == dt && lpr == dpr,
 
             (FunkcijskiKlic{ funkcija: lf, argumenti: la }, FunkcijskiKlic{ funkcija: df, argumenti: da }) =>
                 lf == df && la == da,
@@ -224,13 +268,18 @@ impl Vozlišče {
         match self {
             Prazno => "  ".repeat(globina) + "()\n",
 
-            Niz(_) | Število(_) | Spremenljivka {..} | Resnica | Laž => 
+            Niz(_) | Celo(_) | Real(_) | Znak(_) | Spremenljivka {..} | Resnica | Laž => 
                 "  ".repeat(globina) + &self.to_string() + "\n",
 
-            Potenca(l, d) | Množenje(l, d) | Deljenje(l, d) | Modulo(l, d) | Seštevanje(l, d) | Odštevanje(l, d)
-                | Konjunkcija(l, d) | Disjunkcija(l, d) | BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d)
-                | Enako(l, d) | NiEnako(l, d) | Večje(l, d) | VečjeEnako(l, d) | Manjše(l, d) | ManjšeEnako(l, d) =>
+
+            Konjunkcija(l, d) | Disjunkcija(l, d) | BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d) =>
                 "  ".repeat(globina) + &self.to_string() + "\n"
+                + &l.drevo(globina + 1) 
+                + &d.drevo(globina + 1),
+
+            Potenca(t, l, d) | Množenje(t, l, d) | Deljenje(t, l, d) | Modulo(t, l, d) | Seštevanje(t, l, d) | Odštevanje(t, l, d)
+                | Enako(t, l, d) | NiEnako(t, l, d) | Večje(t, l, d) | VečjeEnako(t, l, d) | Manjše(t, l, d) | ManjšeEnako(t, l, d) =>
+                "  ".repeat(globina) + &format!("{self} ({t})\n")
                 + &l.drevo(globina + 1) 
                 + &d.drevo(globina + 1),
 
@@ -273,7 +322,7 @@ impl Vozlišče {
                 + &zaporedje.drevo(globina + 1)
                 + &"  ".repeat(globina) + "}\n",
 
-            Funkcija { ime: _, parametri: _, telo, prostor: _ } =>
+            Funkcija { tip: _, ime: _, parametri: _, telo, prostor: _ } =>
                 "  ".repeat(globina) + &self.to_string() + " {\n"
                 + &telo.drevo(globina + 1)
                 + &"  ".repeat(globina) + "}\n",
@@ -311,22 +360,24 @@ impl Vozlišče {
             ShraniOdmik => -1,
             NaložiOdmik => 1,
 
+            Celo(_) => 1,
+            Real(_) => 1,
+            Znak(_) => 1,
             Niz(niz) => niz.chars().count() as isize,
-            Število(_) => 1,
             Spremenljivka{ .. } => 1,
 
             Resnica => 1,
             Laž     => 1,
 
-            Seštevanje(l, d) | Odštevanje(l, d) | Množenje(l, d) | Deljenje(l, d) | Modulo(l, d) | Potenca(l, d)
+            Seštevanje(_, l, d) | Odštevanje(_, l, d) | Množenje(_, l, d) | Deljenje(_, l, d) | Modulo(_, l, d) | Potenca(_, l, d) |
+                Enako(_, l, d) | NiEnako(_, l, d) | Večje(_, l, d) | VečjeEnako(_, l, d) | Manjše(_, l, d) | ManjšeEnako(_, l, d)
                 => l.sprememba_stacka() + d.sprememba_stacka() - 1,
 
             Zanikaj(izraz)
                 => izraz.sprememba_stacka(),
 
             Konjunkcija(l, d) | Disjunkcija(l, d) |
-                BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d) |
-                Enako(l, d) | NiEnako(l, d) | Večje(l, d) | VečjeEnako(l, d) | Manjše(l, d) | ManjšeEnako(l, d)
+                BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d)
                 => l.sprememba_stacka() + d.sprememba_stacka() - 1,
 
             ProgramskiŠtevec(_)     => 1,
@@ -347,6 +398,52 @@ impl Vozlišče {
             FunkcijskiKlic{ .. } => 1,
 
             Natisni(_) => 0,
+        }
+    }
+
+    pub fn tip(&self) -> Tip {
+        match self {
+            Prazno => Tip::Brez,
+
+            Push(_) => Tip::Celo,
+            Pop(_)  => Tip::Brez,
+            Vrh(_)    => Tip::Celo,
+
+            ShraniOdmik => Tip::Brez,
+            NaložiOdmik => Tip::Celo,
+
+            Celo(_) => Tip::Celo,
+            Real(_) => Tip::Real,
+            Znak(_) => Tip::Znak,
+            Niz(_)  => Tip::Niz,
+            Spremenljivka{ tip, .. } => *tip,
+
+            Resnica | Laž => Tip::Bool,
+            Zanikaj(..) | Konjunkcija(..) | Disjunkcija(..) => Tip::Bool,
+
+            Seštevanje(tip, ..) | Odštevanje(tip, ..) | Množenje(tip, ..) | Deljenje(tip, ..) | Modulo(tip, ..) | Potenca(tip,..) => *tip,
+
+            BitniAli(..) | BitniXor(..) | BitniIn(..) => Tip::Celo,
+
+            Enako(..) | NiEnako(..) | Večje(..) | VečjeEnako(..) | Manjše(..) | ManjšeEnako(..) => Tip::Bool,
+
+            ProgramskiŠtevec(..) => Tip::Celo,
+            Skok(..) => Tip::Brez,
+            DinamičniSkok => Tip::Brez,
+            PogojniSkok(..) => Tip::Brez,
+
+            PogojniStavek{ .. } => Tip::Brez,
+            Zanka{ .. } => Tip::Brez,
+            Prirejanje{ .. } => Tip::Brez,
+
+            Vrni(vozlišče) => vozlišče.tip(),
+            Zaporedje(..) => Tip::Brez,
+            Okvir{ .. } => Tip::Brez,
+
+            Funkcija{ .. } => Tip::Brez,
+            FunkcijskiKlic{ funkcija, .. } => if let Funkcija { tip, .. } = &**funkcija { *tip } else { Tip::Brez },
+
+            Natisni(..) => Tip::Brez,
         }
     }
 

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::{mem::size_of, fmt::Debug};
 use std::{fmt, io};
 
-use crate::parser::drevo::Drevo;
+use crate::parser::drevo::{Drevo, Tip};
 use crate::parser::drevo::{OdmikIme, Vozlišče::{*, self}};
 use self::{UkazPodatek::*, UkazPodatekRelative::*};
 
@@ -53,7 +53,8 @@ enum UkazPodatek
     TOP(i32),
     SOFF,
     LOFF,
-    PRTN,
+    PRTF,
+    PRTI,
     PRTC,
     ADDF,
     SUBF,
@@ -84,13 +85,6 @@ enum UkazPodatekRelative {
     JMPCRelative(i32),
     PC(i32),
     Oznaka(String)
-}
-
-#[derive(Debug, PartialEq)]
-enum Tip {
-    CELO,
-    REAL,
-    ZNAK,
 }
 
 #[derive(Debug, PartialEq)]
@@ -144,16 +138,16 @@ impl From<String> for Program {
                 "PUSH" => {
                     if besede[2].chars().nth(0).unwrap() == '#' {
                         if besede[2].contains('.') {
-                            push_tipi.push(Tip::REAL);
+                            push_tipi.push(Tip::Real);
                             PUSH(Podatek { f:  besede[2][1..].parse().unwrap() })
                         }
                         else {
-                            push_tipi.push(Tip::CELO);
+                            push_tipi.push(Tip::Celo);
                             PUSH(Podatek { i:  besede[2][1..].parse().unwrap() })
                         }
                     }
                     else {
-                        push_tipi.push(Tip::ZNAK);
+                        push_tipi.push(Tip::Znak);
                         PUSH(Podatek { c: besede[2][1..besede[1].len()-1]
                             .replace(r"\\", "\\")
                                 .replace(r"\n", "\n")
@@ -179,7 +173,8 @@ impl From<String> for Program {
                 "ZERO" => ZERO,
                 "LOFF" => LOFF,
                 "SOFF" => SOFF,
-                "PRTN" => PRTN,
+                "PRTF" => PRTF,
+                "PRTI" => PRTI,
                 "PRTC" => PRTC,
                 "ADDF" => ADDF,
                 "SUBF" => SUBF,
@@ -265,9 +260,9 @@ impl Program {
                 PUSH(podatek) => {
                     j += 1;
                     match self.push_tipi[j - 1] {
-                        Tip::REAL => format!("PUSH #{:?}\n", unsafe { podatek.f }),
-                        Tip::CELO => format!("PUSH #{}\n",   unsafe { podatek.i }),
-                        Tip::ZNAK => format!("PUSH '{}'\n",  unsafe { podatek.c
+                        Tip::Real => format!("PUSH #{:?}\n", unsafe { podatek.f }),
+                        Tip::Celo => format!("PUSH #{}\n",   unsafe { podatek.i }),
+                        Tip::Znak => format!("PUSH '{}'\n",  unsafe { podatek.c
                             .to_string()
                             .replace("\\", r"\\")
                                 .replace("\n", r"\n")
@@ -276,6 +271,7 @@ impl Program {
                                 .replace("\"", r#"\""#)
                                 .replace("\'", r"\'")
                         }),
+                        _ => unreachable!()
                     }
                 },
                 POP           => "POP \n".to_string(),
@@ -288,7 +284,8 @@ impl Program {
                 TOP(odmik)    => format!("TOP  {}{odmik}\n", if *odmik > 0 { "+" } else { "" }),
                 SOFF          => "SOFF\n".to_string(),
                 LOFF          => "LOFF\n".to_string(),
-                PRTN          => "PRTN\n".to_string(),
+                PRTF          => "PRTF\n".to_string(),
+                PRTI          => "PRTI\n".to_string(),
                 PRTC          => "PRTC\n".to_string(),
                 ADDF          => "ADDF\n".to_string(),
                 SUBF          => "SUBF\n".to_string(),
@@ -341,7 +338,8 @@ impl Program {
                 SOFF => { *addroff = stack.pop().unwrap().i as u32;   *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff as i32 }); *pc + 1 },
 
-                PRTN => { write!(izhod, "{}", stack.pop().unwrap().f).unwrap(); *pc + 1 },
+                PRTF => { write!(izhod, "{}", stack.pop().unwrap().f).unwrap(); *pc + 1 },
+                PRTI => { write!(izhod, "{}", stack.pop().unwrap().i).unwrap(); *pc + 1 },
                 PRTC => { write!(izhod, "{}", stack.pop().unwrap().c).unwrap(); *pc + 1 },
 
                 ADDF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    + stack.pop().unwrap().f;  *pc + 1 },
@@ -392,7 +390,8 @@ impl Program {
                 SOFF => { *addroff = stack.pop()?.i as u32;   *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff as i32 }); *pc + 1 },
 
-                PRTN => { write!(izhod, "{}", stack.pop()?.f).ok()?; *pc + 1 },
+                PRTF => { write!(izhod, "{}", stack.pop()?.f).ok()?; *pc + 1 },
+                PRTI => { write!(izhod, "{}", stack.pop()?.i).ok()?; *pc + 1 },
                 PRTC => { write!(izhod, "{}", stack.pop()?.c).ok()?; *pc + 1 },
 
                 ADDF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f    + stack.pop()?.f;  *pc + 1 },
@@ -430,11 +429,11 @@ mod test {
     fn to_assembler_from_assembler() {
         let program = Program {
             push_tipi: vec![
-                Tip::REAL,
-                Tip::REAL,
-                Tip::CELO,
-                Tip::ZNAK,
-                Tip::ZNAK,
+                Tip::Real,
+                Tip::Real,
+                Tip::Celo,
+                Tip::Znak,
+                Tip::Znak,
             ],
             ukazi: [
                 NOOP,
@@ -457,7 +456,8 @@ mod test {
                 TOP(-13),
                 SOFF,
                 LOFF,
-                PRTN,
+                PRTF,
+                PRTI,
                 PRTC,
                 ADDF,
                 SUBF,

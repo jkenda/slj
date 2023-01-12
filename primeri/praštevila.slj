@@ -1,8 +1,8 @@
-funkcija je_deljivo(deljenec, delitelj) {
+funkcija je_deljivo(deljenec: celo, delitelj: celo) -> bool {
     vrni deljenec % delitelj == 0
 }
 
-funkcija je_praštevilo(kandidat) {
+funkcija je_praštevilo(kandidat: celo) -> bool {
     praštevilo = resnica
 
     i = 2

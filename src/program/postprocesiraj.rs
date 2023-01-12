@@ -52,15 +52,15 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
         for (št_vrstice, ukaz_podatek) in postproc1.iter().enumerate() {
             postproc.push(match ukaz_podatek {
                 Osnovni(osnovni_ukaz) => osnovni_ukaz.clone(),
-                PUSHI(celo) => { push_tipi.push(Tip::CELO); PUSH(Podatek { i: *celo }) },
-                PUSHF(real) => { push_tipi.push(Tip::REAL); PUSH(Podatek { f: *real }) },
-                PUSHC(znak) => { push_tipi.push(Tip::ZNAK); PUSH(Podatek { c: *znak }) },
+                PUSHI(celo) => { push_tipi.push(Tip::Celo); PUSH(Podatek { i: *celo }) },
+                PUSHF(real) => { push_tipi.push(Tip::Real); PUSH(Podatek { f: *real }) },
+                PUSHC(znak) => { push_tipi.push(Tip::Znak); PUSH(Podatek { c: *znak }) },
                 JUMPRelative(odmik_ime) => match odmik_ime {
                     OdmikIme::Odmik(rel_skok) => JUMP((št_vrstice as isize + rel_skok) as u32),
                     OdmikIme::Ime(ime)        => JUMP(oznake_vrstic[ime]),
                 },
                 JMPCRelative(rel_skok) => JMPC((št_vrstice as i32 + rel_skok) as u32),
-                PC(odmik) => { push_tipi.push(Tip::CELO); PUSH(Podatek { i: št_vrstice as i32 + odmik }) },
+                PC(odmik) => { push_tipi.push(Tip::Celo); PUSH(Podatek { i: št_vrstice as i32 + odmik }) },
                 Oznaka(_) => NOOP,
             });
         }
