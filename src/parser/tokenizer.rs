@@ -9,6 +9,7 @@ pub enum Token<'a> {
     Ime         (&'a str, usize, usize),
     Tip         (&'a str, usize, usize),
     Literal     (L<'a>),
+    Neznano     (&'a str, usize, usize),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -55,9 +56,9 @@ impl<'a> Token<'a> {
         use Token::*;
         use L::*;
         match self {
-            Operator(.., v, z) | Ločilo(.., v, z) | Rezerviranka(.., v, z) | Ime(.., v, z) | Tip(.., v, z) => format!("({}. vrstica, {}. znak)", v, z),
+            Operator(.., v, z) | Ločilo(.., v, z) | Rezerviranka(.., v, z) | Ime(.., v, z) | Tip(.., v, z) | Neznano(.., v, z) => format!("({v}. vrstica, {z}. znak)"),
             Token::Literal(literal) => match literal {
-                Bool(.., v, z) | Celo(.., v, z) | Real(.., v, z) | Znak(.., v, z) | Niz(.., v, z) => format!("({}. vrstica, {}. znak)", v, z),
+                Bool(.., v, z) | Celo(.., v, z) | Real(.., v, z) | Znak(.., v, z) | Niz(.., v, z) => format!("({v}. vrstica, {z}. znak)"),
             }
         }
     }
@@ -66,7 +67,7 @@ impl<'a> Token<'a> {
         use Token::*;
         use L::*;
         match self {
-            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) => val.len(),
+            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) | Neznano(val, ..) => val.len(),
             Token::Literal(literal) => match literal {
                 Bool(val, ..) | Celo(val, ..) | Real(val, ..) | Znak(val, ..) | Niz(val, ..) => val.len(),
             }
@@ -77,7 +78,7 @@ impl<'a> Token<'a> {
         use Token::*;
         use L::*;
         match self {
-            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) => val,
+            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) | Neznano(val, ..) => val,
             Token::Literal(literal) => match literal {
                 Bool(val, ..) | Celo(val, ..) | Real(val, ..) | Znak(val, ..) | Niz(val, ..) => val,
             }
@@ -90,7 +91,7 @@ impl ToString for Token<'_> {
         use Token::*;
         use L::*;
         match self {
-            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) => val.to_string(),
+            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) | Neznano(val, ..) => val.to_string(),
             Token::Literal(literal) => match literal {
                 Bool(val, ..) | Celo(val, ..) | Real(val, ..) | Znak(val, ..) | Niz(val, ..) => val.to_string(),
             }
@@ -103,7 +104,7 @@ impl Hash for Token<'_> {
         use Token::*;
         use L::*;
         match self {
-            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) => val.hash(state),
+            Operator(val, ..) | Ločilo(val, ..) | Rezerviranka(val, ..) | Ime(val, ..) | Tip(val, ..) | Neznano(val, ..) => val.hash(state),
             Token::Literal(literal) => match literal {
                 Bool(val, ..) | Celo(val, ..) | Real(val, ..) | Znak(val, ..) | Niz(val, ..) => val.hash(state),
             }
@@ -129,19 +130,20 @@ impl<'a> Tokenizer {
     pub fn tokenize(tekst: &'a str) -> Vec<Token> {
         use Token::*;
 
-        const ZADNJA_MEJA: &str = r#"(?:["=<>|&!+\-*/%^,;:#\n(){}\[\]]|\b)"#;
+        const ZADNJA_MEJA: &str = r#"(?:["=<>|&!+\-*/%^,;:#\n(){}\[\]]|\b|$)"#;
+        const PRESLEDEK: &str = r"([^\S\n]*)";
 
         let regexi: Vec<(Regex, fn(&'a str, usize, usize) -> Token<'a>)> = vec![
-            (Regex::new(&format!("^(in|ali|čene|če|dokler|za|funkcija|vrni|prekini){ZADNJA_MEJA}")).unwrap(), Rezerviranka),
-            (Regex::new(&format!("^(brez|bool|celo|real|znak|niz){ZADNJA_MEJA}")).unwrap(), Tip),
-            (Regex::new(&format!("^(resnica|laž){ZADNJA_MEJA}")).unwrap(), bool),
-            (Regex::new(&format!("^('[^\n\']')")).unwrap(), znak),
-            (Regex::new(&format!("^(\"[^\n\"]*\")")).unwrap(), niz),
-            (Regex::new(&format!(r"^(\d+\.\d+|\d{{1,3}}(_\d{{3}})+\.(\d{{3}}_)+\d{{1,3}}){ZADNJA_MEJA}")).unwrap(), real),
-            (Regex::new(&format!(r"^(\d+|\d{{1,3}}(_\d{{3}})+){ZADNJA_MEJA}")).unwrap(), celo),
-            (Regex::new(&format!(r"^([_\p{{Letter}}][\w\d]*){ZADNJA_MEJA}")).unwrap(), Ime),
-            (Regex::new(r#"^([,;:#\n(){}\[\]]|->)"#).unwrap(), Ločilo),
-            (Regex::new(r"^(?x)(
+            (Regex::new(&format!(r"^{PRESLEDEK}(in|ali|čene|če|dokler|za|funkcija|vrni|prekini){ZADNJA_MEJA}")).unwrap(), Rezerviranka),
+            (Regex::new(&format!(r"^{PRESLEDEK}(brez|bool|celo|real|znak|niz){ZADNJA_MEJA}")).unwrap(), Tip),
+            (Regex::new(&format!(r"^{PRESLEDEK}(resnica|laž){ZADNJA_MEJA}")).unwrap(), bool),
+            (Regex::new(&format!(r"^{PRESLEDEK}('[^\n']')")).unwrap(), znak),
+            (Regex::new(&format!( "^{PRESLEDEK}(\"[^\n\"]*\")")).unwrap(), niz),
+            (Regex::new(&format!(r"^{PRESLEDEK}(\d+\.\d+|\d{{1,3}}(_\d{{3}})+\.(\d{{3}}_)+\d{{1,3}}){ZADNJA_MEJA}")).unwrap(), real),
+            (Regex::new(&format!(r"^{PRESLEDEK}(\d+|\d{{1,3}}(_\d{{3}})+){ZADNJA_MEJA}")).unwrap(), celo),
+            (Regex::new(&format!(r"^{PRESLEDEK}([_\p{{Letter}}][\w\d]*){ZADNJA_MEJA}")).unwrap(), Ime),
+            (Regex::new(&format!(r"^{PRESLEDEK}([,;:#\n(){{}}\[\]]|->)")).unwrap(), Ločilo),
+            (Regex::new(&format!(r"^{PRESLEDEK}(?x)(
                         # zamik
                             <<= | >>= | << | >> |
                         # primerjava
@@ -156,7 +158,8 @@ impl<'a> Tokenizer {
                             [|&^] |
                         # prirejanje
                             =
-                        )").unwrap(), Operator),
+                        )")).unwrap(), Operator),
+            (Regex::new(&format!(r"^{PRESLEDEK}(\S*){ZADNJA_MEJA}")).unwrap(), Neznano),
         ];
 
         let mut tokeni: Vec<Token> = Vec::new();
@@ -168,8 +171,10 @@ impl<'a> Tokenizer {
         while i < tekst.len() {
             match najdi_token(&regexi, &tekst[i..], vrstica, znak) {
                 Some((token, dolžina)) => {
-                    tokeni.push(token);
-                    i += dolžina;
+                    match token {
+                        Neznano("", ..) => (),
+                        _ => tokeni.push(token),
+                    }
                     if let Ločilo("\n", ..) = token {
                         vrstica += 1;
                         znak = 1;
@@ -177,15 +182,11 @@ impl<'a> Tokenizer {
                     else {
                         // vzamemo chars().count() namesto len(),
                         // saj je važno število znakov in ne bajtov
-                        znak += token.as_str().chars().count();
+                        znak += tekst[i..i+dolžina].chars().count();
                     }
+                    i += dolžina;
                 },
-                None => {
-                    // pojdi do naslednjega znaka (znak je lahko daljši od bajta)
-                    i += 1;
-                    while !tekst.is_char_boundary(i) { i += 1 }
-                    znak += 1;
-                }
+                None => (),
             };
         }
 
@@ -200,8 +201,10 @@ fn najdi_token<'a>(regexi: &[(Regex, fn(&'a str, usize, usize) -> Token<'a>)], b
     match regex.captures(beseda) {
         Some(skupine) => {
             // 1. skupina je zadetek
-            let zadetek = skupine.get(1).unwrap();
-            Some((token(zadetek.as_str(), vrstica, znak), zadetek.end()))
+            let presledek = skupine.get(1).unwrap();
+            let zadetek = skupine.get(2).unwrap();
+            let velikost_presledka = presledek.as_str().chars().count();
+            Some((token(zadetek.as_str(), vrstica, znak + velikost_presledka), zadetek.end()))
         },
         None =>
             if regexi.len() > 1 {
@@ -253,7 +256,7 @@ mod testi {
     fn ime() {
         assert_eq!("a".to_owned().tokenize(), [Ime("a", 1, 1)]);
         assert_eq!("švajs".to_owned().tokenize(), [Ime("švajs", 1, 1)]);
-        assert_eq!("švajs mašina".to_owned().tokenize(), [Ime("švajs", 1, 1), Ime("mašina", 1, 7)]);
+        assert_eq!("švajs  mašina".to_owned().tokenize(), [Ime("švajs", 1, 1), Ime("mašina", 1, 8)]);
         assert_eq!("__groot__".to_owned().tokenize(), [Ime("__groot__", 1, 1)]);
         assert_eq!("kamelskaTelewizje".to_owned().tokenize(), [Ime("kamelskaTelewizje", 1, 1)]);
         assert_eq!("RabeljskoJezero123".to_owned().tokenize(), [Ime("RabeljskoJezero123", 1, 1)]);

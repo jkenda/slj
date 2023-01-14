@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::{mem::size_of, fmt::Debug};
 use std::{fmt, io};
 
-use crate::parser::drevo::{Drevo, Tip};
+use crate::parser::{drevo::Drevo, tip::Tip};
 use crate::parser::drevo::{OdmikIme, Vozlišče::{*, self}};
 use self::{UkazPodatek::*, UkazPodatekRelative::*};
 
@@ -71,6 +71,8 @@ enum UkazPodatek
     BOR,
     BXOR,
     BAND,
+    BSLL,
+    BSLD,
     FTOI,
     ITOF,
 }
@@ -203,16 +205,7 @@ impl From<String> for Program {
 
 impl Program {
     pub fn zaženi(&self) {
-        let mut pc: u32 = 0;
-        let mut addroff: u32 = 0;
-        let mut stack: Vec<Podatek> = Vec::new();
-        stack.reserve(512);
-
-        let mut stdout = Box::new(io::stdout());
-
-        while (pc as usize) < self.ukazi.len() {
-            Program::korak(&self.ukazi[pc as usize], &mut stack, &mut pc, &mut addroff, &mut stdout);
-        }
+        self.zaženi_z_izhodom(&mut io::stdout())
     }
 
     pub fn zaženi_debug(&self) {
@@ -235,7 +228,7 @@ impl Program {
         }
     }
 
-    pub fn zaženi_preusmeri_izhod(&self, izhod: &mut impl io::Write) {
+    pub fn zaženi_z_izhodom(&self, izhod: &mut impl io::Write) {
         let mut pc: u32 = 0;
         let mut addroff: u32 = 0;
         let mut stack: Vec<Podatek> = Vec::new();
@@ -302,6 +295,8 @@ impl Program {
                 BOR           => "BOR \n".to_string(),
                 BXOR          => "BXOR\n".to_string(),
                 BAND          => "BAND\n".to_string(),
+                BSLL          => "BSLL\n".to_string(),
+                BSLD          => "BSLD\n".to_string(),
                 FTOI          => "FTOI\n".to_string(),
                 ITOF          => "ITOF\n".to_string(),
             }
@@ -360,6 +355,9 @@ impl Program {
                 BXOR => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i | stack.pop().unwrap().i;  *pc + 1 },
                 BAND => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i | stack.pop().unwrap().i;  *pc + 1 },
 
+                BSLL => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i << stack.pop().unwrap().i;  *pc + 1 },
+                BSLD => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i >> stack.pop().unwrap().i;  *pc + 1 },
+
                 FTOI => { stack.last_mut().unwrap().i = stack.last().unwrap().f as i32; *pc + 1 },
                 ITOF => { stack.last_mut().unwrap().f = stack.last().unwrap().i as f32; *pc + 1 },
             }
@@ -411,6 +409,9 @@ impl Program {
                 BOR  => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i | stack.pop()?.i;  *pc + 1 },
                 BXOR => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i | stack.pop()?.i;  *pc + 1 },
                 BAND => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i | stack.pop()?.i;  *pc + 1 },
+
+                BSLL => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i << stack.pop()?.i;  *pc + 1 },
+                BSLD => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i >> stack.pop()?.i;  *pc + 1 },
 
                 FTOI => { stack.last_mut()?.i = stack.last()?.f as i32; *pc + 1 },
                 ITOF => { stack.last_mut()?.f = stack.last()?.i as f32; *pc + 1 },

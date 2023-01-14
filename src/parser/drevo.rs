@@ -1,4 +1,5 @@
 use std::{rc::Rc, fmt::Display, mem::discriminant};
+use super::tip::Tip;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
@@ -30,16 +31,6 @@ impl Display for Drevo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.root.drevo(0))
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Tip {
-    Brez,
-    Bool,
-    Celo,
-    Real,
-    Znak,
-    Niz,
 }
 
 #[allow(dead_code)]
@@ -77,6 +68,8 @@ pub enum Vozlišče {
     BitniAli(Rc<Vozlišče>, Rc<Vozlišče>),
     BitniXor(Rc<Vozlišče>, Rc<Vozlišče>),
     BitniIn(Rc<Vozlišče>, Rc<Vozlišče>),
+    BitniPremikLevo(Rc<Vozlišče>, Rc<Vozlišče>),
+    BitniPremikDesno(Rc<Vozlišče>, Rc<Vozlišče>),
 
     Enako(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
     NiEnako(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
@@ -105,34 +98,6 @@ pub enum Vozlišče {
     Natisni(Vec<Rc<Vozlišče>>),
 }
 
-impl From<&str> for Tip {
-    fn from(value: &str) -> Self {
-        match value {
-            "brez" => Tip::Brez,
-            "bool" => Tip::Bool,
-            "celo" => Tip::Celo,
-            "real" => Tip::Real,
-            "znak" => Tip::Znak,
-            "niz"  => Tip::Niz,
-            _ => panic!("Neznan tip: {value}"),
-        }
-    }
-}
-
-impl Display for Tip {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use Tip::*;
-        write!(f, "{}", match self {
-            Brez => "brez",
-            Bool => "bool",
-            Celo => "celo",
-            Real => "real",
-            Znak => "znak",
-            Niz  => "niz",
-        })
-    }
-}
-
 use Vozlišče::*;
 
 impl Display for Vozlišče {
@@ -152,7 +117,7 @@ impl Display for Vozlišče {
             Celo(število) => število.to_string(),
             Real(število) => število.to_string(),
             Znak(znak)    => znak.to_string(),
-            Spremenljivka{ tip, ime, naslov, z_odmikom } => format!("{ime}: {tip} ({}{naslov})", if *z_odmikom { "+" } else { "@" }),
+            Spremenljivka{ tip, ime, naslov, z_odmikom } => format!("{ime} ({}{naslov}): {tip}", if *z_odmikom { "+" } else { "@" }),
 
             Resnica => "resnica".to_owned(),
             Laž     => "laž".to_owned(),
@@ -167,6 +132,14 @@ impl Display for Vozlišče {
             Zanikaj(..)     => "!".to_owned(),
             Konjunkcija(..) => "&&".to_owned(),
             Disjunkcija(..) => "||".to_owned(),
+
+            BitniAli(..) => "|".to_owned(),
+            BitniXor(..) => "^".to_owned(),
+            BitniIn(..)  => "&".to_owned(),
+
+            BitniPremikLevo(..)  => "<<".to_owned(),
+            BitniPremikDesno(..) => ">>".to_owned(),
+
             Enako(..)       => "==".to_owned(),
             NiEnako(..)     => "!=".to_owned(),
             Večje(..)       => ">".to_owned(),
@@ -227,6 +200,13 @@ impl PartialEq for Vozlišče {
             (Konjunkcija(ll, ld), Konjunkcija(dl, dd)) |
             (Disjunkcija(ll, ld), Disjunkcija(dl, dd)) => ll == dl && ld == dd,
 
+            (BitniAli(ll, ld), BitniAli(dl, dd)) |
+            (BitniXor(ll, ld), BitniXor(dl, dd)) |
+            (BitniIn(ll, ld), BitniIn(dl, dd)) => ll == dl && ld == dd,
+
+            (BitniPremikLevo(ll, ld), BitniPremikLevo(dl, dd)) |
+            (BitniPremikDesno(ll, ld), BitniPremikDesno(dl, dd)) => ll == dl && ld == dd,
+
             (Enako(lt, ll, ld), Enako(dt, dl, dd)) |
             (NiEnako(lt, ll, ld), NiEnako(dt, dl, dd)) |
             (Večje(lt, ll, ld), Večje(dt, dl, dd)) |
@@ -268,18 +248,22 @@ impl Vozlišče {
         match self {
             Prazno => "  ".repeat(globina) + "()\n",
 
+            Push(_) | Pop(_) | Vrh(_) | ShraniOdmik | NaložiOdmik
+                | ProgramskiŠtevec(_) | Skok(_) | PogojniSkok(..) | DinamičniSkok =>
+                "".to_string(),
+
             Niz(_) | Celo(_) | Real(_) | Znak(_) | Spremenljivka {..} | Resnica | Laž => 
                 "  ".repeat(globina) + &self.to_string() + "\n",
 
-
-            Konjunkcija(l, d) | Disjunkcija(l, d) | BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d) =>
+            Konjunkcija(l, d) | Disjunkcija(l, d) | BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d)
+                | BitniPremikLevo(l, d) | BitniPremikDesno(l, d) =>
                 "  ".repeat(globina) + &self.to_string() + "\n"
                 + &l.drevo(globina + 1) 
                 + &d.drevo(globina + 1),
 
-            Potenca(t, l, d) | Množenje(t, l, d) | Deljenje(t, l, d) | Modulo(t, l, d) | Seštevanje(t, l, d) | Odštevanje(t, l, d)
-                | Enako(t, l, d) | NiEnako(t, l, d) | Večje(t, l, d) | VečjeEnako(t, l, d) | Manjše(t, l, d) | ManjšeEnako(t, l, d) =>
-                "  ".repeat(globina) + &format!("{self} ({t})\n")
+            Potenca(_, l, d) | Množenje(_, l, d) | Deljenje(_, l, d) | Modulo(_, l, d) | Seštevanje(_, l, d) | Odštevanje(_, l, d)
+                | Enako(_, l, d) | NiEnako(_, l, d) | Večje(_, l, d) | VečjeEnako(_, l, d) | Manjše(_, l, d) | ManjšeEnako(_, l, d) =>
+                "  ".repeat(globina) + &self.to_string() + "\n"
                 + &l.drevo(globina + 1) 
                 + &d.drevo(globina + 1),
 
@@ -340,8 +324,6 @@ impl Vozlišče {
                     .collect::<Vec<String>>()
                     .join(&("  ".repeat(globina) + ",\n"))
                 + &"  ".repeat(globina) + ")\n",
-
-            _ => "".to_owned()
         }
     }
 
@@ -377,7 +359,8 @@ impl Vozlišče {
                 => izraz.sprememba_stacka(),
 
             Konjunkcija(l, d) | Disjunkcija(l, d) |
-                BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d)
+                BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d) |
+                BitniPremikLevo(l, d) | BitniPremikDesno(l, d)
                 => l.sprememba_stacka() + d.sprememba_stacka() - 1,
 
             ProgramskiŠtevec(_)     => 1,
@@ -423,7 +406,7 @@ impl Vozlišče {
 
             Seštevanje(tip, ..) | Odštevanje(tip, ..) | Množenje(tip, ..) | Deljenje(tip, ..) | Modulo(tip, ..) | Potenca(tip,..) => *tip,
 
-            BitniAli(..) | BitniXor(..) | BitniIn(..) => Tip::Celo,
+            BitniAli(..) | BitniXor(..) | BitniIn(..) | BitniPremikLevo(..) | BitniPremikDesno(..) => Tip::Celo,
 
             Enako(..) | NiEnako(..) | Večje(..) | VečjeEnako(..) | Manjše(..) | ManjšeEnako(..) => Tip::Bool,
 

@@ -135,6 +135,16 @@ impl Prevedi for Vozlišče {
                 d.prevedi().as_slice(),
                 [Osnovni(BAND)].as_slice(),
             ].concat(),
+            BitniPremikLevo(l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(BSLL)].as_slice(),
+            ].concat(),
+            BitniPremikDesno(l, d) => [
+                l.prevedi().as_slice(),
+                d.prevedi().as_slice(),
+                [Osnovni(BSLD)].as_slice(),
+            ].concat(),
 
             Enako(tip, l, d) => [
                 Odštevanje(*tip, l.clone(), d.clone()).prevedi().as_slice(),

@@ -1,4 +1,4 @@
-funkcija faktoriela(a: bool) -> celo {
+funkcija faktoriela(a: celo) -> celo {
     če a <= 1 {
         vrni 1
     }
