@@ -28,3 +28,4 @@ dokler kandidat <= MEJA {
 }
 
 natisni("praštevil do ", MEJA, ": ", praštevil, "\n")
+

@@ -33,6 +33,13 @@ impl Display for Drevo {
     }
 }
 
+pub enum VozliščeOption {
+    Aritmetični(fn(Tip, Rc<Vozlišče>, Rc<Vozlišče>) -> Vozlišče),
+    Logični(fn(Rc<Vozlišče>, Rc<Vozlišče>) -> Vozlišče),
+    Bitni(fn(Rc<Vozlišče>, Rc<Vozlišče>) -> Vozlišče),
+    Brez,
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Vozlišče {
@@ -49,6 +56,8 @@ pub enum Vozlišče {
     Real(f32),
     Znak(char),
     Niz(String),
+    Referenca(Rc<Vozlišče>),
+
     Spremenljivka{ tip: Tip, ime: String, naslov: u32, z_odmikom: bool },
 
     Resnica,
@@ -117,6 +126,7 @@ impl Display for Vozlišče {
             Celo(število) => število.to_string(),
             Real(število) => število.to_string(),
             Znak(znak)    => znak.to_string(),
+            Referenca(spremenljivka) => "@".to_string() + &spremenljivka.to_string(),
             Spremenljivka{ tip, ime, naslov, z_odmikom } => format!("{ime} ({}{naslov}): {tip}", if *z_odmikom { "+" } else { "@" }),
 
             Resnica => "resnica".to_owned(),
@@ -252,7 +262,7 @@ impl Vozlišče {
                 | ProgramskiŠtevec(_) | Skok(_) | PogojniSkok(..) | DinamičniSkok =>
                 "".to_string(),
 
-            Niz(_) | Celo(_) | Real(_) | Znak(_) | Spremenljivka {..} | Resnica | Laž => 
+            Niz(_) | Celo(_) | Real(_) | Znak(_) | Spremenljivka {..} | Resnica | Laž | Referenca(..) => 
                 "  ".repeat(globina) + &self.to_string() + "\n",
 
             Konjunkcija(l, d) | Disjunkcija(l, d) | BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d)
@@ -346,6 +356,7 @@ impl Vozlišče {
             Real(_) => 1,
             Znak(_) => 1,
             Niz(niz) => niz.chars().count() as isize,
+            Referenca(_) => 1,
             Spremenljivka{ .. } => 1,
 
             Resnica => 1,
@@ -398,17 +409,16 @@ impl Vozlišče {
             Celo(_) => Tip::Celo,
             Real(_) => Tip::Real,
             Znak(_) => Tip::Znak,
-            Niz(_)  => Tip::Niz,
-            Spremenljivka{ tip, .. } => *tip,
+            Referenca(vozlišče) => Tip::Referenca(Box::new(vozlišče.tip())),
+            Niz(niz)  => Tip::Seznam(Box::new(Tip::Znak), niz.len()),
+            Spremenljivka{ tip, .. } => tip.clone(),
 
             Resnica | Laž => Tip::Bool,
             Zanikaj(..) | Konjunkcija(..) | Disjunkcija(..) => Tip::Bool,
-
-            Seštevanje(tip, ..) | Odštevanje(tip, ..) | Množenje(tip, ..) | Deljenje(tip, ..) | Modulo(tip, ..) | Potenca(tip,..) => *tip,
-
             BitniAli(..) | BitniXor(..) | BitniIn(..) | BitniPremikLevo(..) | BitniPremikDesno(..) => Tip::Celo,
-
             Enako(..) | NiEnako(..) | Večje(..) | VečjeEnako(..) | Manjše(..) | ManjšeEnako(..) => Tip::Bool,
+
+            Seštevanje(tip, ..) | Odštevanje(tip, ..) | Množenje(tip, ..) | Deljenje(tip, ..) | Modulo(tip, ..) | Potenca(tip,..) => tip.clone(),
 
             ProgramskiŠtevec(..) => Tip::Celo,
             Skok(..) => Tip::Brez,
@@ -424,7 +434,7 @@ impl Vozlišče {
             Okvir{ .. } => Tip::Brez,
 
             Funkcija{ .. } => Tip::Brez,
-            FunkcijskiKlic{ funkcija, .. } => if let Funkcija { tip, .. } = &**funkcija { *tip } else { Tip::Brez },
+            FunkcijskiKlic{ funkcija, .. } => if let Funkcija { tip, .. } = &**funkcija { tip.clone() } else { Tip::Brez },
 
             Natisni(..) => Tip::Brez,
         }

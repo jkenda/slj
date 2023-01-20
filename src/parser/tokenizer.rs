@@ -52,6 +52,17 @@ fn niz<'a>(val: &'a str, v: usize, z: usize) -> Token {
 }
 
 impl<'a> Token<'a> {
+    pub fn lokacija(&self) -> (usize, usize) {
+        use Token::*;
+        use L::*;
+        match self {
+            Operator(_, v, z) | Ločilo(_, v, z) | Rezerviranka(_, v, z) | Ime(_, v, z) | Tip(_, v, z) | Neznano(_, v, z) => (*v, *z),
+            Token::Literal(literal) => match literal {
+                Bool(_, v, z) | Celo(_, v, z) | Real(_, v, z) | Znak(_, v, z) | Niz(_, v, z) => (*v, *z),
+            }
+        }
+    }
+
     pub fn lokacija_str(&self) -> String {
         use Token::*;
         use L::*;
@@ -130,7 +141,7 @@ impl<'a> Tokenizer {
     pub fn tokenize(tekst: &'a str) -> Vec<Token> {
         use Token::*;
 
-        const ZADNJA_MEJA: &str = r#"(?:["=<>|&!+\-*/%^,;:#\n(){}\[\]]|\b|$)"#;
+        const ZADNJA_MEJA: &str = r#"(?:["=<>|&!+\-*/%^@,;:#\n(){}\[\]]|\b|$)"#;
         const PRESLEDEK: &str = r"([^\S\n]*)";
 
         let regexi: Vec<(Regex, fn(&'a str, usize, usize) -> Token<'a>)> = vec![
@@ -157,7 +168,9 @@ impl<'a> Tokenizer {
                         # binarna aritmetika
                             [|&^] |
                         # prirejanje
-                            =
+                            = |
+                        # referenca
+                            @
                         )")).unwrap(), Operator),
             (Regex::new(&format!(r"^{PRESLEDEK}(\S*){ZADNJA_MEJA}")).unwrap(), Neznano),
         ];

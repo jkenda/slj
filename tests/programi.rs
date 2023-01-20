@@ -4,7 +4,7 @@ use slj::{parser::{tokenizer::{Tokenize, Token::*, L}, drevo::Vozlišče::{*, se
 fn natisni_niz() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni("zver")"#.to_string();
-    program.tokenize().parse().to_program().zaženi_z_izhodom(&mut izhod);
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "zver");
 }
 
@@ -12,14 +12,14 @@ fn natisni_niz() {
 fn natisni_število() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(3.14)"#.to_string();
-    program.tokenize().parse().to_program().zaženi_z_izhodom(&mut izhod);
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "3.14");
 
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(42)"#.to_string();
-    program.tokenize().parse().to_program().zaženi_z_izhodom(&mut izhod);
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(program.tokenize(), [Ime("natisni", 1, 1), Ločilo("(", 1, 8), Literal(L::Celo("42", 1, 9)), Ločilo(")", 1, 11)]);
-    assert_eq!(program.tokenize().parse().root, Okvir{ zaporedje: Zaporedje(vec![Natisni(vec![Vozlišče::Celo(42).rc()]).rc()]).rc(), št_spr: 0 }.rc());
+    assert_eq!(program.tokenize().parse().unwrap().root, Okvir{ zaporedje: Zaporedje(vec![Natisni(vec![Vozlišče::Celo(42).rc()]).rc()]).rc(), št_spr: 0 }.rc());
     assert_eq!(String::from_utf8(izhod).unwrap(), "42");
 }
 
@@ -27,7 +27,7 @@ fn natisni_število() {
 fn natisni_izraz() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(3+2*4**2)"#.to_string();
-    program.tokenize().parse().to_program().zaženi_z_izhodom(&mut izhod);
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "35");
 }
 
@@ -35,7 +35,7 @@ fn natisni_izraz() {
 fn one_liner() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"x=1;če x-1==0{natisni("x=1")}else{natisni("x!=1")}"#.to_string();
-    program.tokenize().parse().to_program().zaženi_z_izhodom(&mut izhod);
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "x=1");
 }
 
@@ -63,7 +63,7 @@ fn preveč_vrstic() {
             )
         }
     "#.to_string();
-    program.tokenize().parse().to_program().zaženi_z_izhodom(&mut izhod);
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "x=1");
 }
 
@@ -94,7 +94,7 @@ fn praštevil_do_1000() {
 
         natisni("praštevil do ", MEJA, ": ", praštevil, "\n")
     "#.to_string();
-    program.tokenize().parse().to_program().zaženi_z_izhodom(&mut izhod);
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "praštevil do 1000: 168\n");
 }
 
@@ -110,7 +110,7 @@ fn rekurzija() {
         }
         natisni("7! = ", faktoriela(7), "\n")
     "#.to_string();
-    program.tokenize().parse().to_program().zaženi_z_izhodom(&mut izhod);
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "7! = 5040\n");
 }
 
@@ -131,7 +131,26 @@ fn spr_pred_funkcijo() {
         }
         natisni(spr)
     "#.to_string();
-    program.tokenize().parse().to_program().zaženi_z_izhodom(&mut izhod);
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "3");
+}
+
+#[test]
+fn makro_funkcija() {
+    let mut izhod: Vec<u8> = Vec::new();
+    let program = r#"
+        a = 0; b = 0.0
+        funkcija prištej(x: celo) -> brez {
+            a += x
+        }
+        funkcija prištej(x: real) -> brez {
+            b += x
+        }
+
+        prištej!(42, 3.14)
+        natisni(a, ", ", b)
+    "#.to_string();
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod).unwrap(), "42, 3.14");
 }
 

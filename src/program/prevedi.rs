@@ -32,6 +32,7 @@ impl Prevedi for Vozlišče {
             Celo(število) => [PUSHI(*število)].to_vec(),
             Real(število) => [PUSHF(*število)].to_vec(),
             Spremenljivka{ tip: _, ime: _, naslov, z_odmikom } => [if *z_odmikom { Osnovni(LDOF(*naslov)) } else { Osnovni(LOAD(*naslov)) }].to_vec(),
+            Referenca(spremenljivka) => [PUSHI(if let Spremenljivka { tip: _, ime: _, naslov, z_odmikom: _ } = &**spremenljivka { *naslov as i32 } else { 0 })].to_vec(),
 
             Resnica => [PUSHI(1)].to_vec(),
             Laž     => [PUSHI(0)].to_vec(),
@@ -147,18 +148,18 @@ impl Prevedi for Vozlišče {
             ].concat(),
 
             Enako(tip, l, d) => [
-                Odštevanje(*tip, l.clone(), d.clone()).prevedi().as_slice(),
+                Odštevanje(tip.clone(), l.clone(), d.clone()).prevedi().as_slice(),
                 [Osnovni(ZERO)].as_slice(),
             ].concat(),
-            NiEnako(tip, l, d) => Zanikaj(Enako(*tip, l.clone(), d.clone()).rc()).prevedi(),
+            NiEnako(tip, l, d) => Zanikaj(Enako(tip.clone(), l.clone(), d.clone()).rc()).prevedi(),
 
             Večje(tip, l, d) => [
-                Odštevanje(*tip, l.clone(), d.clone()).prevedi().as_slice(),
+                Odštevanje(tip.clone(), l.clone(), d.clone()).prevedi().as_slice(),
                 [Osnovni(POS)].as_slice(),
             ].concat(),
-            Manjše(tip, l, d)      => Večje(*tip, d.clone(), l.clone()).prevedi(),
-            VečjeEnako(tip, l, d)  => Zanikaj(Manjše(*tip, l.clone(), d.clone()).rc()).prevedi(),
-            ManjšeEnako(tip, l, d) => VečjeEnako(*tip, d.clone(), l.clone()).prevedi(),
+            Manjše(tip, l, d)      => Večje(tip.clone(), d.clone(), l.clone()).prevedi(),
+            VečjeEnako(tip, l, d)  => Zanikaj(Manjše(tip.clone(), l.clone(), d.clone()).rc()).prevedi(),
+            ManjšeEnako(tip, l, d) => VečjeEnako(tip.clone(), d.clone(), l.clone()).prevedi(),
 
             ProgramskiŠtevec(odmik) => [PC(*odmik)].to_vec(),
 
@@ -212,24 +213,23 @@ impl Prevedi for Vozlišče {
                 Pop(*št_spr).rc()
             ]).prevedi(),
 
-            Funkcija{ tip: _, ime, parametri, telo, prostor } => {
-                let parametri_velikost = parametri.iter().map(|p| p.sprememba_stacka()).sum::<isize>();
+            Funkcija{ tip, ime, parametri, telo, prostor } => {
+                let parametri_velikost = parametri.iter().map(|p| p.sprememba_stacka() as usize).sum::<usize>();
                 let pred = Zaporedje(vec![
                     NaložiOdmik.rc(),
-                    Vrh((                                           // NA STACKU:
-                        - Push(1).sprememba_stacka()                // vrni (+0)
-                        - ProgramskiŠtevec(0).sprememba_stacka()    // PC (+1)
-                        - parametri_velikost                        // [ argumenti ] (+2 ...)
-                        - NaložiOdmik.sprememba_stacka()            // prejšnji odmik
-                    ) as i32).rc(),
+                    Vrh((- tip.sprememba_stacka()                    // vrni (+0)
+                         - ProgramskiŠtevec(0).sprememba_stacka()    // PC (+1)
+                         - parametri_velikost as isize               // [ argumenti ] (+2 ...)
+                         - NaložiOdmik.sprememba_stacka()            // prejšnji odmik
+                        ) as i32).rc(),
                     Push(*prostor).rc(),
                 ]);
 
                 let za = Zaporedje(vec![
                     Pop(*prostor).rc(),
                     ShraniOdmik.rc(),
-                    Pop(parametri.len()).rc(),
-                    DinamičniSkok.rc()
+                    Pop(parametri_velikost).rc(),
+                    DinamičniSkok.rc(),
                 ]);
 
                 [
@@ -238,20 +238,22 @@ impl Prevedi for Vozlišče {
                     pred.prevedi().as_slice(),
                     telo.prevedi().as_slice(),
                     [Oznaka(format!("konec_funkcije {}", ime))].as_slice(),
-                    za.prevedi().as_slice()
+                    za.prevedi().as_slice(),
                 ].concat()
             },
 
             FunkcijskiKlic{ funkcija, argumenti } => {
-                let vrni = Push(1);
-                let skok = Skok(OdmikIme::Ime(if let Funkcija { tip: _, ime, parametri: _, telo: _, prostor: _ } = &**funkcija { ime.clone() } else { "".to_string() }));
-                let pc   = ProgramskiŠtevec((1 + argumenti.len() + skok.len()) as i32);
+                let (vrni, skok) = match &**funkcija {
+                    Funkcija { tip, ime, .. } => (Push(tip.sprememba_stacka() as usize).rc(), Skok(OdmikIme::Ime(ime.clone())).rc()),
+                    _ => (Push(0).rc(), Skok(OdmikIme::Odmik(0)).rc()),
+                };
+                let pc = ProgramskiŠtevec((1 + argumenti.len() + skok.len()) as i32).rc();
 
                 Zaporedje(vec![
-                    vrni.rc(),
-                    pc.rc(),
-                    argumenti.rc(),
-                    skok.rc(),
+                    vrni,
+                    pc,
+                    argumenti.clone(),
+                    skok,
                 ]).prevedi()
             },
 

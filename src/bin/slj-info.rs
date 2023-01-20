@@ -11,7 +11,8 @@ fn main() {
 
     let drevo = datoteka
         .tokenize()
-        .parse();
+        .parse()
+        .unwrap();
 
 
     println!("{}", drevo

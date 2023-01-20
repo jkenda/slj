@@ -1,0 +1,47 @@
+f = 0
+f ||= 1
+
+fun ena() -> { vrni 1 }
+funkcija dva() { vrni 1+1 }
+funkcija tri() tri { vrni 1+1+1 }
+funkcija štiri() -> { vrni 1+1+1+1 }
+funkcija štiri() -> u32 { vrni 1+1+1+1 }
+funkcija štiri() bool { vrni 1+1+1+1 }
+funkcija štiri() -> celo { vrni 1+1+1+1 
+funkcija štiri() -> celo vrni 1+1+1+1 }
+funkcija seštej(a: celo, a: celo) -> celo { vrni a + b }
+
+_ = dva()
+
+funkcija dva(a: celo) -> brez {
+    natisni(a)
+}
+dva!(7)
+dva!(7.7)
+
+vrni 0
+
+funkcija prištej_ena(a: celo) -> celo {
+    vrni a + 1
+}
+prištej_ena!(3, 4)
+
+a = 2 * 7
+
+a = 1
+b = 2.3
+c = resnica
+a = a + b
+a = a - b
+a = a * b
+a = a / b
+a = a ** b
+a = a && b
+a = a || b
+a = !a
+c = !c
+d = !d
+d = @d
+d = @c
+d = @(c+1)
+
