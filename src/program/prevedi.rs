@@ -193,11 +193,26 @@ impl Prevedi for Vozlišče {
             },
 
             Prirejanje{ spremenljivka, izraz } => {
-                let (naslov, z_odmikom) = if let Spremenljivka { tip: _, ime: _, naslov, z_odmikom } = &**spremenljivka { (naslov.clone(), *z_odmikom) } else { (0, false) };
-                let shrani = if z_odmikom { Osnovni(STOF(naslov)) } else { Osnovni(STOR(naslov)) };
+                let (naslov, velikost, z_odmikom) = if let Spremenljivka { tip, ime: _, naslov, z_odmikom } = &**spremenljivka { 
+                    (naslov.clone(), tip.sprememba_stacka(), *z_odmikom) 
+                }
+                else {
+                    unreachable!("Vedno prirejamo spremenljivki")
+                };
+
+                let shrani = (naslov..naslov+velikost as u32)
+                    .map(|naslov| {
+                        if z_odmikom {
+                            Osnovni(STOF(naslov))
+                        } else {
+                            Osnovni(STOR(naslov))
+                        }
+                    })
+                .collect::<Vec<UkazPodatekRelative>>();
+
                 [
                     izraz.clone().prevedi().as_slice(),
-                    [shrani].as_slice()
+                    shrani.as_slice()
                 ].concat()
             },
 
@@ -245,7 +260,7 @@ impl Prevedi for Vozlišče {
             FunkcijskiKlic{ funkcija, argumenti } => {
                 let (vrni, skok) = match &**funkcija {
                     Funkcija { tip, ime, .. } => (Push(tip.sprememba_stacka() as usize).rc(), Skok(OdmikIme::Ime(ime.clone())).rc()),
-                    _ => (Push(0).rc(), Skok(OdmikIme::Odmik(0)).rc()),
+                    _ => unreachable!("Funkcijski klic vedno kliče funkcijo"),
                 };
                 let pc = ProgramskiŠtevec((1 + argumenti.len() + skok.len()) as i32).rc();
 

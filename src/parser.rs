@@ -11,7 +11,7 @@ use tip::Tip;
 use tokenizer::{Token::{*, self}, L};
 use loci::*;
 
-use self::napaka::{Napake, OznakaNapake, Napaka};
+use self::napaka::{Napake, OznakaNapake::*, Napaka};
 
 #[derive(Debug)]
 struct Parser<'a> {
@@ -167,7 +167,7 @@ impl<'a> Parser<'a> {
                 self.spremenljivke.remove(&ime);
             }
             for (ime, _) in self.funkcije_stack.pop().unwrap() {
-                self.funkcije.remove(&ime.clone());
+                self.funkcije.remove(&ime);
             }
         }
 
@@ -175,25 +175,15 @@ impl<'a> Parser<'a> {
     }
 
     // zaporedje izrazov, ločeno z ";" in "\n"
-    fn zaporedje(&mut self, mut izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn zaporedje(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+        let zaporedje = razdeli(izraz, &[";", "\n"])?;
         let mut izrazi: Vec<Rc<Vozlišče>> = Vec::new();
-        let mut ločeno = loči_spredaj(izraz, &[";", "\n"]);
         let mut napake = Napake::new();
 
-        while ločeno.is_some() {
-            let (prvi_stavek, _, ostanek) = ločeno.unwrap()?;
-            match self.stavek(prvi_stavek) {
+        for stavek in zaporedje {
+            match self.stavek(stavek) {
                 Ok(stavek) => izrazi.push(stavek),
                 Err(n) => napake.razširi(n),
-            }
-
-            izraz = ostanek;
-            ločeno = loči_spredaj(izraz, &[";", "\n"]);
-        }
-        if izraz != &[] {
-            match self.stavek(izraz) {
-                Ok(stavek) => izrazi.push(stavek),
-                Err(n) => _ = napake.razširi(n),
             }
         }
 
@@ -209,12 +199,14 @@ impl<'a> Parser<'a> {
         match izraz {
             // makro funkcija
             [ ime @ Ime(..), Operator("!", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.makro_funkcija(ime, argumenti),
+            // inicializacija
+            [ Rezerviranka("naj", ..), ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.inicializacija(ime, ostanek),
             // prirejanje
             [ ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.prirejanje(ime, ostanek),
             // kombinirano prirejanje (+=, -=, *= ...)
             [ ime @ Ime(..), operator @ Operator(op, ..), ostanek @ .. ] => {
                 match prireditveni_op(op) {
-                    Brez => Err(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Neznan izraz")),
+                    Brez => Err(Napake::from_zaporedje(izraz, E1, "Neznan izraz")),
                     _ => self.kombinirano_prirejanje(ime, operator, ostanek),
                 }
             },
@@ -233,55 +225,64 @@ impl<'a> Parser<'a> {
             // prazen stavek
             [  ] => Ok(Prazno.rc()),
             // neznan stavek (noben od zgornjih)
-            _ => Err(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Neznan izraz")),
+            _ => Err(Napake::from_zaporedje(izraz, E1, "Neznan izraz")),
         }
     }
 
-    fn prirejanje(&mut self, ime: &Token<'a>, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn inicializacija(&mut self, ime: &Token<'a>, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
         let spremenljivka = match self.spremenljivke.get(ime.as_str()) {
-            Some(spr) => spr.clone(),
+            Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Spremenljivka že obstaja")),
             None => {
                 let tip = izraz.tip();
                 let naslov = match self.znotraj_funkcije {
                     true  => self.spremenljivke_stack.last().unwrap().values().map(|s| s.sprememba_stacka() as u32).sum::<u32>(),
-                    false =>self.spremenljivke.values().map(|s| s.sprememba_stacka() as u32).sum::<u32>(),
+                    false => self.spremenljivke.values().map(|s| s.sprememba_stacka() as u32).sum::<u32>(),
                 };
                 let z_odmikom = self.znotraj_funkcije;
                 let spr = Spremenljivka { tip, ime: ime.to_string(), naslov, z_odmikom }.rc();
 
                 self.spremenljivke_stack.last_mut().unwrap().insert(ime.as_str(), spr.clone());
                 self.spremenljivke.insert(ime.as_str(), spr.clone());
-                spr
+                Ok(spr)
             }
-        };
+        }?;
+
+        Ok(Prirejanje { spremenljivka, izraz }.rc())
+    }
+
+    fn prirejanje(&mut self, ime: &Token<'a>, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+        let izraz = self.drevo(izraz)?;
+        let spremenljivka = self.spremenljivke.get(ime.as_str())
+            .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?
+            .clone();
 
         Ok(Prirejanje { spremenljivka, izraz }.rc())
     }
 
     fn kombinirano_prirejanje(&mut self, ime: &Token, operator: &Token, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
         let spremenljivka = self.spremenljivke.get(ime.as_str())
-            .ok_or(Napake::from_zaporedje(&[*ime], OznakaNapake::E1, "Spremenljivka ne obstaja"))?.clone();
+            .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone();
         let drevo = self.drevo(izraz)?;
 
         let izraz = match prireditveni_op(operator.as_str()) {
             Aritmetični(op) => match (spremenljivka.tip(), drevo.tip()) {
                (Tip::Celo, Tip::Celo) => Ok(op(Tip::Celo, spremenljivka.clone(), drevo)),
                (Tip::Real, Tip::Real) => Ok(op(Tip::Real, spremenljivka.clone(), drevo)),
-               _ => Err(Napake::from_zaporedje(&[*operator], OznakaNapake::E1,
-                                               &format!("Neveljavna operacija: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
+               _ => Err(Napake::from_zaporedje(&[*operator], E3,
+                                               &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
             },
             Logični(op) => match (spremenljivka.tip(), drevo.tip()) {
                 (Tip::Bool, Tip::Bool) => Ok(op(spremenljivka.clone(), drevo)),
-               _ => Err(Napake::from_zaporedje(&[*operator], OznakaNapake::E1,
-                                               &format!("Neveljavna operacija: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
+               _ => Err(Napake::from_zaporedje(&[*operator], E3,
+                                               &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
             }
             Bitni(op) => match (spremenljivka.tip(), drevo.tip()) {
                 (Tip::Celo, Tip::Celo) => Ok(op(spremenljivka.clone(), drevo)),
-               _ => Err(Napake::from_zaporedje(&[*operator], OznakaNapake::E1,
-                                               &format!("Neveljavna operacija: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
+               _ => Err(Napake::from_zaporedje(&[*operator], E3,
+                                               &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
             }
-            Brez => Err(Napake::from_zaporedje(&[*operator], OznakaNapake::E1, "Neznan operator"))
+            Brez => Err(Napake::from_zaporedje(&[*operator], E4, "Neznan operator"))
         }?.rc();
 
         Ok(Prirejanje { spremenljivka, izraz }.rc())
@@ -290,24 +291,26 @@ impl<'a> Parser<'a> {
     fn vrni(&self, vrni: &Token, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
         let drevo = self.drevo(izraz)?;
         let spremenljivka = self.spremenljivke.get("0_vrni")
-            .ok_or(Napake::from_zaporedje(&[*vrni], OznakaNapake::E1, "nepričakovana beseda: 'vrni', uprabljena zunaj funkcije"))?.clone();
+            .ok_or(Napake::from_zaporedje(&[*vrni], E5, "nepričakovana beseda: 'vrni', uprabljena zunaj funkcije"))?.clone();
 
-        let prirejanje = Prirejanje { spremenljivka, izraz: drevo }.rc();
+        if drevo.tip() != spremenljivka.tip() {
+            return Err(Napake::from_zaporedje(izraz, E3, &format!("Ne morem vrniti spremenljivke tipa '{}' iz funkcije tipa '{}'", drevo.tip(), spremenljivka.tip())));
+        }
 
-        Ok(Vrni(prirejanje).rc())
+        Ok(Vrni(Prirejanje { spremenljivka, izraz: drevo }.rc()).rc())
     }
 
     fn pogojni_stavek(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
-        let (pogoj  , _, izraz) = loči_spredaj(izraz, &["{"])
-            .ok_or(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Pričakovan '{'"))??;
+        let (pogoj, _, izraz) = loči_spredaj(izraz, &["{"])
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '{'"))??;
 
         let (resnica, _, izraz) = loči_spredaj(izraz, &["}"])
-            .ok_or(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Pričakovan '}'"))??;
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '}'"))??;
 
         let laž = match loči_spredaj(izraz, &["čene"]) {
             Some(Ok((_, _, d))) => match d {
                 [ Rezerviranka("če", ..), .. ] | [ Ločilo("{", ..), .. ]  => Ok(d),
-                _ => Err(Napake::from_zaporedje(d, OznakaNapake::E1, "Pričakovan 'čene' ali '{'"))
+                _ => Err(Napake::from_zaporedje(d, E5, "Pričakovan 'čene' ali '{'"))
             },
             Some(Err(napaka)) => Err(napaka),
             None => Ok([].as_slice()),
@@ -315,11 +318,11 @@ impl<'a> Parser<'a> {
 
         let drevo = self.drevo(pogoj)?;
         if drevo.tip() != Tip::Bool {
-            return Err(Napake::from_zaporedje(pogoj, OznakaNapake::E1, "Pogoj mora biti Boolova vrednost"))
+            return Err(Napake::from_zaporedje(pogoj, E6, "Pogoj mora biti Boolova vrednost"))
         }
 
         Ok(PogojniStavek {
-            pogoj: drevo,
+            pogoj:   drevo,
             resnica: self.okvir(resnica)?,
             laž:     self.stavek(laž)?,
         }.rc())
@@ -327,14 +330,14 @@ impl<'a> Parser<'a> {
 
     fn zanka_dokler(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let (pogoj_izraz, _, izraz) = loči_spredaj(izraz, &["{"])
-            .ok_or(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Pričakovan '{'"))??;
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '{'"))??;
 
         let (telo_izraz, _, _) = loči_zadaj(izraz, &["}"])
-            .ok_or(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Pričakovan '}'"))??;
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '}'"))??;
 
         let pogoj = self.drevo(pogoj_izraz)?;
         if pogoj.tip() != Tip::Bool {
-            return Err(Napake::from_zaporedje(pogoj_izraz, OznakaNapake::E1, "Pogoj mora biti Boolova vrednost"));
+            return Err(Napake::from_zaporedje(pogoj_izraz, E6, "Pogoj mora biti Boolova vrednost"));
         }
 
         self.spremenljivke_stack.push(HashMap::new());
@@ -345,6 +348,72 @@ impl<'a> Parser<'a> {
     }
 
     fn funkcija(&mut self, ime: &Token, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+        let (_, _, izraz) = loči_spredaj(izraz, &["("])
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '('"))??;
+        let (parametri_izraz, _, izraz) = loči_spredaj(izraz, &[")"])
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan ')'"))??;
+        let (tip_izraz, oklepaj, izraz) = loči_spredaj(izraz, &["{"])
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '{'"))??;
+
+        let tip = match tip_izraz {
+            [] => Ok(Tip::Brez),
+            [Ločilo("->", ..)] => Err(Napake::from_zaporedje(&[*oklepaj], E5, "Za '->' pričakovan tip")),
+            [Ločilo("->", ..), ostanek @ ..] => Tip::from(ostanek),
+            _ =>  Err(Napake::from_zaporedje(tip_izraz, E5, "Pričakovan '-> <tip>'")),
+        }?;
+
+        let (telo, _, prazno) = loči_zadaj(izraz, &["}"])
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '}'"))??;
+
+        if prazno != [] {
+            return Err(Napake::from_zaporedje(prazno, E3, "Izraz funkcije se mora zaključiti z '}'"));
+        }
+        
+        let vrni = Spremenljivka { tip: tip.clone(), ime: "0_vrni".to_string(), naslov: 0, z_odmikom: true }.rc();
+        let pc   = Spremenljivka { tip: Tip::Celo, ime: "0_PC".to_string(), naslov: vrni.sprememba_stacka() as u32, z_odmikom: true }.rc();
+
+        let mut spr_funkcije = HashMap::from([
+            ("0_vrni", vrni.clone()),
+            ("0_PC", pc.clone()),
+        ]);
+
+        let mut naslov_nove = (vrni.sprememba_stacka() + pc.sprememba_stacka()) as u32;
+
+        let mut parametri = Vec::new(); 
+        let mut napake = Napake::new();
+
+        for parameter in parametri_izraz.split(|p| if let Ločilo(",", ..) = p { true } else { false }) {
+            // imena parametrov, ločena z vejicami
+            match parameter {
+                [] => break,
+                [Ime(..)] => (),
+                _ => _ = napake.add_napaka(Napaka::from_zaporedje(parameter, E3, "Neveljavno ime parametra")),
+            }
+
+            let (ime, dvopičje, tip) = loči_spredaj(parameter, &[":"])
+                .ok_or(Napake::from_zaporedje(parameter, E5, "Pričakovano ':'"))??;
+
+            if tip == [] {
+                return Err(Napake::from_zaporedje(&[*dvopičje], E5, "Za ':' pričakovan tip"))
+            }
+
+            let ime = &ime[0];
+            let tip = Tip::from(tip)?;
+
+            if spr_funkcije.contains_key(ime.as_str()) {
+                return Err(Napake::from_zaporedje(&[*ime], E7, "Imena parametrov morajo biti unikatna"))
+            }
+            else {
+                let spr = Spremenljivka { tip: tip.clone(), ime: ime.to_string(), naslov: naslov_nove, z_odmikom: true }.rc();
+                spr_funkcije.insert(ime.as_str(), spr.clone());
+                parametri.push(spr);
+                naslov_nove += tip.sprememba_stacka() as u32;
+            }
+        }
+
+        let podpis_funkcije = format!("{}({})", ime.as_str(), parametri.iter().map(|p| p.tip().to_string()).collect::<Vec<String>>().join(", "));
+        spr_funkcije.insert("0_OF", Spremenljivka { tip: Tip::Celo, ime: "0_OF".to_string(), naslov: naslov_nove, z_odmikom: true }.rc());
+
         let mut okolje_funkcije = Parser {
             spremenljivke_stack: self.spremenljivke_stack.clone(),
             funkcije_stack: self.funkcije_stack.clone(),
@@ -353,71 +422,15 @@ impl<'a> Parser<'a> {
             znotraj_funkcije: true,
         };
 
-        let (_, _, izraz) = loči_spredaj(izraz, &["("])
-            .ok_or(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Pričakovan '('"))??;
-
-        let (parametri_izraz, _, izraz) = loči_spredaj(izraz, &[")"])
-            .ok_or(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Pričakovan ')'"))??;
-
-        let (prazen, puščica, izraz) = loči_spredaj(izraz, &["->"])
-            .ok_or(Napake::from_zaporedje(&izraz[..1], OznakaNapake::E1, "Pričakovan '->'"))??;
-
-        if prazen != [] {
-            return Err(Napake::from_zaporedje(&[*puščica], OznakaNapake::E1, "Za ')' pričakovana '->'"));
-        }
-
-        let (tip_izraz, _, izraz) = loči_spredaj(izraz, &["{"])
-            .ok_or(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Pričakovan '{'"))??;
-
-        if tip_izraz == &[] {
-            return Err(Napake::from_zaporedje(&[*puščica], OznakaNapake::E1, "Za '->' pričakovan tip"));
-        }
-
-        let (telo, _, _) = loči_zadaj(izraz, &["}"])
-            .ok_or(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Pričakovan '}'"))??;
-
-        let tip = Tip::from(tip_izraz)?;
-
-        let mut spr_funkcije = HashMap::from([
-            ("0_vrni", Spremenljivka { tip: tip.clone(), ime: "0_vrni".to_string(), naslov: 0, z_odmikom: true }.rc()),
-            ("0_PC", Spremenljivka { tip: Tip::Celo, ime: "0_PC".to_string(), naslov: 1, z_odmikom: true }.rc()),
-        ]);
-
-        let mut parametri = Vec::new(); 
-
-        for parameter in parametri_izraz.split(|p| if let Ločilo(",", ..) = p { true } else { false }) {
-            if parameter.is_empty() {
-                break;
-            }
-
-            let (ime, dvopičje, tip) = loči_spredaj(parameter, &[":"])
-                .ok_or(Napake::from_zaporedje(parameter, OznakaNapake::E1, "Pričakovano ':'"))??;
-
-            if tip == [] {
-                return Err(Napake::from_zaporedje(&[*dvopičje], OznakaNapake::E1, "Za ':' pričakovan tip"))
-            }
-
-            let ime = &ime[0];
-            let tip = Tip::from(tip)?;
-
-            if spr_funkcije.contains_key(ime.as_str()) {
-                return Err(Napake::from_zaporedje(&[*ime], OznakaNapake::E1, "Imena parametrov morajo biti unikatna"))
-            }
-            else {
-                let naslov = spr_funkcije.len() as u32;
-                let spr = Spremenljivka { tip, ime: ime.to_string(), naslov, z_odmikom: true }.rc();
-                spr_funkcije.insert(ime.as_str(), spr.clone());
-                parametri.push(spr);
-            }
-        }
-
-        let podpis_funkcije = format!("{}({})", ime.as_str(), parametri.iter().map(|p| p.tip().to_string()).collect::<Vec<String>>().join(", "));
-
-        spr_funkcije.insert("0_OF", Spremenljivka { tip: Tip::Celo, ime: "0_OF".to_string(), naslov: spr_funkcije.len() as u32, z_odmikom: true }.rc());
-
         okolje_funkcije.spremenljivke_stack.push(spr_funkcije.clone());
         okolje_funkcije.spremenljivke.extend(spr_funkcije);
-        okolje_funkcije.funkcije.insert(podpis_funkcije.clone(), Funkcija { tip: tip.clone(), ime: podpis_funkcije.clone(), parametri: parametri.clone(), telo: Prazno.rc(), prostor: 0 }.rc());
+        okolje_funkcije.funkcije.insert(podpis_funkcije.clone(), Funkcija { 
+            tip: tip.clone(),
+            ime: podpis_funkcije.clone(),
+            parametri: parametri.clone(),
+            telo: Prazno.rc(),
+            prostor: 0 
+        }.rc());
 
         let telo = okolje_funkcije.zaporedje(telo)?;
         let spr_funkcije = okolje_funkcije.spremenljivke_stack.last().unwrap();
@@ -438,7 +451,7 @@ impl<'a> Parser<'a> {
         let podpis_funkcije = format!("{}({})", ime.as_str(), argumenti.iter().map(|p| p.tip().to_string()).collect::<Vec<String>>().join(", "));
 
         let funkcija = self.funkcije.get(&podpis_funkcije)
-            .ok_or(Napake::from_zaporedje(&[*ime], OznakaNapake::E1, &format!("Funkcija '{podpis_funkcije}' ne obstaja")))?
+            .ok_or(Napake::from_zaporedje(&[*ime], E2, &format!("Funkcija '{podpis_funkcije}' ne obstaja")))?
             .clone();
 
         Ok(FunkcijskiKlic { funkcija, argumenti: Zaporedje(argumenti).rc() }.rc())
@@ -449,21 +462,20 @@ impl<'a> Parser<'a> {
         let mut funkcijski_klici: Vec<Rc<Vozlišče>> = Vec::new();
         let mut napake = Napake::new();
 
-        let razdeljeno = argumenti_izraz.split(|t| t.as_str() == ",");
-
-        for (argument, izraz) in argumenti?.iter().zip(razdeljeno) {
+        for argument in &argumenti? {
             let podpis_funkcije = format!("{}({})", ime.as_str(), argument.tip());
             let funkcija = self.funkcije.get(&podpis_funkcije)
-                .ok_or(Napake::from_zaporedje(argumenti_izraz, OznakaNapake::E1, &format!("Funkcija '{podpis_funkcije}' ne obstaja")))?
+                .ok_or(Napake::from_zaporedje(argumenti_izraz, E2, &format!("Funkcija '{podpis_funkcije}' ne obstaja")))?
                 .clone();
 
             if let Funkcija { tip, .. } = &*funkcija {
-                if *tip != Tip::Brez {
-                    napake.add_napaka(Napaka::from_zaporedje(izraz, OznakaNapake::E1, "Funkcije, ki jih vključuje makro, morajo imeti tip 'brez'"));
+                if *tip == Tip::Brez {
+                    funkcijski_klici.push(FunkcijskiKlic { funkcija, argumenti: Zaporedje(vec![argument.rc()]).rc() }.rc());
                 }
-            }
-            else {
-                funkcijski_klici.push(FunkcijskiKlic { funkcija, argumenti: Zaporedje(vec![argument.rc()]).rc() }.rc());
+                else {
+                    napake.add_napaka(Napaka::from_zaporedje(&[*ime], E8,
+                                      &format!("{podpis_funkcije} -> {tip}: Funkcije, ki jih vključuje makro, ne smejo ničesar vračati")));
+                }
             }
         }
 
@@ -487,7 +499,7 @@ impl<'a> Parser<'a> {
                 let d = self.logični(d_izraz)?;
                 match (l.tip(), d.tip()) {
                     (Tip::Bool, Tip::Bool) => Ok(Disjunkcija(l, d).rc()),
-                    _ => Err(Napake::from_zaporedje(&[*op], OznakaNapake::E1, &format!("Neveljavna operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                    _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Neveljavna tipa za operacijo: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                 }
             },
             Some(Err(napaka)) => Err(napaka),
@@ -497,7 +509,7 @@ impl<'a> Parser<'a> {
                     let d = self.logični(d_izraz)?;
                     match (l.tip(), d.tip()) {
                         (Tip::Bool, Tip::Bool) => Ok(Konjunkcija(l, d).rc()),
-                        _ => Err(Napake::from_zaporedje(&[*op], OznakaNapake::E1, &format!("Neveljavna operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                        _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Neveljavna tipa za operacijo: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                     }
                 },
                 Some(Err(napaka)) => Err(napaka),
@@ -514,7 +526,7 @@ impl<'a> Parser<'a> {
                 let d = self.bitni(d_izraz)?;
                 match (l.tip(), d.tip()) {
                     (Tip::Celo, Tip::Celo) => Ok(bitni_op(op.as_str())(l, d).rc()),
-                    _ => Err(Napake::from_zaporedje(&[*op], OznakaNapake::E1, &format!("Neveljavna operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                    _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Neveljavna tipa za operacijo: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                 }
             },
             Some(Err(napaka)) => Err(napaka),
@@ -524,7 +536,7 @@ impl<'a> Parser<'a> {
                     let d = self.bitni(d_izraz)?;
                     match (l.tip(), d.tip()) {
                         (Tip::Celo, Tip::Celo) => Ok(bitni_op(op.as_str())(l, d).rc()),
-                        _ => Err(Napake::from_zaporedje(&[*op], OznakaNapake::E1, &format!("Neveljavna operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                        _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Neveljavna tipa za operacijo: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                     }
                 },
                 Some(Err(napaka)) => Err(napaka),
@@ -534,7 +546,7 @@ impl<'a> Parser<'a> {
                         let d = self.bitni(d_izraz)?;
                         match (l.tip(), d.tip()) {
                             (Tip::Celo, Tip::Celo) => Ok(bitni_op(op.as_str())(l, d).rc()),
-                            _ => Err(Napake::from_zaporedje(&[*op], OznakaNapake::E1, &format!("Neveljavna operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                            _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Neveljavna tipa za operacijo: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                         }
                     },
                     Some(Err(napaka)) => Err(napaka),
@@ -544,7 +556,7 @@ impl<'a> Parser<'a> {
                             let d = self.bitni(d_izraz)?;
                             match (l.tip(), d.tip()) {
                                 (Tip::Celo, Tip::Celo) => Ok(bitni_op(op.as_str())(l, d).rc()),
-                                _ => Err(Napake::from_zaporedje(&[*op], OznakaNapake::E1, &format!("Neveljavna operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                                _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Neveljavna tipa za operacijo: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                             }
                         },
                         Some(Err(napaka)) => Err(napaka),
@@ -564,7 +576,7 @@ impl<'a> Parser<'a> {
                 match (l.tip(), d.tip()) {
                     (Tip::Celo, Tip::Celo) => Ok(primerjalni_op(op.as_str()).unwrap()(Tip::Celo, l, d).rc()),
                     (Tip::Real, Tip::Real) => Ok(primerjalni_op(op.as_str()).unwrap()(Tip::Real, l, d).rc()),
-                    _ => Err(Napake::from_zaporedje(&[*op], OznakaNapake::E1, &format!("Neveljavna operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                    _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nekompatibilna tipa: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                 }
             },
             Some(Err(napaka)) => Err(napaka),
@@ -588,7 +600,7 @@ impl<'a> Parser<'a> {
                 match (l.tip(), d.tip()) {
                     (Tip::Celo, Tip::Celo) => Ok(aritmetični_op(op.as_str())(Tip::Celo, l, d).rc()),
                     (Tip::Real, Tip::Real) => Ok(aritmetični_op(op.as_str())(Tip::Real, l, d).rc()),
-                    _ => Err(Napake::from_zaporedje(&[*op], OznakaNapake::E1, &format!("Neveljavna operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                    _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nekompatibilna tipa: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                 }
             },
             Some(Err(napaka)) => Err(napaka),
@@ -604,7 +616,7 @@ impl<'a> Parser<'a> {
                 match (l.tip(), d.tip()) {
                     (Tip::Celo, Tip::Celo) => Ok(aritmetični_op(op.as_str())(Tip::Celo, l, d).rc()),
                     (Tip::Real, Tip::Real) => Ok(aritmetični_op(op.as_str())(Tip::Real, l, d).rc()),
-                    _ => Err(Napake::from_zaporedje(&[*op], OznakaNapake::E1, &format!("Neveljavna operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                    _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nekompatibilna tipa: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                 }
             },
             Some(Err(napaka)) => Err(napaka),
@@ -615,7 +627,7 @@ impl<'a> Parser<'a> {
                     match (l.tip(), d.tip()) {
                         (Tip::Celo, Tip::Celo) => Ok(aritmetični_op(op.as_str())(Tip::Celo, l, d).rc()),
                         (Tip::Real, Tip::Real) => Ok(aritmetični_op(op.as_str())(Tip::Real, l, d).rc()),
-                        _ => Err(Napake::from_zaporedje(&[*op], OznakaNapake::E1, &format!("Neveljavna operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                        _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nekompatibilna tipa: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                     }
                 },
                 Some(Err(napaka)) => Err(napaka),
@@ -626,51 +638,60 @@ impl<'a> Parser<'a> {
 
     fn osnovni(&self, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
         match izraz {
+            // bool
             [ Literal(L::Bool("resnica", ..)) ] => Ok(Resnica.rc()),
             [ Literal(L::Bool("laž", ..)) ] => Ok(Laž.rc()),
+            // števila
+            [ Literal(L::Celo(število, ..)) ] => Ok(Vozlišče::Celo(število.replace("_", "").parse().unwrap()).rc()),
+            [ Literal(L::Real(število, ..)) ] => Ok(Vozlišče::Real(število.replace("_", "").parse().unwrap()).rc()),
+            [ Operator("-", ..), Literal(L::Celo(str, ..)) ] => Ok(Vozlišče::Celo(-str.replace("_", "").parse::<i32>().unwrap()).rc()),
+            [ Operator("-", ..), Literal(L::Real(str, ..)) ] => Ok(Vozlišče::Real(-str.replace("_", "").parse::<f32>().unwrap()).rc()),
+            // niz
+            [ Literal(L::Niz(niz, ..)) ] => Ok(Vozlišče::Niz(interpoliraj_niz(&niz[1..niz.len()-1])).rc()),
+            // izraz v oklepaju
+            [ Ločilo("(", ..), ostanek @ .., Ločilo(")", ..) ] => self.drevo(ostanek),
+            // klic funkcije
+            [ ime @ Ime(..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.funkcijski_klic(ime, argumenti),
+            // zanikanje
             [ Operator("!", ..), ostanek @ .. ] => {
                 let drevo = self.drevo(ostanek)?;
                 match drevo.tip() {
                     Tip::Bool => Ok(Zanikaj(drevo).rc()),
-                    _ => Err(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Zanikati je mogoče samo Boolove vrednosti"))
+                    _ => Err(Napake::from_zaporedje(izraz, E9, "Zanikati je mogoče samo Boolove vrednosti"))
                 }
             },
-            // negativno število
-            [ Operator("-", ..), Literal(L::Celo(str, ..)) ] => Ok(Vozlišče::Celo(-str.parse::<i32>().unwrap()).rc()),
-            [ Operator("-", ..), Literal(L::Real(str, ..)) ] => Ok(Vozlišče::Real(-str.parse::<f32>().unwrap()).rc()),
+            // negacija
             [ Operator("-", ..), ostanek @ .. ] => {
                 let drevo = self.drevo(ostanek)?;
                 match drevo.tip() {
                     Tip::Celo => Ok(Odštevanje(Tip::Celo, Celo(0).rc(), drevo).rc()),
                     Tip::Real => Ok(Odštevanje(Tip::Real, Celo(0).rc(), drevo).rc()),
-                    _ => Err(Napake::from_zaporedje(ostanek, OznakaNapake::E1, "Izraza ni mogoče negirati"))
+                    _ => Err(Napake::from_zaporedje(ostanek, E9, "Izraza ni mogoče negirati"))
                 }
             },
-            [ Ločilo("(", ..), ostanek @ .., Ločilo(")", ..) ] => self.drevo(ostanek),
-            [ Literal(L::Celo(število, ..)) ] => Ok(Vozlišče::Celo(število.replace("_", "").parse().unwrap()).rc()),
-            [ Literal(L::Real(število, ..)) ] => Ok(Vozlišče::Real(število.replace("_", "").parse().unwrap()).rc()),
-            [ Literal(L::Niz(niz, ..)) ] => Ok(Vozlišče::Niz(interpoliraj_niz(&niz[1..niz.len()-1])).rc()),
-            [ ime @ Ime(..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.funkcijski_klic(ime, argumenti),
+            // spremenljivka
             [ ime @ Ime(..) ] => Ok(self.spremenljivke.get(ime.as_str())
-                                    .ok_or(Napake::from_zaporedje(&[*ime], OznakaNapake::E1, "Neznana spremenljivka"))?.clone()),
-            [ Operator("@", ..), ime @ Ime(..) ] => Ok(Referenca(self.spremenljivke.get(ime.as_str())
-                                                              .ok_or(Napake::from_zaporedje(&[*ime], OznakaNapake::E1, "Neznana spremenljivka"))?.clone()).rc()),
+                                    .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone()),
+            [ Operator("@", ..), ime @ Ime(..) ] =>
+                Ok(Referenca(self.spremenljivke.get(ime.as_str())
+                             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone()).rc()),
+
+            [ neznano @ Neznano(..) ] => Err(Napake::from_zaporedje(&[*neznano], E1, "Neznana beseda")),
             [] => Ok(Prazno.rc()),
-            _ => Err(Napake::from_zaporedje(izraz, OznakaNapake::E1, &format!("Neznan izraz: {izraz:?}")))
+            _ => Err(Napake::from_zaporedje(izraz, E1, &format!("Neznan izraz")))
         }
     }
 
 
     fn argumenti(&self, izraz: &'a[Token<'a>]) -> Result<Vec<Rc<Vozlišče>>, Napake> {
-        let razdeljeno = izraz.split(|t| t.as_str() == ",");
-        let mut argumenti = Vec::new();
         let mut napake = Napake::new();
+        let mut argumenti: Vec<Rc<Vozlišče>> = Vec::new();
+        let razdeljeno = razdeli(izraz, &[","])?;
 
         for argument in razdeljeno {
-            if argument == [] { break }
             match self.drevo(argument) {
                 Ok(drevo) => argumenti.push(drevo),
-                Err(n) => _ = napake.razširi(n),
+                Err(n) => napake.razširi(n),
             }
         }
 
@@ -681,7 +702,6 @@ impl<'a> Parser<'a> {
             Err(napake)
         }
     }
-
 }
 
 #[cfg(test)]

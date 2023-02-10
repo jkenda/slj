@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use super::tokenizer::Token;
 
 
@@ -17,6 +19,26 @@ pub struct Napaka {
 #[derive(Debug, Clone, PartialEq)]
 pub enum OznakaNapake {
     E1,
+    E2,
+    E3,
+    E4,
+    E5,
+    E6,
+    E7,
+    E8,
+    E9,
+}
+
+impl Napaka {
+    pub fn from_zaporedje(zaporedje: &[Token], oznaka: OznakaNapake, sporočilo: &str) -> Napaka {
+        let začetek = zaporedje[0].lokacija();
+        let konec = {
+            let žeton = zaporedje.last().unwrap();
+            let (vrstica, znak) = žeton.lokacija();
+            (vrstica, znak + žeton.as_str().chars().count())
+        };
+        Napaka { oznaka, sporočilo: sporočilo.to_string(), začetek, konec }
+    }
 }
 
 impl Napake {
@@ -40,44 +62,50 @@ impl Napake {
     pub fn razširi(&mut self, other: Self) {
         self.napake.extend(other.napake)
     }
-}
+    
+    pub fn izpiši(&self, vrstice: &Vec<&str>) {
+        for napaka in &self.napake {
+            let (prva_vrstica, prvi_znak) = napaka.začetek;
+            let (zadnja_vrstica, zadnji_znak) = napaka.konec;
 
-impl Napaka {
-    pub fn from_zaporedje(zaporedje: &[Token], oznaka: OznakaNapake, sporočilo: &str) -> Napaka {
-        let začetek = zaporedje[0].lokacija();
-        let konec = {
-            let žeton = zaporedje.last().unwrap();
-            let (vrstica, znak) = žeton.lokacija();
-            (vrstica, znak + žeton.as_str().chars().count())
-        };
-        Napaka { oznaka, sporočilo: sporočilo.to_string(), začetek, konec }
-    }
-}
+            println!("Napaka {:?}: {} ({prva_vrstica}, {prvi_znak})", napaka.oznaka, napaka.sporočilo);
+            if prva_vrstica > 1 {
+                println!("{:zamik$} | {}", prva_vrstica-1, vrstice[prva_vrstica-2], zamik=log10(zadnja_vrstica+2));
+            }
 
-impl IntoIterator for Napake {
-    type IntoIter = NapakeIntoIter;
-    type Item = Napaka;
+            for i in prva_vrstica-1..zadnja_vrstica {
+                println!("{:zamik$} | {}", i+1, vrstice[i], zamik=log10(zadnja_vrstica+2));
+            }
 
-    fn into_iter(self) -> Self::IntoIter {
-        NapakeIntoIter {
-            napake: self,
-            index: 0,
+            println!("{:zamik$} | {}{}", 
+                "", 
+                " ".repeat(usize::min(prvi_znak, zadnji_znak) - 1), 
+                "^".repeat(usize::abs_diff(prvi_znak, zadnji_znak)), zamik=log10(zadnja_vrstica+2));
+
+            println!("{:zamik$} | {}\n", 
+                zadnja_vrstica+1, 
+                if zadnja_vrstica != vrstice.len()-1  { vrstice[zadnja_vrstica] } else { "" }, zamik=log10(zadnja_vrstica+2));
         }
+
+        let št_napak = self.napake.len().to_string();
+        let zadnji_znak = št_napak.chars().last().unwrap();
+
+        println!("{} {}, ne morem nadaljevati", št_napak,
+                 if zadnji_znak == '1' {
+                     "napaka"
+                 }
+                 else if zadnji_znak == '2' {
+                     "napaki"
+                 }
+                 else if zadnji_znak == '3' || zadnji_znak == '4' {
+                     "napake"
+                 }
+                 else {
+                     "napak"
+                 });
     }
 }
 
-pub struct NapakeIntoIter {
-    napake: Napake,
-    index: usize,
+fn log10(x: usize) -> usize {
+    (x as f64).log10().ceil() as usize
 }
-
-impl Iterator for NapakeIntoIter {
-    type Item = Napaka;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let item = self.napake.napake.get(self.index)?.clone();
-        self.index += 1;
-        Some(item)
-    }
-}
-

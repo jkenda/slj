@@ -22,7 +22,7 @@ pub fn loči_spredaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &[&'static str]) -> Op
             }
 
         if navadnih < 0 || zavitih < 0 || oglatih < 0 {
-            return Some(Err(Napake::from_zaporedje(&[*tok], OznakaNapake::E1, "Naujemajoč oklepaj")))
+            return Some(Err(Napake::from_zaporedje(&[*tok], OznakaNapake::E1, "Neujemajoč oklepaj")))
         }
 
         match tok.as_str() {
@@ -80,6 +80,18 @@ pub fn loči_zadaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &[&'static str]) -> Opti
     }
 
     None
+}
+
+pub fn razdeli<'a, 'b>(izraz: &'b[Token<'a>], nizi: &[&'static str]) -> Result<Vec<&'b[Token<'a>]>, Napake> where 'a: 'b {
+    match loči_spredaj(izraz, nizi) {
+        Some(Ok((prvi_stavek, _, ostanek))) => {
+            let mut razdeljeno = vec![prvi_stavek];
+            razdeljeno.extend(razdeli(ostanek, nizi)?);
+            Ok(razdeljeno)
+        },
+        Some(Err(err)) => Err(err),
+        None => Ok(if izraz != [] { vec![izraz] } else { vec![] }),
+    }
 }
 
 pub fn interpoliraj_niz(niz: &str) -> String {

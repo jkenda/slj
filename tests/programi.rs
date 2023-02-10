@@ -34,7 +34,7 @@ fn natisni_izraz() {
 #[test]
 fn one_liner() {
     let mut izhod: Vec<u8> = Vec::new();
-    let program = r#"x=1;če x-1==0{natisni("x=1")}else{natisni("x!=1")}"#.to_string();
+    let program = r#"naj x=1;če x-1==0{natisni("x=1")}else{natisni("x!=1")}"#.to_string();
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "x=1");
 }
@@ -43,7 +43,7 @@ fn one_liner() {
 fn preveč_vrstic() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
-        x = 1
+        naj x = 1
         ;
 
         če x - 1 == 0
@@ -71,15 +71,14 @@ fn preveč_vrstic() {
 fn praštevil_do_1000() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
-        MEJA = 1000
-        praštevil = 2 # [2, 3]
-        kandidat = 5
+        naj MEJA = 1000
+        naj praštevil = 2 # [2, 3]
+        naj kandidat = 5
 
         dokler kandidat <= MEJA {
-            praštevilo = resnica
+            naj praštevilo = resnica
 
-            i = 2
-            dokler i <= kandidat / 2 && praštevilo {
+            naj i = 2; dokler i <= kandidat / 2 && praštevilo {
                 če kandidat % i == 0 {
                     praštevilo = laž
                 }
@@ -121,16 +120,19 @@ fn spr_pred_funkcijo() {
         funkcija init() -> celo {
             vrni 0
         }
-        spr = init()
+        naj spr = init()
         funkcija inkrement() -> brez {
             spr += 1
         }
-        i = 0; dokler i < 3 {
-            _ = inkrement()
+        naj i = 0; dokler i < 3 {
+            naj _ = inkrement()
             i += 1
         }
         natisni(spr)
     "#.to_string();
+    println!("{}", program.tokenize().parse().unwrap().to_string());
+    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
+    program.tokenize().parse().unwrap().to_program().zaženi_debug();
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "3");
 }
@@ -139,7 +141,7 @@ fn spr_pred_funkcijo() {
 fn makro_funkcija() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
-        a = 0; b = 0.0
+        naj a = 0; naj b = 0.0
         funkcija prištej(x: celo) -> brez {
             a += x
         }

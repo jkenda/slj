@@ -67,9 +67,9 @@ impl<'a> Token<'a> {
         use Token::*;
         use L::*;
         match self {
-            Operator(.., v, z) | Ločilo(.., v, z) | Rezerviranka(.., v, z) | Ime(.., v, z) | Tip(.., v, z) | Neznano(.., v, z) => format!("({v}. vrstica, {z}. znak)"),
+            Operator(.., v, z) | Ločilo(.., v, z) | Rezerviranka(.., v, z) | Ime(.., v, z) | Tip(.., v, z) | Neznano(.., v, z) => format!("[{v}, {z})"),
             Token::Literal(literal) => match literal {
-                Bool(.., v, z) | Celo(.., v, z) | Real(.., v, z) | Znak(.., v, z) | Niz(.., v, z) => format!("({v}. vrstica, {z}. znak)"),
+                Bool(.., v, z) | Celo(.., v, z) | Real(.., v, z) | Znak(.., v, z) | Niz(.., v, z) => format!("[{v}, {z})"),
             }
         }
     }
@@ -145,7 +145,7 @@ impl<'a> Tokenizer {
         const PRESLEDEK: &str = r"([^\S\n]*)";
 
         let regexi: Vec<(Regex, fn(&'a str, usize, usize) -> Token<'a>)> = vec![
-            (Regex::new(&format!(r"^{PRESLEDEK}(in|ali|čene|če|dokler|za|funkcija|vrni|prekini){ZADNJA_MEJA}")).unwrap(), Rezerviranka),
+            (Regex::new(&format!(r"^{PRESLEDEK}(naj|čene|če|dokler|za|funkcija|vrni|prekini){ZADNJA_MEJA}")).unwrap(), Rezerviranka),
             (Regex::new(&format!(r"^{PRESLEDEK}(brez|bool|celo|real|znak|niz){ZADNJA_MEJA}")).unwrap(), Tip),
             (Regex::new(&format!(r"^{PRESLEDEK}(resnica|laž){ZADNJA_MEJA}")).unwrap(), bool),
             (Regex::new(&format!(r"^{PRESLEDEK}('[^\n']')")).unwrap(), znak),
@@ -235,8 +235,7 @@ mod testi {
 
     #[test]
     fn rezervirane_besede() {
-        assert_eq!("in".to_owned().tokenize(), [Rezerviranka("in", 1, 1)]);
-        assert_eq!("ali".to_owned().tokenize(), [Rezerviranka("ali", 1, 1)]);
+        assert_eq!("naj".to_owned().tokenize(), [Rezerviranka("naj", 1, 1)]);
         assert_eq!("čene".to_owned().tokenize(), [Rezerviranka("čene", 1, 1)]);
         assert_eq!("če".to_owned().tokenize(), [Rezerviranka("če", 1, 1)]);
         assert_eq!("dokler".to_owned().tokenize(), [Rezerviranka("dokler", 1, 1)]);
@@ -273,7 +272,7 @@ mod testi {
         assert_eq!("__groot__".to_owned().tokenize(), [Ime("__groot__", 1, 1)]);
         assert_eq!("kamelskaTelewizje".to_owned().tokenize(), [Ime("kamelskaTelewizje", 1, 1)]);
         assert_eq!("RabeljskoJezero123".to_owned().tokenize(), [Ime("RabeljskoJezero123", 1, 1)]);
-        assert_ne!("0cyka".to_owned().tokenize(), [Ime("0cyka", 1, 1)]);
+        assert_eq!("0cyka".to_owned().tokenize(), [Neznano("0cyka", 1, 1)]);
     }
 
     #[test]

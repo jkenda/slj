@@ -357,7 +357,7 @@ impl Vozlišče {
             Znak(_) => 1,
             Niz(niz) => niz.chars().count() as isize,
             Referenca(_) => 1,
-            Spremenljivka{ .. } => 1,
+            Spremenljivka{ tip, .. } => tip.sprememba_stacka(),
 
             Resnica => 1,
             Laž     => 1,
