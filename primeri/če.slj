@@ -1,4 +1,4 @@
-x=1;y=2
+naj x=1; naj y=2
 
 # izpiši razliko
 če x == y {
@@ -9,17 +9,14 @@ x=1;y=2
     natisni(y - x, "\n")
 }
 
-i = 0
-dokler i < 10 {
+naj i = 0; dokler i < 10 {
     natisni(i, ", ")
     i = i + 1
 }
 natisni("\n\n")
 
-i = 0
-dokler i < 10 {
-    j = 0
-    dokler j < 10 {
+i = 0; dokler i < 10 {
+    naj j = 0; dokler j < 10 {
         natisni(10 * i + j, " ")
         j += 1
     }

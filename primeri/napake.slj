@@ -11,9 +11,9 @@ funkcija štiri() -> celo { vrni 1+1+1+1
 funkcija štiri() -> celo vrni 1+1+1+1 }
 funkcija seštej(a: celo, a: celo) -> celo { vrni a + b }
 
-_ = dva()
+naj _ = dva()
 
-funkcija dva(a: celo) -> brez {
+funkcija dva(a: celo) {
     natisni(a)
 }
 dva!(7)
@@ -26,12 +26,12 @@ funkcija prištej_ena(a: celo) -> celo {
 }
 prištej_ena!(3, 4)
 
-a = 2 * 7
+naj a = 2 * 7
 
-a = 1
-b = 2.3
-c = resnica
-a = a + b
+naj a = 1
+naj b = 2.3
+naj c = resnica
+naj a = a + b
 a = a - b
 a = a * b
 a = a / b
@@ -40,8 +40,11 @@ a = a && b
 a = a || b
 a = !a
 c = !c
-d = !d
+naj d = !d
 d = @d
 d = @c
 d = @(c+1)
 
+funkcija vrni_napačno() -> real {
+    vrni 42
+}

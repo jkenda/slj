@@ -3,10 +3,9 @@ funkcija je_deljivo(deljenec: celo, delitelj: celo) -> bool {
 }
 
 funkcija je_praštevilo(kandidat: celo) -> bool {
-    praštevilo = resnica
+    naj praštevilo = resnica
 
-    i = 2
-    dokler i <= kandidat / 2 && praštevilo {
+    naj i = 2; dokler i <= kandidat / 2 && praštevilo {
         če je_deljivo(kandidat, i) {
             praštevilo = laž
         }
@@ -16,9 +15,9 @@ funkcija je_praštevilo(kandidat: celo) -> bool {
     vrni praštevilo
 }
 
-MEJA = 100_000
-praštevil = 2 # [2, 3]
-kandidat = 5
+naj MEJA = 100_000
+naj praštevil = 2 # [2, 3]
+naj kandidat = 5
 
 dokler kandidat <= MEJA {
     če je_praštevilo(kandidat) {
