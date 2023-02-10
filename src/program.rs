@@ -344,16 +344,16 @@ impl Program {
                 MODF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    % stack.pop().unwrap().f;  *pc + 1 },
                 POWF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f.powf(stack.pop().unwrap().f); *pc + 1 },
 
-                ADDI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i   + stack.pop().unwrap().i;         *pc + 1 },
-                SUBI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i   - stack.pop().unwrap().i;         *pc + 1 },
-                MULI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i   * stack.pop().unwrap().i;         *pc + 1 },
-                DIVI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i   / stack.pop().unwrap().i;         *pc + 1 },
-                MODI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i   % stack.pop().unwrap().i;         *pc + 1 },
-                POWI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.pow(stack.pop().unwrap().i as u32); *pc + 1 },
+                ADDI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_add(stack.pop().unwrap().i);        *pc + 1 },
+                SUBI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_sub(stack.pop().unwrap().i);        *pc + 1 },
+                MULI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_mul(stack.pop().unwrap().i);        *pc + 1 },
+                DIVI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_div(stack.pop().unwrap().i);        *pc + 1 },
+                MODI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_rem(stack.pop().unwrap().i);        *pc + 1 },
+                POWI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_pow(stack.pop().unwrap().i as u32); *pc + 1 },
 
                 BOR  => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i | stack.pop().unwrap().i;  *pc + 1 },
-                BXOR => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i | stack.pop().unwrap().i;  *pc + 1 },
-                BAND => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i | stack.pop().unwrap().i;  *pc + 1 },
+                BXOR => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i ^ stack.pop().unwrap().i;  *pc + 1 },
+                BAND => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i & stack.pop().unwrap().i;  *pc + 1 },
 
                 BSLL => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i << stack.pop().unwrap().i;  *pc + 1 },
                 BSLD => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i >> stack.pop().unwrap().i;  *pc + 1 },
@@ -407,8 +407,8 @@ impl Program {
                 POWI => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i.pow(stack.pop()?.i as u32); *pc + 1 },
 
                 BOR  => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i | stack.pop()?.i;  *pc + 1 },
-                BXOR => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i | stack.pop()?.i;  *pc + 1 },
-                BAND => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i | stack.pop()?.i;  *pc + 1 },
+                BXOR => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i ^ stack.pop()?.i;  *pc + 1 },
+                BAND => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i & stack.pop()?.i;  *pc + 1 },
 
                 BSLL => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i << stack.pop()?.i;  *pc + 1 },
                 BSLD => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i >> stack.pop()?.i;  *pc + 1 },
@@ -692,6 +692,30 @@ mod test {
         Program::korak(&POWF, &mut stack, &mut pc, &mut addroff, &mut stdout);
         assert_eq!(stack, [Podatek { f: 32.0 }]);
         assert_eq!(pc, 35);
+        assert_eq!(addroff, 0);
+
+        stack = vec![Podatek { i: 1234 }, Podatek { i: 5678 }];
+
+        // BAND
+        Program::korak(&BAND, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        assert_eq!(stack, [Podatek { i: 1234 & 5678 }]);
+        assert_eq!(pc, 36);
+        assert_eq!(addroff, 0);
+
+        stack = vec![Podatek { i: 1234 }, Podatek { i: 5678 }];
+
+        // BXOR
+        Program::korak(&BXOR, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        assert_eq!(stack, [Podatek { i: 1234 ^ 5678 }]);
+        assert_eq!(pc, 37);
+        assert_eq!(addroff, 0);
+
+        stack = vec![Podatek { i: 1234 }, Podatek { i: 5678 }];
+
+        // BOR
+        Program::korak(&BOR, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        assert_eq!(stack, [Podatek { i: 1234 | 5678 }]);
+        assert_eq!(pc, 38);
         assert_eq!(addroff, 0);
     }
 

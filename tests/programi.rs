@@ -125,14 +125,11 @@ fn spr_pred_funkcijo() {
             spr += 1
         }
         naj i = 0; dokler i < 3 {
-            naj _ = inkrement()
+            inkrement()
             i += 1
         }
         natisni(spr)
     "#.to_string();
-    println!("{}", program.tokenize().parse().unwrap().to_string());
-    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
-    program.tokenize().parse().unwrap().to_program().zaženi_debug();
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "3");
 }

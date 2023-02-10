@@ -197,8 +197,8 @@ impl<'a> Parser<'a> {
 
     fn stavek(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match izraz {
-            // makro funkcija
-            [ ime @ Ime(..), Operator("!", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.makro_funkcija(ime, argumenti),
+            // multifunkcijski klic
+            [ ime @ Ime(..), Operator("!", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.multi_klic(ime, argumenti),
             // inicializacija
             [ Rezerviranka("naj", ..), ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.inicializacija(ime, ostanek),
             // prirejanje
@@ -214,6 +214,8 @@ impl<'a> Parser<'a> {
             [ Ločilo("{", ..), vmes @ .., Ločilo("}", ..) ] => self.okvir(vmes),
             // funkcija natisni (zaenkrat še posebna funkcija)
             [ Ime("natisni", ..), Ločilo("(", ..), vmes @ .., Ločilo(")", ..) ] => Ok(Natisni(self.argumenti(vmes)?).rc()),
+            // funkcijski klic
+            [ ime @ Ime(..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.funkcijski_klic_zavrzi_izhod(ime, argumenti),
             // pogojni stavek
             [ Rezerviranka("če", ..), ostanek @ .. ] => self.pogojni_stavek(ostanek),
             // zanka dokler (while loop)
@@ -457,7 +459,17 @@ impl<'a> Parser<'a> {
         Ok(FunkcijskiKlic { funkcija, argumenti: Zaporedje(argumenti).rc() }.rc())
     }
 
-    fn makro_funkcija<'b>(&self, ime: &'b Token<'a>, argumenti_izraz: &'b [Token<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
+    fn funkcijski_klic_zavrzi_izhod(&self, ime: &Token, argumenti: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+        let klic = self.funkcijski_klic(ime, argumenti)?;
+        let velikost = klic.tip().sprememba_stacka();
+
+        Ok(Zaporedje(vec![
+            klic,
+            Pop(velikost as usize).rc(),
+        ]).rc())
+    }
+
+    fn multi_klic<'b>(&self, ime: &'b Token<'a>, argumenti_izraz: &'b [Token<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
         let argumenti = self.argumenti(argumenti_izraz);
         let mut funkcijski_klici: Vec<Rc<Vozlišče>> = Vec::new();
         let mut napake = Napake::new();
@@ -474,7 +486,7 @@ impl<'a> Parser<'a> {
                 }
                 else {
                     napake.add_napaka(Napaka::from_zaporedje(&[*ime], E8,
-                                      &format!("{podpis_funkcije} -> {tip}: Funkcije, ki jih vključuje makro, ne smejo ničesar vračati")));
+                                      &format!("{podpis_funkcije} -> {tip}: Funkcije, ki jih vključuje multifunkcijski klic, ne smejo ničesar vračati")));
                 }
             }
         }
