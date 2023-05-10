@@ -1,11 +1,11 @@
-naj MEJA = 100_000
+naj MEJA = 1_000_000
 naj praštevil = 2 # [2, 3]
 naj kandidat = 5
 
 dokler kandidat <= MEJA {
     naj praštevilo = resnica
 
-    naj i = 2; dokler i <= kandidat / 2 && praštevilo {
+    naj i = 2; dokler i**2 <= kandidat && praštevilo {
         če kandidat % i == 0 {
             praštevilo = laž
         }

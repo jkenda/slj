@@ -23,4 +23,5 @@ i = 0; dokler i < 10 {
     natisni("\n")
     i += 1
 }
-natisni(100, "\n")
+natisni(10 * 10 + 0, "\n")
+
