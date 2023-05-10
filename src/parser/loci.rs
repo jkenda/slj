@@ -1,6 +1,7 @@
 use super::{tokenizer::Token, napaka::{Napake, OznakaNapake}};
 
-pub fn loči_spredaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &[&'static str]) -> Option<Result<(&'b[Token<'a>], &'b Token<'a>, &'b[Token<'a>]), Napake>>
+pub fn loči_spredaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &'b[&'static str]) ->
+    Option<Result<(&'b[Token<'a>], &'b Token<'a>, &'b[Token<'a>]), Napake>>
     where 'a: 'b
 {
     let mut navadnih: isize = 0;
@@ -82,7 +83,7 @@ pub fn loči_zadaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &[&'static str]) -> Opti
     None
 }
 
-pub fn razdeli<'a, 'b>(izraz: &'b[Token<'a>], nizi: &[&'static str]) -> Result<Vec<&'b[Token<'a>]>, Napake> where 'a: 'b {
+pub fn razdeli<'a, 'b>(izraz: &'b[Token<'a>], nizi: &'b[&'static str]) -> Result<Vec<&'b[Token<'a>]>, Napake> where 'a: 'b {
     match loči_spredaj(izraz, nizi) {
         Some(Ok((prvi_stavek, _, ostanek))) => {
             let mut razdeljeno = vec![prvi_stavek];

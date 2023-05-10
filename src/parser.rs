@@ -195,7 +195,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn stavek(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn stavek<'b>(&mut self, izraz: &'b[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
         match izraz {
             // multifunkcijski klic
             [ ime @ Ime(..), Operator("!", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.multi_klic(ime, argumenti),
@@ -231,7 +231,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn inicializacija(&mut self, ime: &Token<'a>, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn inicializacija(&mut self, ime: &Token<'a>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
         let spremenljivka = match self.spremenljivke.get(ime.as_str()) {
             Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Spremenljivka že obstaja")),
@@ -253,7 +253,7 @@ impl<'a> Parser<'a> {
         Ok(Prirejanje { spremenljivka, izraz }.rc())
     }
 
-    fn prirejanje(&mut self, ime: &Token<'a>, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn prirejanje(&mut self, ime: &Token<'a>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
         let spremenljivka = self.spremenljivke.get(ime.as_str())
             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?
@@ -262,7 +262,7 @@ impl<'a> Parser<'a> {
         Ok(Prirejanje { spremenljivka, izraz }.rc())
     }
 
-    fn kombinirano_prirejanje(&mut self, ime: &Token, operator: &Token, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn kombinirano_prirejanje(&mut self, ime: &Token, operator: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let spremenljivka = self.spremenljivke.get(ime.as_str())
             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone();
         let drevo = self.drevo(izraz)?;
@@ -290,7 +290,7 @@ impl<'a> Parser<'a> {
         Ok(Prirejanje { spremenljivka, izraz }.rc())
     }
 
-    fn vrni(&self, vrni: &Token, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn vrni(&mut self, vrni: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let drevo = self.drevo(izraz)?;
         let spremenljivka = self.spremenljivke.get("0_vrni")
             .ok_or(Napake::from_zaporedje(&[*vrni], E5, "nepričakovana beseda: 'vrni', uprabljena zunaj funkcije"))?.clone();
@@ -431,7 +431,8 @@ impl<'a> Parser<'a> {
             ime: podpis_funkcije.clone(),
             parametri: parametri.clone(),
             telo: Prazno.rc(),
-            prostor: 0 
+            prostor: 0,
+            št_klicev: 0,
         }.rc());
 
         let telo = okolje_funkcije.zaporedje(telo)?;
@@ -441,14 +442,14 @@ impl<'a> Parser<'a> {
             - spr_funkcije["0_PC"].sprememba_stacka() as usize
             - parametri.iter().map(|p| p.sprememba_stacka() as usize).sum::<usize>()
             - spr_funkcije["0_OF"].sprememba_stacka() as usize;
-        let fun = Funkcija { tip, ime: podpis_funkcije.clone(), parametri, telo, prostor }.rc();
+        let fun = Funkcija { tip, ime: podpis_funkcije.clone(), parametri, telo, prostor, št_klicev: 0 }.rc();
 
         self.funkcije_stack.last_mut().unwrap().insert(podpis_funkcije.clone(), fun.clone());
         self.funkcije.insert(podpis_funkcije, fun.clone());
         Ok(fun)
     }
 
-    fn funkcijski_klic(&self, ime: &Token, argumenti: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn funkcijski_klic<'b>(&mut self, ime: &Token, argumenti: &'b[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let argumenti = self.argumenti(argumenti)?;
         let podpis_funkcije = format!("{}({})", ime.as_str(), argumenti.iter().map(|p| p.tip().to_string()).collect::<Vec<String>>().join(", "));
 
@@ -456,10 +457,20 @@ impl<'a> Parser<'a> {
             .ok_or(Napake::from_zaporedje(&[*ime], E2, &format!("Funkcija '{podpis_funkcije}' ne obstaja")))?
             .clone();
 
+        if let Funkcija { tip, ime, parametri, telo, prostor, št_klicev } = &*funkcija {
+            self.funkcije.insert(podpis_funkcije, Funkcija {
+                tip: tip.clone(),
+                ime: ime.clone(),
+                parametri: parametri.clone(),
+                telo: telo.clone(),
+                prostor: *prostor,
+                št_klicev: št_klicev + 1 }.rc());
+        }
+
         Ok(FunkcijskiKlic { funkcija, argumenti: Zaporedje(argumenti).rc() }.rc())
     }
 
-    fn funkcijski_klic_zavrzi_izhod(&self, ime: &Token, argumenti: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn funkcijski_klic_zavrzi_izhod(&mut self, ime: &Token, argumenti: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let klic = self.funkcijski_klic(ime, argumenti)?;
         let velikost = klic.tip().sprememba_stacka();
 
@@ -469,7 +480,7 @@ impl<'a> Parser<'a> {
         ]).rc())
     }
 
-    fn multi_klic<'b>(&self, ime: &'b Token<'a>, argumenti_izraz: &'b [Token<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
+    fn multi_klic<'b>(&mut self, ime: &'b Token<'a>, argumenti_izraz: &'b [Token<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
         let argumenti = self.argumenti(argumenti_izraz);
         let mut funkcijski_klici: Vec<Rc<Vozlišče>> = Vec::new();
         let mut napake = Napake::new();
@@ -499,12 +510,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn drevo(&self, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn drevo(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         self.logični(izraz)
     }
 
     // logični izrazi (razen negacije, ki je pri osnovnih)
-    fn logični(&self, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn logični(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match loči_zadaj(izraz, &["||"]) {
             Some(Ok((l_izraz, op, d_izraz))) => {
                 let l = self.logični(l_izraz)?;
@@ -531,7 +542,7 @@ impl<'a> Parser<'a> {
     }
 
     // izrazi bitne manipulacije
-    fn bitni(&self, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn bitni(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match loči_zadaj(izraz, &["|"]) {
             Some(Ok((l_izraz, op, d_izraz))) => {
                 let l = self.bitni(l_izraz)?;
@@ -580,7 +591,7 @@ impl<'a> Parser<'a> {
     }
 
     // primerjalni izrazi
-    fn primerjalni(&self, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn primerjalni(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match loči_zadaj(izraz, PRIMERJALNI_OP.as_slice()) {
             Some(Ok((l_izraz, op, d_izraz))) => {
                 let l = self.primerjalni(l_izraz)?;
@@ -598,7 +609,7 @@ impl<'a> Parser<'a> {
 
     // aritmetični izrazi
 
-    fn aditivni(&self, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn aditivni(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match loči_zadaj(izraz, &["+", "-"]) {
             // "-" kot unarni operator
             Some(Ok(([], Operator("-", ..), ..))) => self.aritmetični(izraz),
@@ -620,7 +631,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn aritmetični(&self, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn aritmetični(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match loči_zadaj(izraz, &["*", "/", "%"]) {
             Some(Ok((l_izraz, op, d_izraz))) => {
                 let l = self.aritmetični(l_izraz)?;
@@ -648,7 +659,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn osnovni(&self, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn osnovni(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match izraz {
             // bool
             [ Literal(L::Bool("resnica", ..)) ] => Ok(Resnica.rc()),
@@ -664,6 +675,8 @@ impl<'a> Parser<'a> {
             [ Ločilo("(", ..), ostanek @ .., Ločilo(")", ..) ] => self.drevo(ostanek),
             // klic funkcije
             [ ime @ Ime(..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.funkcijski_klic(ime, argumenti),
+            // pretvorba tipa 
+            [ izraz @ .., Operator("kot", ..), tip @ Tip(..) ] => self.pretvorba(izraz, tip),
             // zanikanje
             [ Operator("!", ..), ostanek @ .. ] => {
                 let drevo = self.drevo(ostanek)?;
@@ -694,8 +707,22 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn pretvorba(&mut self, izraz: &[Token<'a>], tip_ven_izraz: &Token) -> Result<Rc<Vozlišče>, Napake> {
+        let drevo = self.drevo(izraz)?.rc();
+        let tip_noter = drevo.tip();
+        let tip_ven = Tip::from(&[*tip_ven_izraz])?;
 
-    fn argumenti(&self, izraz: &'a[Token<'a>]) -> Result<Vec<Rc<Vozlišče>>, Napake> {
+        match (tip_noter.clone(), tip_ven.clone()) {
+            (Tip::Real, Tip::Celo) => Ok(RealVCelo(drevo).rc()),
+            (Tip::Celo, Tip::Real) => Ok(CeloVReal(drevo).rc()),
+            (a, b) if a == b => Ok(drevo),
+            _ => Err(Napake::from_zaporedje(&[*tip_ven_izraz], E1,
+                    &format!("Tipa {} ni mogoče pretvoriti v {}", tip_noter, tip_ven)))
+        }
+    }
+
+
+    fn argumenti<'b>(&mut self, izraz: &'b[Token<'a>]) -> Result<Vec<Rc<Vozlišče>>, Napake> where 'a: 'b {
         let mut napake = Napake::new();
         let mut argumenti: Vec<Rc<Vozlišče>> = Vec::new();
         let razdeljeno = razdeli(izraz, &[","])?;
@@ -726,7 +753,7 @@ mod testi {
 
     #[test]
     fn poišči() {
-        assert_eq!(loči_spredaj("{}".to_string().tokenize().as_slice(), &["{"]), Some(Ok(([].as_slice(), &Ločilo("{", 1, 1), [Ločilo("}", 1, 2)].as_slice()))));
+        assert_eq!(loči_spredaj("{}".tokenize().as_slice(), &["{"]), Some(Ok(([].as_slice(), &Ločilo("{", 1, 1), [Ločilo("}", 1, 2)].as_slice()))));
     }
 
     #[test]
@@ -752,6 +779,7 @@ mod testi {
                                 }.rc()).rc()
                 ]).rc(),
                 prostor: 0,
+                št_klicev: 0,
             }.rc());
         assert_eq!(parser.osnovni([ Ime("fun", 1, 1), Ločilo("(", 1, 4), Ločilo(")", 1, 5)].as_slice()).unwrap(), FunkcijskiKlic { 
             funkcija: parser.funkcije["fun()"].clone(),
@@ -763,8 +791,19 @@ mod testi {
     }
 
     #[test]
+    fn pretvorba() {
+        let mut parser = Parser::new();
+        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("kot", 1, 3), Tip("real", 1, 7) ].as_slice()).unwrap(),
+            CeloVReal(Celo(3).rc()).rc());
+        assert_eq!(parser.drevo([ Literal(L::Real("3.0", 1, 1)), Operator("kot", 1, 3), Tip("celo", 1, 7) ].as_slice()).unwrap(),
+            RealVCelo(Real(3.0).rc()).rc());
+        assert_eq!(parser.drevo([ Literal(L::Real("3.0", 1, 1)), Operator("kot", 1, 3), Tip("real", 1, 7) ].as_slice()).unwrap(),
+            Real(3.0).rc());
+    }
+
+    #[test]
     fn aritmetični() {
-        let parser = Parser::new();
+        let mut parser = Parser::new();
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("+", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
             Seštevanje(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("-", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
@@ -778,17 +817,17 @@ mod testi {
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("**", 1, 2), Literal(L::Celo("2", 1, 4)) ].as_slice()).unwrap(),
             Potenca(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
 
-        assert_eq!(parser.drevo("-(3-4)".to_string().tokenize().as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Odštevanje(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc());
-        assert_eq!(parser.drevo("-3".to_string().tokenize().as_slice()).unwrap(), Celo(-3).rc());
-        assert_eq!(parser.drevo("-3 * 2".to_string().tokenize().as_slice()).unwrap(), Množenje(Tip::Celo, Celo(-3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.drevo("3 * -2".to_string().tokenize().as_slice()).unwrap(), Množenje(Tip::Celo, Celo(3).rc(), Celo(-2).rc()).rc());
-        assert_eq!(parser.drevo("--1".to_string().tokenize().as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Celo(-1).rc()).rc());
-        assert_eq!(parser.drevo("2 + -1".to_string().tokenize().as_slice()).unwrap(), Seštevanje(Tip::Celo, Celo(2).rc(), Celo(-1).rc()).rc());
+        assert_eq!(parser.drevo("-(3-4)".tokenize().as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Odštevanje(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc());
+        assert_eq!(parser.drevo("-3".tokenize().as_slice()).unwrap(), Celo(-3).rc());
+        assert_eq!(parser.drevo("-3 * 2".tokenize().as_slice()).unwrap(), Množenje(Tip::Celo, Celo(-3).rc(), Celo(2).rc()).rc());
+        assert_eq!(parser.drevo("3 * -2".tokenize().as_slice()).unwrap(), Množenje(Tip::Celo, Celo(3).rc(), Celo(-2).rc()).rc());
+        assert_eq!(parser.drevo("--1".tokenize().as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Celo(-1).rc()).rc());
+        assert_eq!(parser.drevo("2 + -1".tokenize().as_slice()).unwrap(), Seštevanje(Tip::Celo, Celo(2).rc(), Celo(-1).rc()).rc());
     }
 
     #[test]
     fn primerjalni() {
-        let parser = Parser::new();
+        let mut parser = Parser::new();
         assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1)), Operator("==", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
             Enako(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1)), Operator("!=", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),

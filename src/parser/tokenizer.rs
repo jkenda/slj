@@ -129,7 +129,7 @@ pub trait Tokenize<'a> {
     fn tokenize(&'a self) -> Vec<Token<'a>>;
 }
 
-impl<'a> Tokenize<'a> for String {
+impl<'a> Tokenize<'a> for &str {
     fn tokenize(&'a self) -> Vec<Token<'a>> {
         Tokenizer::tokenize(self)
     }
@@ -152,9 +152,10 @@ impl<'a> Tokenizer {
             (Regex::new(&format!( "^{PRESLEDEK}(\"[^\n\"]*\")")).unwrap(), niz),
             (Regex::new(&format!(r"^{PRESLEDEK}(\d+\.\d+|\d{{1,3}}(_\d{{3}})+\.(\d{{3}}_)+\d{{1,3}}){ZADNJA_MEJA}")).unwrap(), real),
             (Regex::new(&format!(r"^{PRESLEDEK}(\d+|\d{{1,3}}(_\d{{3}})+){ZADNJA_MEJA}")).unwrap(), celo),
-            (Regex::new(&format!(r"^{PRESLEDEK}([_\p{{Letter}}][\w\d]*){ZADNJA_MEJA}")).unwrap(), Ime),
             (Regex::new(&format!(r"^{PRESLEDEK}([,;:#\n(){{}}\[\]]|->)")).unwrap(), Ločilo),
             (Regex::new(&format!(r"^{PRESLEDEK}(?x)(
+                        # pretvorba
+                            kot |
                         # zamik
                             <<= | >>= | << | >> |
                         # primerjava
@@ -172,6 +173,7 @@ impl<'a> Tokenizer {
                         # referenca
                             @
                         )")).unwrap(), Operator),
+            (Regex::new(&format!(r"^{PRESLEDEK}([_\p{{Letter}}][\w\d]*){ZADNJA_MEJA}")).unwrap(), Ime),
             (Regex::new(&format!(r"^{PRESLEDEK}(\S*){ZADNJA_MEJA}")).unwrap(), Neznano),
         ];
 
@@ -235,98 +237,100 @@ mod testi {
 
     #[test]
     fn rezervirane_besede() {
-        assert_eq!("naj".to_owned().tokenize(), [Rezerviranka("naj", 1, 1)]);
-        assert_eq!("čene".to_owned().tokenize(), [Rezerviranka("čene", 1, 1)]);
-        assert_eq!("če".to_owned().tokenize(), [Rezerviranka("če", 1, 1)]);
-        assert_eq!("dokler".to_owned().tokenize(), [Rezerviranka("dokler", 1, 1)]);
-        assert_eq!("za".to_owned().tokenize(), [Rezerviranka("za", 1, 1)]);
-        assert_eq!("funkcija".to_owned().tokenize(), [Rezerviranka("funkcija", 1, 1)]);
-        assert_eq!("vrni".to_owned().tokenize(), [Rezerviranka("vrni", 1, 1)]);
-        assert_eq!("prekini".to_owned().tokenize(), [Rezerviranka("prekini", 1, 1)]);
+        assert_eq!("naj".tokenize(), [Rezerviranka("naj", 1, 1)]);
+        assert_eq!("čene".tokenize(), [Rezerviranka("čene", 1, 1)]);
+        assert_eq!("če".tokenize(), [Rezerviranka("če", 1, 1)]);
+        assert_eq!("dokler".tokenize(), [Rezerviranka("dokler", 1, 1)]);
+        assert_eq!("za".tokenize(), [Rezerviranka("za", 1, 1)]);
+        assert_eq!("funkcija".tokenize(), [Rezerviranka("funkcija", 1, 1)]);
+        assert_eq!("vrni".tokenize(), [Rezerviranka("vrni", 1, 1)]);
+        assert_eq!("prekini".tokenize(), [Rezerviranka("prekini", 1, 1)]);
     }
 
     #[test]
     fn literali() {
-        assert_eq!("resnica".to_owned().tokenize(), [Literal(Bool("resnica", 1, 1))]);
-        assert_eq!("laž".to_owned().tokenize(), [Literal(Bool("laž", 1, 1))]);
+        assert_eq!("resnica".tokenize(), [Literal(Bool("resnica", 1, 1))]);
+        assert_eq!("laž".tokenize(), [Literal(Bool("laž", 1, 1))]);
 
-        assert_eq!("\"\"".to_owned().tokenize(), [Literal(Niz("\"\"", 1, 1))]);
-        assert_eq!("\"niz\"".to_owned().tokenize(), [Literal(Niz("\"niz\"", 1, 1))]);
-        assert_eq!("\"3.14\"".to_owned().tokenize(), [Literal(Niz("\"3.14\"", 1, 1))]);
-        assert_eq!("\"{}\\n\"".to_owned().tokenize(), [Literal(Niz("\"{}\\n\"", 1, 1))]);
-        assert_eq!("\"{}\\n\" \"smola\"".to_owned().tokenize(), [Literal(Niz("\"{}\\n\"", 1, 1)), Literal(Niz("\"smola\"", 1, 8))]);
+        assert_eq!("\"\"".tokenize(), [Literal(Niz("\"\"", 1, 1))]);
+        assert_eq!("\"niz\"".tokenize(), [Literal(Niz("\"niz\"", 1, 1))]);
+        assert_eq!("\"3.14\"".tokenize(), [Literal(Niz("\"3.14\"", 1, 1))]);
+        assert_eq!("\"{}\\n\"".tokenize(), [Literal(Niz("\"{}\\n\"", 1, 1))]);
+        assert_eq!("\"{}\\n\" \"smola\"".tokenize(), [Literal(Niz("\"{}\\n\"", 1, 1)), Literal(Niz("\"smola\"", 1, 8))]);
 
-        assert_eq!("0".to_owned().tokenize(), [Literal(Celo("0", 1, 1))]);
-        assert_eq!("13".to_owned().tokenize(), [Literal(Celo("13", 1, 1))]);
-        assert_eq!("1_000_000".to_owned().tokenize(), [Literal(Celo("1_000_000", 1, 1))]);
+        assert_eq!("0".tokenize(), [Literal(Celo("0", 1, 1))]);
+        assert_eq!("13".tokenize(), [Literal(Celo("13", 1, 1))]);
+        assert_eq!("1_000_000".tokenize(), [Literal(Celo("1_000_000", 1, 1))]);
 
-        assert_eq!("0.5".to_owned().tokenize(), [Literal(Real("0.5", 1, 1))]);
-        assert_eq!("3.14".to_owned().tokenize(), [Literal(Real("3.14", 1, 1))]);
+        assert_eq!("0.5".tokenize(), [Literal(Real("0.5", 1, 1))]);
+        assert_eq!("3.14".tokenize(), [Literal(Real("3.14", 1, 1))]);
     }
 
     #[test]
     fn ime() {
-        assert_eq!("a".to_owned().tokenize(), [Ime("a", 1, 1)]);
-        assert_eq!("švajs".to_owned().tokenize(), [Ime("švajs", 1, 1)]);
-        assert_eq!("švajs  mašina".to_owned().tokenize(), [Ime("švajs", 1, 1), Ime("mašina", 1, 8)]);
-        assert_eq!("__groot__".to_owned().tokenize(), [Ime("__groot__", 1, 1)]);
-        assert_eq!("kamelskaTelewizje".to_owned().tokenize(), [Ime("kamelskaTelewizje", 1, 1)]);
-        assert_eq!("RabeljskoJezero123".to_owned().tokenize(), [Ime("RabeljskoJezero123", 1, 1)]);
-        assert_eq!("0cyka".to_owned().tokenize(), [Neznano("0cyka", 1, 1)]);
+        assert_eq!("a".tokenize(), [Ime("a", 1, 1)]);
+        assert_eq!("švajs".tokenize(), [Ime("švajs", 1, 1)]);
+        assert_eq!("švajs  mašina".tokenize(), [Ime("švajs", 1, 1), Ime("mašina", 1, 8)]);
+        assert_eq!("__groot__".tokenize(), [Ime("__groot__", 1, 1)]);
+        assert_eq!("kamelskaTelewizje".tokenize(), [Ime("kamelskaTelewizje", 1, 1)]);
+        assert_eq!("RabeljskoJezero123".tokenize(), [Ime("RabeljskoJezero123", 1, 1)]);
+        assert_eq!("0cyka".tokenize(), [Neznano("0cyka", 1, 1)]);
     }
 
     #[test]
     fn operatorji() {
-        assert_eq!("a<<=b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("<<=", 1, 2), Ime("b", 1, 5)]);
-        assert_eq!("a<< b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("<<", 1, 2), Ime("b", 1, 5)]);
-        assert_eq!("a>>=b".to_owned().tokenize(), [Ime("a", 1, 1), Operator(">>=", 1, 2), Ime("b", 1, 5)]);
-        assert_eq!("a >>b".to_owned().tokenize(), [Ime("a", 1, 1), Operator(">>", 1, 3), Ime("b", 1, 5)]);
+        assert_eq!("a kot real".tokenize(), [Ime("a", 1, 1), Operator("kot", 1, 3), Tip("real", 1, 7)]);
 
-        assert_eq!("a==b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("==", 1, 2), Ime("b", 1, 4)]);
-        assert_eq!("a!=b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("!=", 1, 2), Ime("b", 1, 4)]);
-        assert_eq!("a<=b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("<=", 1, 2), Ime("b", 1, 4)]);
-        assert_eq!("a>=b".to_owned().tokenize(), [Ime("a", 1, 1), Operator(">=", 1, 2), Ime("b", 1, 4)]);
-        assert_eq!("a<b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("<", 1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a>b".to_owned().tokenize(), [Ime("a", 1, 1), Operator(">", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a<<=b".tokenize(), [Ime("a", 1, 1), Operator("<<=", 1, 2), Ime("b", 1, 5)]);
+        assert_eq!("a<< b".tokenize(), [Ime("a", 1, 1), Operator("<<", 1, 2), Ime("b", 1, 5)]);
+        assert_eq!("a>>=b".tokenize(), [Ime("a", 1, 1), Operator(">>=", 1, 2), Ime("b", 1, 5)]);
+        assert_eq!("a >>b".tokenize(), [Ime("a", 1, 1), Operator(">>", 1, 3), Ime("b", 1, 5)]);
 
-        assert_eq!("a+b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("+", 1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a-b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("-", 1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a*b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("*", 1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a/b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("/", 1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a%b".to_owned().tokenize(), [Ime("a", 1, 1), Operator("%", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a==b".tokenize(), [Ime("a", 1, 1), Operator("==", 1, 2), Ime("b", 1, 4)]);
+        assert_eq!("a!=b".tokenize(), [Ime("a", 1, 1), Operator("!=", 1, 2), Ime("b", 1, 4)]);
+        assert_eq!("a<=b".tokenize(), [Ime("a", 1, 1), Operator("<=", 1, 2), Ime("b", 1, 4)]);
+        assert_eq!("a>=b".tokenize(), [Ime("a", 1, 1), Operator(">=", 1, 2), Ime("b", 1, 4)]);
+        assert_eq!("a<b".tokenize(), [Ime("a", 1, 1), Operator("<", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a>b".tokenize(), [Ime("a", 1, 1), Operator(">", 1, 2), Ime("b", 1, 3)]);
 
-        assert_eq!("3+2".to_owned().tokenize(), [Literal(Celo("3", 1, 1)), Operator("+", 1, 2), Literal(Celo("2", 1, 3))]);
-        assert_eq!("3-2".to_owned().tokenize(), [Literal(Celo("3", 1, 1)), Operator("-", 1, 2), Literal(Celo("2", 1, 3))]);
-        assert_eq!("3*2".to_owned().tokenize(), [Literal(Celo("3", 1, 1)), Operator("*", 1, 2), Literal(Celo("2", 1, 3))]);
-        assert_eq!("3/2".to_owned().tokenize(), [Literal(Celo("3", 1, 1)), Operator("/", 1, 2), Literal(Celo("2", 1, 3))]);
-        assert_eq!("3%2".to_owned().tokenize(), [Literal(Celo("3", 1, 1)), Operator("%", 1, 2), Literal(Celo("2", 1, 3))]);
+        assert_eq!("a+b".tokenize(), [Ime("a", 1, 1), Operator("+", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a-b".tokenize(), [Ime("a", 1, 1), Operator("-", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a*b".tokenize(), [Ime("a", 1, 1), Operator("*", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a/b".tokenize(), [Ime("a", 1, 1), Operator("/", 1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a%b".tokenize(), [Ime("a", 1, 1), Operator("%", 1, 2), Ime("b", 1, 3)]);
+
+        assert_eq!("3+2".tokenize(), [Literal(Celo("3", 1, 1)), Operator("+", 1, 2), Literal(Celo("2", 1, 3))]);
+        assert_eq!("3-2".tokenize(), [Literal(Celo("3", 1, 1)), Operator("-", 1, 2), Literal(Celo("2", 1, 3))]);
+        assert_eq!("3*2".tokenize(), [Literal(Celo("3", 1, 1)), Operator("*", 1, 2), Literal(Celo("2", 1, 3))]);
+        assert_eq!("3/2".tokenize(), [Literal(Celo("3", 1, 1)), Operator("/", 1, 2), Literal(Celo("2", 1, 3))]);
+        assert_eq!("3%2".tokenize(), [Literal(Celo("3", 1, 1)), Operator("%", 1, 2), Literal(Celo("2", 1, 3))]);
     }
 
     #[test]
     fn ločila() {
-        assert_eq!("a,b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo(",",  1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a;b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo(";",  1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a:b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo(":",  1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a#b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("#",  1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a(b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("(",  1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a)b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo(")",  1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a)b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo(")",  1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a{b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("{",  1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a}b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("}",  1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a[b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("[",  1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a]b".to_owned().tokenize(),  [Ime("a", 1, 1), Ločilo("]",  1, 2), Ime("b", 1, 3)]);
-        assert_eq!("a\nb".to_owned().tokenize(), [Ime("a", 1, 1), Ločilo("\n", 1, 2), Ime("b", 2, 1)]);
+        assert_eq!("a,b".tokenize(),  [Ime("a", 1, 1), Ločilo(",",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a;b".tokenize(),  [Ime("a", 1, 1), Ločilo(";",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a:b".tokenize(),  [Ime("a", 1, 1), Ločilo(":",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a#b".tokenize(),  [Ime("a", 1, 1), Ločilo("#",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a(b".tokenize(),  [Ime("a", 1, 1), Ločilo("(",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a)b".tokenize(),  [Ime("a", 1, 1), Ločilo(")",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a)b".tokenize(),  [Ime("a", 1, 1), Ločilo(")",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a{b".tokenize(),  [Ime("a", 1, 1), Ločilo("{",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a}b".tokenize(),  [Ime("a", 1, 1), Ločilo("}",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a[b".tokenize(),  [Ime("a", 1, 1), Ločilo("[",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a]b".tokenize(),  [Ime("a", 1, 1), Ločilo("]",  1, 2), Ime("b", 1, 3)]);
+        assert_eq!("a\nb".tokenize(), [Ime("a", 1, 1), Ločilo("\n", 1, 2), Ime("b", 2, 1)]);
     }
 
     #[test]
     fn preprost() {
-        assert_eq!("če čene".to_owned().tokenize(), [Rezerviranka("če", 1, 1), Rezerviranka("čene", 1, 4)]);
+        assert_eq!("če čene".tokenize(), [Rezerviranka("če", 1, 1), Rezerviranka("čene", 1, 4)]);
     }
 
     #[test]
     fn napreden() {
         assert_eq!(
-            "če\nresnica{dokler laž{natisni(\"nemogoče\")}}".to_owned().tokenize(),
+            "če\nresnica{dokler laž{natisni(\"nemogoče\")}}".tokenize(),
             [ Rezerviranka("če", 1, 1), Ločilo("\n", 1, 3), 
               bool("resnica", 2, 1), Ločilo("{", 2, 8), Rezerviranka("dokler", 2, 9), bool("laž", 2, 16),
               Ločilo("{", 2, 19), Ime("natisni", 2, 20), Ločilo("(", 2, 27), niz("\"nemogoče\"", 2, 28), Ločilo(")", 2, 38),

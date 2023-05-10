@@ -10,6 +10,7 @@ fn main() {
     let datoteka = fs::read_to_string(pot).unwrap_or("{}".to_owned());
 
     let drevo = datoteka
+        .as_str()
         .tokenize()
         .parse()
         .unwrap();

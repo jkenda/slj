@@ -104,6 +104,15 @@ impl Prevedi for Vozlišče {
             ].concat(),
             Potenca(..) => unreachable!(),
 
+            CeloVReal(vozlišče) => [
+                vozlišče.prevedi().as_slice(),
+                [Osnovni(ITOF)].as_slice(),
+            ].concat(),
+            RealVCelo(vozlišče) => [
+                vozlišče.prevedi().as_slice(),
+                [Osnovni(FTOI)].as_slice(),
+            ].concat(),
+
             Zanikaj(vozlišče) => [
                 [PUSHI(1)].as_slice(),
                 vozlišče.prevedi().as_slice(),
@@ -228,8 +237,11 @@ impl Prevedi for Vozlišče {
                 Pop(*št_spr).rc()
             ]).prevedi(),
 
-            Funkcija{ tip, ime, parametri, telo, prostor } => {
-                let parametri_velikost = parametri.iter().map(|p| p.sprememba_stacka() as usize).sum::<usize>();
+            Funkcija{ tip, ime, parametri, telo, prostor, .. } => {
+                let parametri_velikost = parametri.iter()
+                    .map(|p| p.sprememba_stacka() as usize)
+                    .sum::<usize>();
+
                 let pred = Zaporedje(vec![
                     NaložiOdmik.rc(),
                     Vrh((- tip.sprememba_stacka()                    // vrni (+0)
@@ -241,10 +253,10 @@ impl Prevedi for Vozlišče {
                 ]);
 
                 let za = Zaporedje(vec![
-                    Pop(*prostor).rc(),
-                    ShraniOdmik.rc(),
-                    Pop(parametri_velikost).rc(),
-                    DinamičniSkok.rc(),
+                    Pop(*prostor).rc(),           // odstrani spremenljivke funkcije
+                    ShraniOdmik.rc(),             // naloži prejšnji odmik stacka
+                    Pop(parametri_velikost).rc(), // odstrani parametre
+                    DinamičniSkok.rc(),           // skoči iz funkcije na klicatelja
                 ]);
 
                 [
@@ -259,16 +271,18 @@ impl Prevedi for Vozlišče {
 
             FunkcijskiKlic{ funkcija, argumenti } => {
                 let (vrni, skok) = match &**funkcija {
-                    Funkcija { tip, ime, .. } => (Push(tip.sprememba_stacka() as usize).rc(), Skok(OdmikIme::Ime(ime.clone())).rc()),
+                    Funkcija { tip, ime, .. } => (
+                        Push(tip.sprememba_stacka() as usize).rc(),
+                        Skok(OdmikIme::Ime(ime.clone())).rc()),
                     _ => unreachable!("Funkcijski klic vedno kliče funkcijo"),
                 };
                 let pc = ProgramskiŠtevec((1 + argumenti.len() + skok.len()) as i32).rc();
 
                 Zaporedje(vec![
-                    vrni,
-                    pc,
-                    argumenti.clone(),
-                    skok,
+                    vrni,              // rezerviraj prostor za rezultat funkcije
+                    pc,                // naloži PC (kam se vrniti iz funkcije)
+                    argumenti.clone(), // naloži argumente
+                    skok,              // skoči v funkcijo
                 ]).prevedi()
             },
 
@@ -517,6 +531,7 @@ mod test {
                 izraz: Real(1.0).rc()
             }.rc()).rc(),
             prostor: 0,
+            št_klicev: 1,
         }.rc();
 
         assert_eq!(funkcija.clone().prevedi(), [

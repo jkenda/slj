@@ -1,4 +1,4 @@
-use std::{rc::Rc, fmt::Display, mem::discriminant};
+use std::{rc::Rc, fmt::Display, mem::discriminant, cell::RefCell};
 use super::tip::Tip;
 
 #[allow(dead_code)]
@@ -70,6 +70,9 @@ pub enum Vozlišče {
     Modulo(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
     Potenca(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
 
+    CeloVReal(Rc<Vozlišče>),
+    RealVCelo(Rc<Vozlišče>),
+
     Zanikaj(Rc<Vozlišče>),
     Konjunkcija(Rc<Vozlišče>, Rc<Vozlišče>),
     Disjunkcija(Rc<Vozlišče>, Rc<Vozlišče>),
@@ -101,7 +104,8 @@ pub enum Vozlišče {
     Zaporedje(Vec<Rc<Vozlišče>>),
     Okvir{ zaporedje: Rc<Vozlišče>, št_spr: usize },
 
-    Funkcija{ tip: Tip, ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>, prostor: usize },
+    Funkcija{ tip: Tip, ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>,
+    prostor: usize, št_klicev: usize },
     FunkcijskiKlic{ funkcija: Rc<Vozlišče>, argumenti: Rc<Vozlišče> },
 
     Natisni(Vec<Rc<Vozlišče>>),
@@ -139,6 +143,8 @@ impl Display for Vozlišče {
             Modulo(..)     => "%".to_owned(),
             Potenca(..)    => "**".to_owned(),
 
+            CeloVReal(..)  => "kot".to_owned(),
+
             Zanikaj(..)     => "!".to_owned(),
             Konjunkcija(..) => "&&".to_owned(),
             Disjunkcija(..) => "||".to_owned(),
@@ -163,9 +169,9 @@ impl Display for Vozlišče {
             Prirejanje{ spremenljivka, .. } => spremenljivka.to_string() + " = ",
             Vrni(_) => "vrni".to_owned(),
 
-            Funkcija{ ime, parametri, .. } => {
+            Funkcija{ tip, ime, parametri, .. } => {
                 let parametri = parametri.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", ");
-                format!("funkcija {}({})", ime, parametri)
+                format!("funkcija {}({}) -> {}", ime, parametri, tip)
             },
             FunkcijskiKlic{ funkcija, .. } => if let Funkcija { tip: _, ime, .. } = &**funkcija { ime.clone() } else { "".to_string() },
             _ => "".to_owned(),
@@ -206,6 +212,9 @@ impl PartialEq for Vozlišče {
             (Modulo(lt, ll, ld), Modulo(dt, dl, dd)) |
             (Potenca(lt, ll, ld), Potenca(dt, dl, dd)) => lt == dt && ll == dl && ld == dd,
 
+            (CeloVReal(l), CeloVReal(d)) => l == d,
+            (RealVCelo(l), RealVCelo(d)) => l == d,
+
             (Zanikaj(l), Zanikaj(d)) => l == d,
             (Konjunkcija(ll, ld), Konjunkcija(dl, dd)) |
             (Disjunkcija(ll, ld), Disjunkcija(dl, dd)) => ll == dl && ld == dd,
@@ -239,11 +248,12 @@ impl PartialEq for Vozlišče {
             (Zaporedje(l), Zaporedje(d)) => l == d,
             (Okvir{ zaporedje: lz, št_spr: lš }, Okvir{ zaporedje: dz, št_spr: dš }) => lz == dz && lš == dš,
 
-            (Funkcija{ tip: ltip, ime: li, parametri: lp, telo: lt, prostor: lpr }, Funkcija{ tip: dtip, ime: di, parametri: dp, telo: dt, prostor: dpr }) =>
+            (Funkcija{ tip: ltip, ime: li, parametri: lp, telo: lt, prostor: lpr, .. }, 
+             Funkcija{ tip: dtip, ime: di, parametri: dp, telo: dt, prostor: dpr, .. }) =>
                 ltip == dtip && li == di && lp == dp && lt == dt && lpr == dpr,
 
-            (FunkcijskiKlic{ funkcija: lf, argumenti: la }, FunkcijskiKlic{ funkcija: df, argumenti: da }) =>
-                lf == df && la == da,
+            (FunkcijskiKlic{ funkcija: lf, argumenti: _ }, FunkcijskiKlic{ funkcija: df, argumenti: _ }) =>
+                lf == df,
 
             (Natisni(l), Natisni(d)) => l == d,
 
@@ -276,6 +286,15 @@ impl Vozlišče {
                 "  ".repeat(globina) + &self.to_string() + "\n"
                 + &l.drevo(globina + 1) 
                 + &d.drevo(globina + 1),
+
+            CeloVReal(vozlišče) =>
+                vozlišče.drevo(globina) 
+                + " kot real\n",
+
+            RealVCelo(vozlišče) =>
+                vozlišče.drevo(globina) 
+                + " kot celo\n",
+
 
             Zanikaj(vozlišče) =>
                 "  ".repeat(globina) + &self.to_string() + "\n"  
@@ -316,7 +335,7 @@ impl Vozlišče {
                 + &zaporedje.drevo(globina + 1)
                 + &"  ".repeat(globina) + "}\n",
 
-            Funkcija { tip: _, ime: _, parametri: _, telo, prostor: _ } =>
+            Funkcija { tip: _, ime: _, parametri: _, telo, .. } =>
                 "  ".repeat(globina) + &self.to_string() + " {\n"
                 + &telo.drevo(globina + 1)
                 + &"  ".repeat(globina) + "}\n",
@@ -339,6 +358,10 @@ impl Vozlišče {
 
     pub fn rc(&self) -> Rc<Self> {
         Rc::new(self.clone())
+    }
+
+    pub fn cell(&self) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(self.clone()))
     }
 
     pub fn sprememba_stacka(&self) -> isize {
@@ -365,6 +388,8 @@ impl Vozlišče {
             Seštevanje(_, l, d) | Odštevanje(_, l, d) | Množenje(_, l, d) | Deljenje(_, l, d) | Modulo(_, l, d) | Potenca(_, l, d) |
                 Enako(_, l, d) | NiEnako(_, l, d) | Večje(_, l, d) | VečjeEnako(_, l, d) | Manjše(_, l, d) | ManjšeEnako(_, l, d)
                 => l.sprememba_stacka() + d.sprememba_stacka() - 1,
+
+            CeloVReal(..) | RealVCelo(..) => 0,
 
             Zanikaj(izraz)
                 => izraz.sprememba_stacka(),
@@ -420,6 +445,9 @@ impl Vozlišče {
 
             Seštevanje(tip, ..) | Odštevanje(tip, ..) | Množenje(tip, ..) | Deljenje(tip, ..) | Modulo(tip, ..) | Potenca(tip,..) => tip.clone(),
 
+            CeloVReal(..) => Tip::Real,
+            RealVCelo(..) => Tip::Celo,
+
             ProgramskiŠtevec(..) => Tip::Celo,
             Skok(..) => Tip::Brez,
             DinamičniSkok => Tip::Brez,
@@ -440,5 +468,88 @@ impl Vozlišče {
         }
     }
 
+    pub fn lahko_vrinemo(&self) -> bool {
+        const MEJA: usize = 7;
+
+        match self {
+            Funkcija { tip: _, ime: _, parametri: _, telo, prostor: _, št_klicev } => {
+                if *št_klicev > MEJA {
+                    return false
+                }
+
+                // rekurzivne funkcije ne moremo vriniti
+                !telo.vsebuje(self)
+            },
+            _ => unreachable!(),
+        }
+    }
+
+    fn vsebuje(&self, other: &Vozlišče) -> bool {
+        if self == other {
+            true
+        }
+        else {
+            match self {
+                Referenca(vozlišče) => vozlišče.vsebuje(other),
+
+                Zanikaj(a) => a.vsebuje(other),
+                Konjunkcija(a, b) | Disjunkcija(a, b) => a.vsebuje(other) || b.vsebuje(other),
+                BitniAli(a, b) | BitniXor(a, b) | BitniIn(a, b) | BitniPremikLevo(a, b) | BitniPremikDesno(a, b)
+                    => a.vsebuje(other) || b.vsebuje(other),
+                Enako(_, a, b) | NiEnako(_, a, b) | Večje(_, a, b) | VečjeEnako(_, a, b) | Manjše(_, a, b) | ManjšeEnako(_, a, b) 
+                    => a.vsebuje(other) || b.vsebuje(other),
+
+                Seštevanje(_, a, b) | Odštevanje(_, a, b) | Množenje(_, a, b) | Deljenje(_, a, b) 
+                    | Modulo(_, a, b) | Potenca(_, a, b) => a.vsebuje(other) || b.vsebuje(other),
+
+                CeloVReal(a) | RealVCelo(a) => a.vsebuje(other),
+
+                PogojniStavek { pogoj, resnica, laž } => pogoj.vsebuje(other) || resnica.vsebuje(other) || laž.vsebuje(other),
+                Zanka { pogoj, telo } => pogoj.vsebuje(other) || telo.vsebuje(other),
+                Prirejanje { spremenljivka: _, izraz } => izraz.vsebuje(other),
+
+                Vrni(a) => a.vsebuje(other),
+                Zaporedje(a) => a.iter().any(|s| s.vsebuje(other)),
+                Okvir { zaporedje, št_spr: _ } => zaporedje.vsebuje(other),
+
+                Funkcija { tip: _, ime: _, parametri: _, telo, .. } => telo.vsebuje(other),
+                FunkcijskiKlic { funkcija, argumenti } =>
+                    &**funkcija == if let FunkcijskiKlic { funkcija, argumenti: _ } = other {
+                        &**funkcija
+                    } else { unreachable!() } || argumenti.vsebuje(other),
+
+                _ => false,
+            }
+        }
+    }
+
 }
 
+#[cfg(test)]
+mod testi {
+    use crate::parser::{tokenizer::Tokenize, Parse, drevo::{Prazno, FunkcijskiKlic, Zaporedje}};
+
+    #[test]
+    fn eq() {
+        assert!("funkcija f(a: celo) {}".tokenize().parse().unwrap().root == "funkcija f(a: celo) {}".tokenize().parse().unwrap().root);
+        assert!("funkcija f(a: celo) { naj x = 3 }".tokenize().parse().unwrap().root != "funkcija f(a: celo) {}".tokenize().parse().unwrap().root);
+
+        assert!("funkcija f() {}; f()".tokenize().parse().unwrap().root == "funkcija f() {}; f()".tokenize().parse().unwrap().root);
+        assert!("funkcija f() {}; f()".tokenize().parse().unwrap().root != "funkcija g() {}; g()".tokenize().parse().unwrap().root);
+    }
+
+    #[test]
+    fn vsebuje() {
+        let rekurzivna_f = if let Zaporedje(stavki) = &*r#"funkcija f() {
+            f()
+        }"#.tokenize().parse().unwrap().root.clone() {
+            stavki[0].clone()
+        }
+        else {
+            Prazno.rc()
+        };
+
+        assert_eq!(rekurzivna_f.vsebuje(&FunkcijskiKlic{ funkcija: rekurzivna_f.clone(), argumenti: Zaporedje(vec![]).rc() }), true);
+    }
+
+}

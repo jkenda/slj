@@ -137,20 +137,20 @@ mod testi {
 
     #[test]
     fn from_string_to_string() {
-        assert_eq!(Tip::from("brez".to_string().tokenize().as_slice()).unwrap().to_string(), "brez");
-        assert_eq!(Tip::from("bool".to_string().tokenize().as_slice()).unwrap().to_string(), "bool");
-        assert_eq!(Tip::from("celo".to_string().tokenize().as_slice()).unwrap().to_string(), "celo");
-        assert_eq!(Tip::from("real".to_string().tokenize().as_slice()).unwrap().to_string(), "real");
-        assert_eq!(Tip::from("znak".to_string().tokenize().as_slice()).unwrap().to_string(), "znak");
+        assert_eq!(Tip::from("brez".tokenize().as_slice()).unwrap().to_string(), "brez");
+        assert_eq!(Tip::from("bool".tokenize().as_slice()).unwrap().to_string(), "bool");
+        assert_eq!(Tip::from("celo".tokenize().as_slice()).unwrap().to_string(), "celo");
+        assert_eq!(Tip::from("real".tokenize().as_slice()).unwrap().to_string(), "real");
+        assert_eq!(Tip::from("znak".tokenize().as_slice()).unwrap().to_string(), "znak");
 
-        assert_eq!(Tip::from("[celo; 6]".to_string().tokenize().as_slice()).unwrap().to_string(), "[celo; 6]");
-        assert_eq!(Tip::from("[[celo; 3]; 6]".to_string().tokenize().as_slice()).unwrap().to_string(), "[[celo; 3]; 6]");
+        assert_eq!(Tip::from("[celo; 6]".tokenize().as_slice()).unwrap().to_string(), "[celo; 6]");
+        assert_eq!(Tip::from("[[celo; 3]; 6]".tokenize().as_slice()).unwrap().to_string(), "[[celo; 3]; 6]");
 
-        assert_eq!(Tip::from("{ x: real, y: real }".to_string().tokenize().as_slice()).unwrap().to_string(), "{\nx: real,\ny: real,\n}");
-        assert_eq!(Tip::from("{ _arr: [celo; 128], len: celo }".to_string().tokenize().as_slice()).unwrap().to_string(), "{\n_arr: [celo; 128],\nlen: celo,\n}");
+        assert_eq!(Tip::from("{ x: real, y: real }".tokenize().as_slice()).unwrap().to_string(), "{\nx: real,\ny: real,\n}");
+        assert_eq!(Tip::from("{ _arr: [celo; 128], len: celo }".tokenize().as_slice()).unwrap().to_string(), "{\n_arr: [celo; 128],\nlen: celo,\n}");
 
-        assert_eq!(Tip::from("@celo".to_string().tokenize().as_slice()).unwrap().to_string(), "@celo");
-        assert_eq!(Tip::from("@[real; 32]".to_string().tokenize().as_slice()).unwrap().to_string(), "@[real; 32]");
-        assert_eq!(Tip::from("@@[real; 32]".to_string().tokenize().as_slice()).unwrap().to_string(), "@@[real; 32]");
+        assert_eq!(Tip::from("@celo".tokenize().as_slice()).unwrap().to_string(), "@celo");
+        assert_eq!(Tip::from("@[real; 32]".tokenize().as_slice()).unwrap().to_string(), "@[real; 32]");
+        assert_eq!(Tip::from("@@[real; 32]".tokenize().as_slice()).unwrap().to_string(), "@@[real; 32]");
     }
 }

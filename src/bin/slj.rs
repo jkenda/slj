@@ -23,7 +23,10 @@ fn main() {
         .expect("Napaka: ne morem odpreti datoteke");
 
     let vrstice: Vec<&str> = datoteka.split('\n').collect();
-    let drevo = datoteka.tokenize().parse();
+    let drevo = datoteka
+        .as_str()
+        .tokenize()
+        .parse();
 
     match drevo {
         Ok(drevo) => {
@@ -59,7 +62,7 @@ fn pomoč(ukaz: &String) {
         println!("Argumenti: {ukaz} [možnosti] <pot>");
         println!("[možnosti]:");
         println!("\t-p, --pomoč: izpiši to pomoč,");
-        println!("\t-s, --debug: namesto izhoda programa izpisuj ukaze in stanje stacka pa vsakem ukazu.");
+        println!("\t-d, --debug: namesto izhoda programa izpisuj ukaze in stanje stacka pa vsakem ukazu.");
 }
 
 fn analiziraj_možnosti(args: &[String]) -> Možnosti {
