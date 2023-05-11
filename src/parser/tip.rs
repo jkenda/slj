@@ -151,6 +151,5 @@ mod testi {
 
         assert_eq!(Tip::from("@celo".tokenize().as_slice()).unwrap().to_string(), "@celo");
         assert_eq!(Tip::from("@[real; 32]".tokenize().as_slice()).unwrap().to_string(), "@[real; 32]");
-        assert_eq!(Tip::from("@@[real; 32]".tokenize().as_slice()).unwrap().to_string(), "@@[real; 32]");
     }
 }

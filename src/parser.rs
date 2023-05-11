@@ -19,6 +19,8 @@ struct Parser<'a> {
     spremenljivke: HashMap<&'a str, Rc<Vozlišče>>,
     funkcije_stack: Vec<HashMap<String, Rc<Vozlišče>>>,
     funkcije: HashMap<String, Rc<Vozlišče>>,
+    reference_stack: Vec<HashMap<&'a str, Rc<Vozlišče>>>,
+    reference: HashMap<&'a str, Rc<Vozlišče>>,
     znotraj_funkcije: bool,
 }
 
@@ -93,8 +95,10 @@ impl<'a> Parser<'a> {
         Parser{ 
             spremenljivke_stack: vec![],
             funkcije_stack: vec![],
+            reference_stack: vec![],
             spremenljivke: HashMap::new(),
             funkcije: HashMap::new(),
+            reference: HashMap::new(),
             znotraj_funkcije: false,
         }
     }
@@ -148,6 +152,7 @@ impl<'a> Parser<'a> {
         if !self.znotraj_funkcije {
             self.spremenljivke_stack.push(HashMap::new());
             self.funkcije_stack.push(HashMap::new());
+            self.reference_stack.push(HashMap::new());
         }
 
         let zaporedje = self.zaporedje(izraz)?;
@@ -168,6 +173,9 @@ impl<'a> Parser<'a> {
             }
             for (ime, _) in self.funkcije_stack.pop().unwrap() {
                 self.funkcije.remove(&ime);
+            }
+            for (ime, _) in self.reference_stack.pop().unwrap() {
+                self.reference.remove(&ime);
             }
         }
 
@@ -419,8 +427,10 @@ impl<'a> Parser<'a> {
         let mut okolje_funkcije = Parser {
             spremenljivke_stack: self.spremenljivke_stack.clone(),
             funkcije_stack: self.funkcije_stack.clone(),
+            reference_stack: self.reference_stack.clone(),
             spremenljivke: self.spremenljivke.clone(),
             funkcije: self.funkcije.clone(),
+            reference: self.reference.clone(),
             znotraj_funkcije: true,
         };
 
@@ -697,9 +707,27 @@ impl<'a> Parser<'a> {
             // spremenljivka
             [ ime @ Ime(..) ] => Ok(self.spremenljivke.get(ime.as_str())
                                     .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone()),
+
+            // referenciraj
             [ Operator("@", ..), ime @ Ime(..) ] =>
                 Ok(Referenca(self.spremenljivke.get(ime.as_str())
                              .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone()).rc()),
+
+            // dereferenciraj
+            deref @ [ ime @ Ime(..), Operator("@", ..) ] => {
+                let referenca = self.spremenljivke.get(ime.as_str())
+                    .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?;
+
+                dbg!(referenca);
+
+                match &**referenca {
+                    Spremenljivka { tip, .. } => match &*tip {
+                        Tip::Referenca(..) => Ok(Dereferenciraj(referenca.clone()).rc()),
+                        _ => Err(Napake::from_zaporedje(deref, E2, "Dereferenciramo lahko samo referenco.")),
+                    },
+                    _ => Err(Napake::from_zaporedje(deref, E2, "Dereferenciramo lahko samo spremenljivko.")),
+                }
+            }
 
             [ neznano @ Neznano(..) ] => Err(Napake::from_zaporedje(&[*neznano], E1, "Neznana beseda")),
             [] => Ok(Prazno.rc()),

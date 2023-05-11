@@ -32,6 +32,23 @@ fn natisni_izraz() {
 }
 
 #[test]
+fn referenca() {
+    let mut izhod: Vec<u8> = Vec::new();
+    let program = r#"
+        funkcija naloži(ref: @celo) {
+            natisni(ref@)
+        }
+
+        naj a = 13
+        naj b = @a
+        natisni(b@, " ")
+        naloži(b)
+        "#;
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod).unwrap(), "13 13");
+}
+
+#[test]
 fn one_liner() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"naj x=1;če x-1==0{natisni("x=1")}else{natisni("x!=1")}"#;

@@ -46,10 +46,12 @@ enum UkazPodatek
     POP,
     POS,
     ZERO,
-    LOAD(u32),
-    LDOF(u32),
-    STOR(u32),
-    STOF(u32),
+    LOAD(u32), // load normal
+    LDOF(u32), // load w/ offset
+    LDDY(u32), // load dynamic
+    STOR(u32), // store normal
+    STOF(u32), // store w/ offset
+    STDY(u32), // store dynamic
     TOP(i32),
     SOFF,
     LOFF,
@@ -166,8 +168,10 @@ impl From<String> for Program {
                 "JMPC" => JMPC(besede[2][1..].parse().unwrap()),
                 "LOAD" => LOAD(besede[2][1..].parse().unwrap()),
                 "LDOF" => LDOF(besede[2][1..].parse().unwrap()),
+                "LDDY" => LDDY(besede[2][1..].parse().unwrap()),
                 "STOR" => STOR(besede[2][1..].parse().unwrap()),
                 "STOF" => STOF(besede[2][1..].parse().unwrap()),
+                "STDY" => STDY(besede[2][1..].parse().unwrap()),
                 "TOP"  => TOP(besede[2][0..].parse().unwrap()),
                 "JMPD" => JMPD,
                 "POP"  => POP,
@@ -272,8 +276,10 @@ impl Program {
                 ZERO          => "ZERO\n".to_string(),
                 LOAD(naslov)  => format!("LOAD @{naslov}\n"),
                 LDOF(naslov)  => format!("LDOF +{naslov}\n"),
+                LDDY(naslov)  => format!("LDDY @{naslov}\n"),
                 STOR(naslov)  => format!("STOR @{naslov}\n"),
                 STOF(naslov)  => format!("STOF +{naslov}\n"),
+                STDY(naslov)  => format!("STDY @{naslov}\n"),
                 TOP(odmik)    => format!("TOP  {}{odmik}\n", if *odmik > 0 { "+" } else { "" }),
                 SOFF          => "SOFF\n".to_string(),
                 LOFF          => "LOFF\n".to_string(),
@@ -314,9 +320,9 @@ impl Program {
             match ukaz_podatek {
                 NOOP => *pc + 1,
 
-                JUMP(naslov) => naslov.clone(),
+                JUMP(naslov) => *naslov,
                 JMPD => stack.pop().unwrap().i as u32,
-                JMPC(naslov) => if stack.pop().unwrap() != LAŽ { naslov.clone() } else { *pc + 1 },
+                JMPC(naslov) => if stack.pop().unwrap() != LAŽ { *naslov } else { *pc + 1 },
 
                 PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
                 POP => { stack.pop(); *pc + 1 },
@@ -324,10 +330,22 @@ impl Program {
                 POS  => { *stack.last_mut().unwrap() = if stack.last().unwrap().f  > 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
                 ZERO => { *stack.last_mut().unwrap() = if stack.last().unwrap().f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
 
-                LOAD(naslov) => { stack.push(*stack.get(naslov.clone() as usize).unwrap()); *pc + 1 },
-                LDOF(naslov) => { stack.push(*stack.get(*addroff as usize + naslov.clone() as usize).unwrap()); *pc + 1 },
-                STOR(naslov) => { *stack.get_mut(naslov.clone() as usize).unwrap() = stack.pop().unwrap(); *pc + 1 },
-                STOF(naslov) => { *stack.get_mut(*addroff as usize + naslov.clone() as usize).unwrap() = stack.pop().unwrap(); *pc + 1 },
+                LOAD(naslov) => { stack.push(*stack.get(*naslov as usize).unwrap()); *pc + 1 },
+                LDOF(naslov) => { stack.push(*stack.get(*addroff as usize + *naslov as usize).unwrap()); *pc + 1 },
+                LDDY(naslov) => {
+                    let dynaddr = stack.pop().unwrap().i;
+                    stack.push(*stack.get(*naslov as usize + dynaddr as usize).unwrap());
+                    *pc + 1
+                },
+
+                STOR(naslov) => { *stack.get_mut(*naslov as usize).unwrap() = stack.pop().unwrap(); *pc + 1 },
+                STOF(naslov) => { *stack.get_mut(*addroff as usize + *naslov as usize).unwrap() = stack.pop().unwrap(); *pc + 1 },
+                STDY(naslov) => {
+                    let dynaddr = stack.pop().unwrap().i;
+                    *stack.get_mut(*naslov as usize + dynaddr as usize).unwrap() = stack.pop().unwrap();
+                    *pc + 1
+                }
+
                 TOP (naslov) => { *addroff = (stack.len() as i32 + naslov) as u32; *pc + 1 },
 
                 SOFF => { *addroff = stack.pop().unwrap().i as u32;   *pc + 1 },
@@ -369,9 +387,9 @@ impl Program {
             match ukaz_podatek {
                 NOOP => *pc + 1,
 
-                JUMP(naslov) => naslov.clone(),
+                JUMP(naslov) => *naslov,
                 JMPD => stack.pop()?.i as u32,
-                JMPC(naslov) => if stack.pop()? != LAŽ { naslov.clone() } else { *pc + 1 },
+                JMPC(naslov) => if stack.pop()? != LAŽ { *naslov } else { *pc + 1 },
 
                 PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
                 POP => { stack.pop(); *pc + 1 },
@@ -379,10 +397,22 @@ impl Program {
                 POS  => { *stack.last_mut()? = if stack.last()?.f  > 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
                 ZERO => { *stack.last_mut()? = if stack.last()?.f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
 
-                LOAD(naslov) => { stack.push(*stack.get(naslov.clone() as usize)?); *pc + 1 },
-                LDOF(naslov) => { stack.push(*stack.get(*addroff as usize + naslov.clone() as usize)?); *pc + 1 },
-                STOR(naslov) => { *stack.get_mut(naslov.clone() as usize)? = stack.pop()?; *pc + 1 },
-                STOF(naslov) => { *stack.get_mut(*addroff as usize + naslov.clone() as usize)? = stack.pop()?; *pc + 1 },
+                LOAD(naslov) => { stack.push(*stack.get(*naslov as usize)?); *pc + 1 },
+                LDOF(naslov) => { stack.push(*stack.get(*addroff as usize + *naslov as usize)?); *pc + 1 },
+                LDDY(naslov) => {
+                    let dynaddr = stack.pop()?.i;
+                    stack.push(*stack.get(*naslov as usize + dynaddr as usize)?);
+                    *pc + 1
+                },
+
+                STOR(naslov) => { *stack.get_mut(*naslov as usize)? = stack.pop()?; *pc + 1 },
+                STOF(naslov) => { *stack.get_mut(*addroff as usize + *naslov as usize)? = stack.pop()?; *pc + 1 },
+                STDY(naslov) => {
+                    let dynaddr = stack.pop()?.i;
+                    *stack.get_mut(*naslov as usize + dynaddr as usize)? = stack.pop()?;
+                    *pc + 1
+                }
+
                 TOP (naslov) => { *addroff = (stack.len() as i32 + naslov) as u32; *pc + 1 },
 
                 SOFF => { *addroff = stack.pop()?.i as u32;   *pc + 1 },

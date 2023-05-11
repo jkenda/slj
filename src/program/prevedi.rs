@@ -31,11 +31,23 @@ impl Prevedi for Vozlišče {
                 .collect::<Vec<UkazPodatekRelative>>(),
             Celo(število) => [PUSHI(*število)].to_vec(),
             Real(število) => [PUSHF(*število)].to_vec(),
-            Spremenljivka{ tip: _, ime: _, naslov, z_odmikom } => [if *z_odmikom { Osnovni(LDOF(*naslov)) } else { Osnovni(LOAD(*naslov)) }].to_vec(),
-            Referenca(spremenljivka) => [PUSHI(if let Spremenljivka { tip: _, ime: _, naslov, z_odmikom: _ } = &**spremenljivka { *naslov as i32 } else { 0 })].to_vec(),
 
             Resnica => [PUSHI(1)].to_vec(),
             Laž     => [PUSHI(0)].to_vec(),
+
+            Spremenljivka{ naslov, z_odmikom, .. } => [Osnovni(if *z_odmikom { LDOF(*naslov) } else { LOAD(*naslov) })].to_vec(),
+            Referenca(vozlišče) => match &**vozlišče {
+                Spremenljivka { naslov, .. } => [
+                    PUSHI(*naslov as i32),
+                    Osnovni(LOFF),
+                    Osnovni(ADDI),
+                ].to_vec(),
+                _ => unreachable!("Referenciramo lahko samo spremenljivko.")
+            },
+            Dereferenciraj(vozlišče) => [
+                vozlišče.prevedi().as_slice(),
+                [Osnovni(LDDY(0))].as_slice(),
+            ].concat(),
 
             Seštevanje(Tip::Celo, l, d) => [
                 l.prevedi().as_slice(),
@@ -294,11 +306,9 @@ impl Prevedi for Vozlišče {
                         Niz(_) => iter::repeat(Osnovni(PRTC))
                             .take(izraz.sprememba_stacka() as usize)
                             .collect(),
-                        _ => if izraz.tip() == Tip::Real {
-                            [Osnovni(PRTF)].to_vec()
-                        }
-                        else {
-                            [Osnovni(PRTI)].to_vec()
+                        _ => match izraz.tip() {
+                            Tip::Real => [Osnovni(PRTF)].to_vec(),
+                            _         => [Osnovni(PRTI)].to_vec(),
                         }
                     }.as_slice()
                 ].concat()).flatten().collect()
@@ -353,8 +363,16 @@ mod test {
                    PUSHC('š'),
         ]);
         assert_eq!(Real(-3.14).prevedi(), [PUSHF(-3.14)]);
+
         assert_eq!(Spremenljivka { tip: Tip::Real, ime: "šmir".to_string(), naslov: 55, z_odmikom: true  }.prevedi(), [Osnovni(LDOF(55))].to_vec());
         assert_eq!(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false }.prevedi(), [Osnovni(LOAD(55))].to_vec());
+        assert_eq!(
+            Referenca(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false }.rc()).prevedi(),
+            [
+                PUSHI(55),
+                Osnovni(LOFF),
+                Osnovni(ADDI),
+            ].to_vec());
 
         assert_eq!(Resnica.prevedi(), [PUSHI(1)].to_vec());
         assert_eq!(Laž.prevedi(), [PUSHI(0)].to_vec());

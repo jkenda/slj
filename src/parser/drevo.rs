@@ -56,9 +56,10 @@ pub enum Vozlišče {
     Real(f32),
     Znak(char),
     Niz(String),
-    Referenca(Rc<Vozlišče>),
 
     Spremenljivka{ tip: Tip, ime: String, naslov: u32, z_odmikom: bool },
+    Referenca(Rc<Vozlišče>),
+    Dereferenciraj(Rc<Vozlišče>),
 
     Resnica,
     Laž,
@@ -130,8 +131,10 @@ impl Display for Vozlišče {
             Celo(število) => število.to_string(),
             Real(število) => število.to_string(),
             Znak(znak)    => znak.to_string(),
-            Referenca(spremenljivka) => "@".to_string() + &spremenljivka.to_string(),
+
             Spremenljivka{ tip, ime, naslov, z_odmikom } => format!("{ime} ({}{naslov}): {tip}", if *z_odmikom { "+" } else { "@" }),
+            Referenca(spremenljivka) => "@".to_string() + &spremenljivka.to_string(),
+            Dereferenciraj(spremenljivka) => spremenljivka.to_string() + &"@".to_string(),
 
             Resnica => "resnica".to_owned(),
             Laž     => "laž".to_owned(),
@@ -199,8 +202,11 @@ impl PartialEq for Vozlišče {
             (Real(l), Real(d)) => l == d,
             (Znak(l), Znak(d)) => l == d,
             (Niz(l), Niz(d)) => l == d,
+
             (Spremenljivka{ tip: lt, ime: li, naslov: ln, z_odmikom: lz }, Spremenljivka{ tip: dt, ime: di, naslov: dn, z_odmikom: dz }) =>
                 lt == dt && li == di && ln == dn && lz == dz,
+            (Referenca(l), Referenca(d)) => l == d,
+            (Dereferenciraj(l), Dereferenciraj(d)) => l == d,
 
             (Resnica, Resnica) => true,
             (Laž, Laž) => true,
@@ -272,7 +278,8 @@ impl Vozlišče {
                 | ProgramskiŠtevec(_) | Skok(_) | PogojniSkok(..) | DinamičniSkok =>
                 "".to_string(),
 
-            Niz(_) | Celo(_) | Real(_) | Znak(_) | Spremenljivka {..} | Resnica | Laž | Referenca(..) => 
+            Niz(_) | Celo(_) | Real(_) | Znak(_) | Resnica | Laž
+                | Spremenljivka {..} | Referenca(..) | Dereferenciraj(..) =>
                 "  ".repeat(globina) + &self.to_string() + "\n",
 
             Konjunkcija(l, d) | Disjunkcija(l, d) | BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d)
@@ -379,8 +386,10 @@ impl Vozlišče {
             Real(_) => 1,
             Znak(_) => 1,
             Niz(niz) => niz.chars().count() as isize,
-            Referenca(_) => 1,
+
             Spremenljivka{ tip, .. } => tip.sprememba_stacka(),
+            Referenca(_) => 1,
+            Dereferenciraj(spr) => spr.sprememba_stacka(),
 
             Resnica => 1,
             Laž     => 1,
@@ -434,9 +443,14 @@ impl Vozlišče {
             Celo(_) => Tip::Celo,
             Real(_) => Tip::Real,
             Znak(_) => Tip::Znak,
-            Referenca(vozlišče) => Tip::Referenca(Box::new(vozlišče.tip())),
             Niz(niz)  => Tip::Seznam(Box::new(Tip::Znak), niz.len()),
+            
             Spremenljivka{ tip, .. } => tip.clone(),
+            Referenca(vozlišče) => Tip::Referenca(Box::new(vozlišče.tip())),
+            Dereferenciraj(vozlišče) => match &**vozlišče {
+                Spremenljivka { tip: Tip::Referenca(element), .. } => *element.clone(),
+                _ => unreachable!("Ne moremo dereferencirati nečesa, kar ni referenca."),
+            }
 
             Resnica | Laž => Tip::Bool,
             Zanikaj(..) | Konjunkcija(..) | Disjunkcija(..) => Tip::Bool,
