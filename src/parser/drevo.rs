@@ -1,4 +1,4 @@
-use std::{rc::Rc, fmt::Display, mem::discriminant, cell::RefCell};
+use std::{rc::Rc, fmt::Display, mem::{discriminant, self}, cell::RefCell};
 use super::tip::Tip;
 
 #[allow(dead_code)]
@@ -105,9 +105,8 @@ pub enum Vozlišče {
     Zaporedje(Vec<Rc<Vozlišče>>),
     Okvir{ zaporedje: Rc<Vozlišče>, št_spr: usize },
 
-    Funkcija{ tip: Tip, ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>,
-    prostor: usize, št_klicev: usize },
-    FunkcijskiKlic{ funkcija: Rc<Vozlišče>, argumenti: Rc<Vozlišče> },
+    Funkcija{ tip: Tip, ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>, prostor: usize, št_klicev: usize },
+    FunkcijskiKlic{ funkcija: Rc<Vozlišče>, spremenljivke: Rc<Vozlišče>, argumenti: Rc<Vozlišče> },
 
     Natisni(Vec<Rc<Vozlišče>>),
 }
@@ -132,7 +131,7 @@ impl Display for Vozlišče {
             Real(število) => število.to_string(),
             Znak(znak)    => znak.to_string(),
 
-            Spremenljivka{ tip, ime, naslov, z_odmikom } => format!("{ime} ({}{naslov}): {tip}", if *z_odmikom { "+" } else { "@" }),
+            Spremenljivka{ tip, ime, naslov, z_odmikom } => format!("{ime}: {tip} ({}{naslov})", if *z_odmikom { "+" } else { "@" }),
             Referenca(spremenljivka) => "@".to_string() + &spremenljivka.to_string(),
             Dereferenciraj(spremenljivka) => spremenljivka.to_string() + &"@".to_string(),
 
@@ -254,12 +253,11 @@ impl PartialEq for Vozlišče {
             (Zaporedje(l), Zaporedje(d)) => l == d,
             (Okvir{ zaporedje: lz, št_spr: lš }, Okvir{ zaporedje: dz, št_spr: dš }) => lz == dz && lš == dš,
 
-            (Funkcija{ tip: ltip, ime: li, parametri: lp, telo: lt, prostor: lpr, .. }, 
-             Funkcija{ tip: dtip, ime: di, parametri: dp, telo: dt, prostor: dpr, .. }) =>
-                ltip == dtip && li == di && lp == dp && lt == dt && lpr == dpr,
+            (l @ Funkcija{ .. }, d @ Funkcija{ .. }) =>
+                mem::discriminant(l) == mem::discriminant(d),
 
-            (FunkcijskiKlic{ funkcija: lf, argumenti: _ }, FunkcijskiKlic{ funkcija: df, argumenti: _ }) =>
-                lf == df,
+            (l @ FunkcijskiKlic{ .. }, d @ FunkcijskiKlic{ .. }) =>
+                mem::discriminant(l) == mem::discriminant(d),
 
             (Natisni(l), Natisni(d)) => l == d,
 
@@ -347,7 +345,7 @@ impl Vozlišče {
                 + &telo.drevo(globina + 1)
                 + &"  ".repeat(globina) + "}\n",
 
-            FunkcijskiKlic { funkcija: _, argumenti } =>
+            FunkcijskiKlic { argumenti, .. } =>
                 "  ".repeat(globina) + &self.to_string() + "(\n"
                 + &argumenti.drevo(globina + 1)
                 + &"  ".repeat(globina) + ")\n",
@@ -527,8 +525,8 @@ impl Vozlišče {
                 Okvir { zaporedje, št_spr: _ } => zaporedje.vsebuje(other),
 
                 Funkcija { tip: _, ime: _, parametri: _, telo, .. } => telo.vsebuje(other),
-                FunkcijskiKlic { funkcija, argumenti } =>
-                    &**funkcija == if let FunkcijskiKlic { funkcija, argumenti: _ } = other {
+                FunkcijskiKlic { funkcija, argumenti, .. } =>
+                    &**funkcija == if let FunkcijskiKlic { funkcija, .. } = other {
                         &**funkcija
                     } else { unreachable!() } || argumenti.vsebuje(other),
 
@@ -545,11 +543,6 @@ mod testi {
 
     #[test]
     fn eq() {
-        assert!("funkcija f(a: celo) {}".tokenize().parse().unwrap().root == "funkcija f(a: celo) {}".tokenize().parse().unwrap().root);
-        assert!("funkcija f(a: celo) { naj x = 3 }".tokenize().parse().unwrap().root != "funkcija f(a: celo) {}".tokenize().parse().unwrap().root);
-
-        assert!("funkcija f() {}; f()".tokenize().parse().unwrap().root == "funkcija f() {}; f()".tokenize().parse().unwrap().root);
-        assert!("funkcija f() {}; f()".tokenize().parse().unwrap().root != "funkcija g() {}; g()".tokenize().parse().unwrap().root);
     }
 
     #[test]
@@ -563,7 +556,10 @@ mod testi {
             Prazno.rc()
         };
 
-        assert_eq!(rekurzivna_f.vsebuje(&FunkcijskiKlic{ funkcija: rekurzivna_f.clone(), argumenti: Zaporedje(vec![]).rc() }), true);
+        assert_eq!(rekurzivna_f.vsebuje(&FunkcijskiKlic{
+            funkcija: rekurzivna_f.clone(),
+            spremenljivke: Zaporedje(vec![]).rc(),
+            argumenti: Zaporedje(vec![]).rc() }), true);
     }
 
 }

@@ -281,7 +281,7 @@ impl Prevedi for Vozlišče {
                 ].concat()
             },
 
-            FunkcijskiKlic{ funkcija, argumenti } => {
+            FunkcijskiKlic{ funkcija, spremenljivke, argumenti } => {
                 let (vrni, skok) = match &**funkcija {
                     Funkcija { tip, ime, .. } => (
                         Push(tip.sprememba_stacka() as usize).rc(),
@@ -291,6 +291,7 @@ impl Prevedi for Vozlišče {
                 let pc = ProgramskiŠtevec((1 + argumenti.len() + skok.len()) as i32).rc();
 
                 Zaporedje(vec![
+                    spremenljivke.clone(),
                     vrni,              // rezerviraj prostor za rezultat funkcije
                     pc,                // naloži PC (kam se vrniti iz funkcije)
                     argumenti.clone(), // naloži argumente
@@ -569,6 +570,7 @@ mod test {
 
         assert_eq!(FunkcijskiKlic {
             funkcija: funkcija.clone(),
+            spremenljivke: Zaporedje(vec![]).rc(),
             argumenti: Zaporedje(vec![Real(1.0).rc(), Real(2.0).rc()]).rc(),
         }.prevedi(), [
             PUSHI(0),

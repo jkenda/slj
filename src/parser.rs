@@ -4,7 +4,8 @@ pub mod tip;
 pub mod napaka;
 mod loci;
 
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc, iter};
+use rand::{distributions::Alphanumeric, Rng};
 
 use drevo::{Drevo, Vozlišče::{*, self}, VozliščeOption::{*, self}};
 use tip::Tip;
@@ -13,10 +14,16 @@ use loci::*;
 
 use self::napaka::{Napake, OznakaNapake::*, Napaka};
 
+struct Argumenti {
+    tipi: Vec<Tip>,
+    spremenljivke: Vec<Rc<Vozlišče>>,
+    argumenti: Vec<Rc<Vozlišče>>,
+}
+
 #[derive(Debug)]
 struct Parser<'a> {
-    spremenljivke_stack: Vec<HashMap<&'a str, Rc<Vozlišče>>>,
-    spremenljivke: HashMap<&'a str, Rc<Vozlišče>>,
+    spremenljivke_stack: Vec<HashMap<String, Rc<Vozlišče>>>,
+    spremenljivke: HashMap<String, Rc<Vozlišče>>,
     funkcije_stack: Vec<HashMap<String, Rc<Vozlišče>>>,
     funkcije: HashMap<String, Rc<Vozlišče>>,
     reference_stack: Vec<HashMap<&'a str, Rc<Vozlišče>>>,
@@ -221,7 +228,7 @@ impl<'a> Parser<'a> {
             // okvir
             [ Ločilo("{", ..), vmes @ .., Ločilo("}", ..) ] => self.okvir(vmes),
             // funkcija natisni (zaenkrat še posebna funkcija)
-            [ Ime("natisni", ..), Ločilo("(", ..), vmes @ .., Ločilo(")", ..) ] => Ok(Natisni(self.argumenti(vmes)?).rc()),
+            [ Ime("natisni", ..), Ločilo("(", ..), vmes @ .., Ločilo(")", ..) ] => Ok(Natisni(self.argumenti(vmes)?.argumenti).rc()),
             // funkcijski klic
             [ ime @ Ime(..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.funkcijski_klic_zavrzi_izhod(ime, argumenti),
             // pogojni stavek
@@ -244,17 +251,7 @@ impl<'a> Parser<'a> {
         let spremenljivka = match self.spremenljivke.get(ime.as_str()) {
             Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Spremenljivka že obstaja")),
             None => {
-                let tip = izraz.tip();
-                let naslov = match self.znotraj_funkcije {
-                    true  => self.spremenljivke_stack.last().unwrap().values().map(|s| s.sprememba_stacka() as u32).sum::<u32>(),
-                    false => self.spremenljivke.values().map(|s| s.sprememba_stacka() as u32).sum::<u32>(),
-                };
-                let z_odmikom = self.znotraj_funkcije;
-                let spr = Spremenljivka { tip, ime: ime.to_string(), naslov, z_odmikom }.rc();
-
-                self.spremenljivke_stack.last_mut().unwrap().insert(ime.as_str(), spr.clone());
-                self.spremenljivke.insert(ime.as_str(), spr.clone());
-                Ok(spr)
+                Ok(self.dodaj_spremenljivko(ime.to_string(), izraz.tip()))
             }
         }?;
 
@@ -383,8 +380,8 @@ impl<'a> Parser<'a> {
         let pc   = Spremenljivka { tip: Tip::Celo, ime: "0_PC".to_string(), naslov: vrni.sprememba_stacka() as u32, z_odmikom: true }.rc();
 
         let mut spr_funkcije = HashMap::from([
-            ("0_vrni", vrni.clone()),
-            ("0_PC", pc.clone()),
+            ("0_vrni".to_string(), vrni.clone()),
+            ("0_PC".to_string(), pc.clone()),
         ]);
 
         let mut naslov_nove = (vrni.sprememba_stacka() + pc.sprememba_stacka()) as u32;
@@ -415,14 +412,14 @@ impl<'a> Parser<'a> {
             }
             else {
                 let spr = Spremenljivka { tip: tip.clone(), ime: ime.to_string(), naslov: naslov_nove, z_odmikom: true }.rc();
-                spr_funkcije.insert(ime.as_str(), spr.clone());
+                spr_funkcije.insert(ime.to_string(), spr.clone());
                 parametri.push(spr);
                 naslov_nove += tip.sprememba_stacka() as u32;
             }
         }
 
         let podpis_funkcije = format!("{}({})", ime.as_str(), parametri.iter().map(|p| p.tip().to_string()).collect::<Vec<String>>().join(", "));
-        spr_funkcije.insert("0_OF", Spremenljivka { tip: Tip::Celo, ime: "0_OF".to_string(), naslov: naslov_nove, z_odmikom: true }.rc());
+        spr_funkcije.insert("0_OF".to_string(), Spremenljivka { tip: Tip::Celo, ime: "0_OF".to_string(), naslov: naslov_nove, z_odmikom: true }.rc());
 
         let mut okolje_funkcije = Parser {
             spremenljivke_stack: self.spremenljivke_stack.clone(),
@@ -460,8 +457,8 @@ impl<'a> Parser<'a> {
     }
 
     fn funkcijski_klic<'b>(&mut self, ime: &Token, argumenti: &'b[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
-        let argumenti = self.argumenti(argumenti)?;
-        let podpis_funkcije = format!("{}({})", ime.as_str(), argumenti.iter().map(|p| p.tip().to_string()).collect::<Vec<String>>().join(", "));
+        let Argumenti { tipi, spremenljivke, argumenti } = self.argumenti(argumenti)?;
+        let podpis_funkcije = format!("{}({})", ime.as_str(), tipi.iter().map(|t| t.to_string()).collect::<Vec<String>>().join(", "));
 
         let funkcija = self.funkcije.get(&podpis_funkcije)
             .ok_or(Napake::from_zaporedje(&[*ime], E2, &format!("Funkcija '{podpis_funkcije}' ne obstaja")))?
@@ -477,7 +474,7 @@ impl<'a> Parser<'a> {
                 št_klicev: št_klicev + 1 }.rc());
         }
 
-        Ok(FunkcijskiKlic { funkcija, argumenti: Zaporedje(argumenti).rc() }.rc())
+        Ok(FunkcijskiKlic { funkcija, spremenljivke: Zaporedje(spremenljivke).rc(), argumenti: Zaporedje(argumenti).rc() }.rc())
     }
 
     fn funkcijski_klic_zavrzi_izhod(&mut self, ime: &Token, argumenti: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
@@ -491,19 +488,23 @@ impl<'a> Parser<'a> {
     }
 
     fn multi_klic<'b>(&mut self, ime: &'b Token<'a>, argumenti_izraz: &'b [Token<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
-        let argumenti = self.argumenti(argumenti_izraz);
+        let Argumenti { tipi, spremenljivke, argumenti } = self.argumenti(argumenti_izraz)?;
         let mut funkcijski_klici: Vec<Rc<Vozlišče>> = Vec::new();
         let mut napake = Napake::new();
 
-        for argument in &argumenti? {
-            let podpis_funkcije = format!("{}({})", ime.as_str(), argument.tip());
+        for (tip, (spremenljivka, argument)) in iter::zip(tipi, iter::zip(spremenljivke, argumenti)) {
+            let podpis_funkcije = format!("{}({})", ime.as_str(), tip);
             let funkcija = self.funkcije.get(&podpis_funkcije)
                 .ok_or(Napake::from_zaporedje(argumenti_izraz, E2, &format!("Funkcija '{podpis_funkcije}' ne obstaja")))?
                 .clone();
 
             if let Funkcija { tip, .. } = &*funkcija {
                 if *tip == Tip::Brez {
-                    funkcijski_klici.push(FunkcijskiKlic { funkcija, argumenti: Zaporedje(vec![argument.rc()]).rc() }.rc());
+                    funkcijski_klici.push(FunkcijskiKlic {
+                        funkcija,
+                        spremenljivke: Zaporedje(vec![spremenljivka.rc()]).rc(),
+                        argumenti: Zaporedje(vec![argument.rc()]).rc(),
+                    }.rc());
                 }
                 else {
                     napake.add_napaka(Napaka::from_zaporedje(&[*ime], E8,
@@ -718,8 +719,6 @@ impl<'a> Parser<'a> {
                 let referenca = self.spremenljivke.get(ime.as_str())
                     .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?;
 
-                dbg!(referenca);
-
                 match &**referenca {
                     Spremenljivka { tip, .. } => match &*tip {
                         Tip::Referenca(..) => Ok(Dereferenciraj(referenca.clone()).rc()),
@@ -750,24 +749,83 @@ impl<'a> Parser<'a> {
     }
 
 
-    fn argumenti<'b>(&mut self, izraz: &'b[Token<'a>]) -> Result<Vec<Rc<Vozlišče>>, Napake> where 'a: 'b {
+    fn argumenti<'b>(&mut self, izraz: &'b[Token<'a>]) -> Result<Argumenti, Napake> where 'a: 'b {
         let mut napake = Napake::new();
-        let mut argumenti: Vec<Rc<Vozlišče>> = Vec::new();
+
+        let mut tipi = Vec::new();
+        let mut spremenljivke = Vec::new();
+        let mut argumenti = Vec::new();
         let razdeljeno = razdeli(izraz, &[","])?;
 
         for argument in razdeljeno {
-            match self.drevo(argument) {
-                Ok(drevo) => argumenti.push(drevo),
-                Err(n) => napake.razširi(n),
+            match argument.first() {
+                Some(Operator("@", ..)) => {
+                    match self.drevo(&argument[1..]) {
+                        Ok(drevo) => {
+                            let tip = drevo.tip();
+                            let spr = self.dodaj_spremenljivko(self.naključno_ime(25), tip.clone());
+                            let prirejanje = Prirejanje { spremenljivka: spr.clone(), izraz: drevo }.rc();
+
+                            tipi.push(Tip::Referenca(Box::new(tip)));
+                            spremenljivke.push(prirejanje);
+                            argumenti.push(Referenca(spr).rc());
+                        },
+                        Err(n) => napake.razširi(n),
+                    }
+                },
+                Some(..) => {
+                    match self.drevo(argument) {
+                        Ok(drevo) => {
+                            tipi.push(drevo.tip());
+                            argumenti.push(drevo);
+                            spremenljivke.push(Prazno.rc());
+                        },
+                        Err(n) => napake.razširi(n),
+                    }
+                },
+                None => {
+                    tipi.push(Tip::Brez);
+                    argumenti.push(Prazno.rc());
+                    spremenljivke.push(Prazno.rc());
+                }
             }
         }
 
         if napake.prazno() {
-            Ok(argumenti)
+            Ok(Argumenti{ tipi, spremenljivke, argumenti })
         }
         else {
             Err(napake)
         }
+    }
+
+    fn dodaj_spremenljivko(&mut self, ime: String, tip: Tip) -> Rc<Vozlišče> {
+        let naslov = match self.znotraj_funkcije {
+            true  => self.spremenljivke_stack.last().unwrap().values().map(|s| s.sprememba_stacka() as u32).sum::<u32>(),
+            false => self.spremenljivke.values().map(|s| s.sprememba_stacka() as u32).sum::<u32>(),
+        };
+        let spr = Spremenljivka { tip, ime: ime.clone(), naslov, z_odmikom: self.znotraj_funkcije }.rc();
+        self.spremenljivke_stack.last_mut().unwrap().insert(ime.clone(), spr.clone());
+        self.spremenljivke.insert(ime, spr.clone());
+        spr
+    }
+
+    fn naključno_ime(&self, dolžina: usize) -> String {
+        let mut ime = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(dolžina)
+            .map(char::from)
+            .collect();
+
+        while self.spremenljivke.contains_key(&ime) {
+            ime = rand::thread_rng()
+                .sample_iter(&Alphanumeric)
+                .take(dolžina)
+                .map(char::from)
+                .collect();
+        }
+
+        ime
     }
 }
 
@@ -811,10 +869,11 @@ mod testi {
             }.rc());
         assert_eq!(parser.osnovni([ Ime("fun", 1, 1), Ločilo("(", 1, 4), Ločilo(")", 1, 5)].as_slice()).unwrap(), FunkcijskiKlic { 
             funkcija: parser.funkcije["fun()"].clone(),
+            spremenljivke: Zaporedje(vec![]).rc(),
             argumenti: Zaporedje([].to_vec()).rc(),
         }.rc());
 
-        parser.spremenljivke.insert("a", Rc::new(Spremenljivka { tip: Tip::Celo, ime: "a".to_string(), naslov: 0, z_odmikom: false }));
+        parser.spremenljivke.insert("a".to_string(), Rc::new(Spremenljivka { tip: Tip::Celo, ime: "a".to_string(), naslov: 0, z_odmikom: false }));
         assert_eq!(parser.osnovni([ Ime("a", 1, 1)].as_slice()).unwrap(), parser.spremenljivke["a"].clone());
     }
 

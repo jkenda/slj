@@ -230,6 +230,7 @@ impl Program {
             }
             println!("{stack:?}");
         }
+        assert!(stack.len() == 0);
     }
 
     pub fn zaženi_z_izhodom(&self, izhod: &mut impl io::Write) {
@@ -241,6 +242,7 @@ impl Program {
         while (pc as usize) < self.ukazi.len() {
             Program::korak(&self.ukazi[pc as usize], &mut stack, &mut pc, &mut addroff, izhod);
         }
+        assert!(stack.len() == 0);
     }
 
     pub fn to_assembler(&self) -> String {
