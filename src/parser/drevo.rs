@@ -452,7 +452,7 @@ impl Vozlišče {
             Referenca(vozlišče) => Tip::Referenca(Box::new(vozlišče.tip())),
             Dereferenciraj(vozlišče) => match &**vozlišče {
                 Spremenljivka { tip: Tip::Referenca(element), .. } => *element.clone(),
-                _ => unreachable!("Ne moremo dereferencirati nečesa, kar ni referenca."),
+                _ => unreachable!("Dereferencirati je mogoče samo referenco."),
             }
 
             Resnica | Laž => Tip::Bool,

@@ -259,9 +259,7 @@ impl<'a> Parser<'a> {
         let izraz = self.drevo(izraz)?;
         let spremenljivka = match self.spremenljivke.get(ime.as_str()) {
             Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Spremenljivka že obstaja")),
-            None => {
-                Ok(self.dodaj_spremenljivko(ime.to_string(), izraz.tip()))
-            }
+            None => Ok(self.dodaj_spremenljivko(ime.to_string(), izraz.tip()))
         }?;
 
         Ok(Prirejanje { spremenljivka, izraz }.rc())
@@ -297,7 +295,10 @@ impl<'a> Parser<'a> {
     fn kombinirano_prirejanje_ref(&mut self, ime: &Token, operator: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let referenca = self.spremenljivke.get(ime.as_str())
             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone();
-        let spremenljivka = Dereferenciraj(referenca.clone()).rc();
+        let spremenljivka = match referenca.tip() {
+            Tip::Referenca(_) => Dereferenciraj(referenca.clone()).rc(),
+            _ => Err(Napake::from_zaporedje(&[*ime, *operator], E3, "Dereferencirati je mogoče samo referenco."))?
+        };
         let drevo = self.drevo(izraz)?;
         let izraz = Self::prirejanje_v_kombinirano(spremenljivka, operator, drevo)?;
 
@@ -310,17 +311,17 @@ impl<'a> Parser<'a> {
                 (Tip::Celo, Tip::Celo) => Ok(op(Tip::Celo, spremenljivka, drevo).rc()),
                 (Tip::Real, Tip::Real) => Ok(op(Tip::Real, spremenljivka, drevo).rc()),
                 _ => Err(Napake::from_zaporedje(&[*operator], E3,
-                        &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
+                        &format!("Nemogoča operacija: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
             },
             Logični(op) => match (spremenljivka.tip(), drevo.tip()) {
                 (Tip::Bool, Tip::Bool) => Ok(op(spremenljivka, drevo).rc()),
                 _ => Err(Napake::from_zaporedje(&[*operator], E3,
-                        &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
+                        &format!("Nemogoča operacija: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
             }
             Bitni(op) => match (spremenljivka.tip(), drevo.tip()) {
                 (Tip::Celo, Tip::Celo) => Ok(op(spremenljivka, drevo).rc()),
                 _ => Err(Napake::from_zaporedje(&[*operator], E3,
-                        &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
+                        &format!("Nemogoča operacija: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
             }
             Brez => Err(Napake::from_zaporedje(&[*operator], E4, "Neznan operator"))
         }
@@ -641,7 +642,7 @@ impl<'a> Parser<'a> {
                 match (l.tip(), d.tip()) {
                     (Tip::Celo, Tip::Celo) => Ok(primerjalni_op(op.as_str()).unwrap()(Tip::Celo, l, d).rc()),
                     (Tip::Real, Tip::Real) => Ok(primerjalni_op(op.as_str()).unwrap()(Tip::Real, l, d).rc()),
-                    _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nekompatibilna tipa: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                    _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nemogoča operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                 }
             },
             Some(Err(napaka)) => Err(napaka),
@@ -665,7 +666,7 @@ impl<'a> Parser<'a> {
                 match (l.tip(), d.tip()) {
                     (Tip::Celo, Tip::Celo) => Ok(aritmetični_op(op.as_str())(Tip::Celo, l, d).rc()),
                     (Tip::Real, Tip::Real) => Ok(aritmetični_op(op.as_str())(Tip::Real, l, d).rc()),
-                    _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nekompatibilna tipa: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                    _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nemogoča operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                 }
             },
             Some(Err(napaka)) => Err(napaka),
@@ -681,7 +682,7 @@ impl<'a> Parser<'a> {
                 match (l.tip(), d.tip()) {
                     (Tip::Celo, Tip::Celo) => Ok(aritmetični_op(op.as_str())(Tip::Celo, l, d).rc()),
                     (Tip::Real, Tip::Real) => Ok(aritmetični_op(op.as_str())(Tip::Real, l, d).rc()),
-                    _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nekompatibilna tipa: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                    _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nemogoča operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                 }
             },
             Some(Err(napaka)) => Err(napaka),
@@ -692,7 +693,7 @@ impl<'a> Parser<'a> {
                     match (l.tip(), d.tip()) {
                         (Tip::Celo, Tip::Celo) => Ok(aritmetični_op(op.as_str())(Tip::Celo, l, d).rc()),
                         (Tip::Real, Tip::Real) => Ok(aritmetični_op(op.as_str())(Tip::Real, l, d).rc()),
-                        _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nekompatibilna tipa: {} {} {}", l.tip(), op.as_str(), d.tip()))),
+                        _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nemogoča operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                     }
                 },
                 Some(Err(napaka)) => Err(napaka),
