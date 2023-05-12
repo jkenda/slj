@@ -289,26 +289,7 @@ impl<'a> Parser<'a> {
         let spremenljivka = self.spremenljivke.get(ime.as_str())
             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone();
         let drevo = self.drevo(izraz)?;
-
-        let izraz = match prireditveni_op(operator.as_str()) {
-            Aritmetični(op) => match (spremenljivka.tip(), drevo.tip()) {
-               (Tip::Celo, Tip::Celo) => Ok(op(Tip::Celo, spremenljivka.clone(), drevo)),
-               (Tip::Real, Tip::Real) => Ok(op(Tip::Real, spremenljivka.clone(), drevo)),
-               _ => Err(Napake::from_zaporedje(&[*operator], E3,
-                                               &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
-            },
-            Logični(op) => match (spremenljivka.tip(), drevo.tip()) {
-                (Tip::Bool, Tip::Bool) => Ok(op(spremenljivka.clone(), drevo)),
-               _ => Err(Napake::from_zaporedje(&[*operator], E3,
-                                               &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
-            }
-            Bitni(op) => match (spremenljivka.tip(), drevo.tip()) {
-                (Tip::Celo, Tip::Celo) => Ok(op(spremenljivka.clone(), drevo)),
-               _ => Err(Napake::from_zaporedje(&[*operator], E3,
-                                               &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
-            }
-            Brez => Err(Napake::from_zaporedje(&[*operator], E4, "Neznan operator"))
-        }?.rc();
+        let izraz = Self::prirejanje_v_kombinirano(spremenljivka.clone(), operator, drevo)?;
 
         Ok(Prirejanje { spremenljivka, izraz }.rc())
     }
@@ -316,29 +297,33 @@ impl<'a> Parser<'a> {
     fn kombinirano_prirejanje_ref(&mut self, ime: &Token, operator: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let referenca = self.spremenljivke.get(ime.as_str())
             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone();
+        let spremenljivka = Dereferenciraj(referenca.clone()).rc();
         let drevo = self.drevo(izraz)?;
-
-        let izraz = match prireditveni_op(operator.as_str()) {
-            Aritmetični(op) => match (referenca.tip(), drevo.tip()) {
-               (Tip::Celo, Tip::Celo) => Ok(op(Tip::Celo, referenca.clone(), drevo)),
-               (Tip::Real, Tip::Real) => Ok(op(Tip::Real, referenca.clone(), drevo)),
-               _ => Err(Napake::from_zaporedje(&[*operator], E3,
-                                               &format!("Nekompatibilna tipa: {} {} {}", referenca.tip(), operator.as_str(), drevo.tip()))),
-            },
-            Logični(op) => match (referenca.tip(), drevo.tip()) {
-                (Tip::Bool, Tip::Bool) => Ok(op(referenca.clone(), drevo)),
-               _ => Err(Napake::from_zaporedje(&[*operator], E3,
-                                               &format!("Nekompatibilna tipa: {} {} {}", referenca.tip(), operator.as_str(), drevo.tip()))),
-            }
-            Bitni(op) => match (referenca.tip(), drevo.tip()) {
-                (Tip::Celo, Tip::Celo) => Ok(op(referenca.clone(), drevo)),
-               _ => Err(Napake::from_zaporedje(&[*operator], E3,
-                                               &format!("Nekompatibilna tipa: {} {} {}", referenca.tip(), operator.as_str(), drevo.tip()))),
-            }
-            Brez => Err(Napake::from_zaporedje(&[*operator], E4, "Neznan operator"))
-        }?.rc();
+        let izraz = Self::prirejanje_v_kombinirano(spremenljivka, operator, drevo)?;
 
         Ok(PrirejanjeRef { referenca, izraz }.rc())
+    }
+
+    fn prirejanje_v_kombinirano(spremenljivka: Rc<Vozlišče>, operator: &Token, drevo: Rc<Vozlišče>) -> Result<Rc<Vozlišče>, Napake> {
+        match prireditveni_op(operator.as_str()) {
+            Aritmetični(op) => match (spremenljivka.tip(), drevo.tip()) {
+                (Tip::Celo, Tip::Celo) => Ok(op(Tip::Celo, spremenljivka, drevo).rc()),
+                (Tip::Real, Tip::Real) => Ok(op(Tip::Real, spremenljivka, drevo).rc()),
+                _ => Err(Napake::from_zaporedje(&[*operator], E3,
+                        &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
+            },
+            Logični(op) => match (spremenljivka.tip(), drevo.tip()) {
+                (Tip::Bool, Tip::Bool) => Ok(op(spremenljivka, drevo).rc()),
+                _ => Err(Napake::from_zaporedje(&[*operator], E3,
+                        &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
+            }
+            Bitni(op) => match (spremenljivka.tip(), drevo.tip()) {
+                (Tip::Celo, Tip::Celo) => Ok(op(spremenljivka, drevo).rc()),
+                _ => Err(Napake::from_zaporedje(&[*operator], E3,
+                        &format!("Nekompatibilna tipa: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
+            }
+            Brez => Err(Napake::from_zaporedje(&[*operator], E4, "Neznan operator"))
+        }
     }
 
     fn vrni(&mut self, vrni: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {

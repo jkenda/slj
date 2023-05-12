@@ -57,9 +57,15 @@ fn referenca() {
         funkcija spremeni(ref: @celo, val: celo) {
             ref@ = val;
         }
+        funkcija povečaj(ref: @celo, val: celo) {
+            ref@ += val
+        }
 
         naj a = 7
+        natisni(a, " ")
         spremeni(@a, 13)
+        natisni(a, " ")
+        povečaj(@a, 4)
         natisni(a)
         "#;
     let parsed = program.tokenize().parse().unwrap();
@@ -68,7 +74,7 @@ fn referenca() {
     println!("{}", program.to_assembler());
     program.zaženi_debug();
     program.zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "13");
+    assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "7 13 17");
 }
 
 #[test]
