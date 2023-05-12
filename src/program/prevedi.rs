@@ -214,22 +214,35 @@ impl Prevedi for Vozlišče {
             },
 
             Prirejanje{ spremenljivka, izraz } => {
-                let (naslov, velikost, z_odmikom) = if let Spremenljivka { tip, ime: _, naslov, z_odmikom } = &**spremenljivka { 
-                    (naslov.clone(), tip.sprememba_stacka(), *z_odmikom) 
-                }
-                else {
-                    unreachable!("Vedno prirejamo spremenljivki")
+                let (naslov, velikost, z_odmikom) = match &**spremenljivka { 
+                    Spremenljivka { tip, naslov, z_odmikom, .. } => (naslov.clone(), tip.sprememba_stacka(), *z_odmikom),
+                    _ => unreachable!("Vedno prirejamo spremenljivki.")
                 };
 
                 let shrani = (naslov..naslov+velikost as u32)
-                    .map(|naslov| {
-                        if z_odmikom {
-                            Osnovni(STOF(naslov))
-                        } else {
-                            Osnovni(STOR(naslov))
-                        }
-                    })
-                .collect::<Vec<UkazPodatekRelative>>();
+                    .map(|naslov| Osnovni(if z_odmikom { STOF(naslov) } else { STOR(naslov) }))
+                    .collect::<Vec<UkazPodatekRelative>>();
+
+                [
+                    izraz.clone().prevedi().as_slice(),
+                    shrani.as_slice()
+                ].concat()
+            },
+
+            PrirejanjeRef{ referenca, izraz } => {
+                let (začetek, velikost, z_odmikom) = match &**referenca { 
+                    Spremenljivka { tip, naslov, z_odmikom, .. } => (naslov.clone(), tip.sprememba_stacka(), *z_odmikom),
+                    _ => unreachable!("Vedno prirejamo spremenljivki, na katero kaže referenca.")
+                };
+
+                let shrani = (začetek..začetek+velikost as u32)
+                    .rev()
+                    .map(|naslov| [
+                        Osnovni(if z_odmikom { LDOF(naslov) } else { LOAD(naslov) }),
+                        Osnovni(STDY(naslov - začetek)),
+                    ])
+                    .flatten()
+                    .collect::<Vec<UkazPodatekRelative>>();
 
                 [
                     izraz.clone().prevedi().as_slice(),

@@ -216,8 +216,17 @@ impl<'a> Parser<'a> {
             [ ime @ Ime(..), Operator("!", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.multi_klic(ime, argumenti),
             // inicializacija
             [ Rezerviranka("naj", ..), ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.inicializacija(ime, ostanek),
+            // prirejanje referenci
+            [ ime @ Ime(..), Operator("@", ..), Operator("=", ..), ostanek @ .. ] => self.prirejanje_ref(ime, ostanek),
             // prirejanje
             [ ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.prirejanje(ime, ostanek),
+            // kombinirano prirejanje referenci (+=, -=, *= ...)
+            [ ime @ Ime(..), Operator("@", ..), operator @ Operator(op, ..), ostanek @ .. ] => {
+                match prireditveni_op(op) {
+                    Brez => Err(Napake::from_zaporedje(izraz, E1, "Neznan izraz")),
+                    _ => self.kombinirano_prirejanje_ref(ime, operator, ostanek),
+                }
+            },
             // kombinirano prirejanje (+=, -=, *= ...)
             [ ime @ Ime(..), operator @ Operator(op, ..), ostanek @ .. ] => {
                 match prireditveni_op(op) {
@@ -267,6 +276,15 @@ impl<'a> Parser<'a> {
         Ok(Prirejanje { spremenljivka, izraz }.rc())
     }
 
+    fn prirejanje_ref(&mut self, ime: &Token<'a>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+        let izraz = self.drevo(izraz)?;
+        let referenca = self.spremenljivke.get(ime.as_str())
+            .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?
+            .clone();
+
+        Ok(PrirejanjeRef { referenca, izraz }.rc())
+    }
+
     fn kombinirano_prirejanje(&mut self, ime: &Token, operator: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let spremenljivka = self.spremenljivke.get(ime.as_str())
             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone();
@@ -293,6 +311,34 @@ impl<'a> Parser<'a> {
         }?.rc();
 
         Ok(Prirejanje { spremenljivka, izraz }.rc())
+    }
+
+    fn kombinirano_prirejanje_ref(&mut self, ime: &Token, operator: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+        let referenca = self.spremenljivke.get(ime.as_str())
+            .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone();
+        let drevo = self.drevo(izraz)?;
+
+        let izraz = match prireditveni_op(operator.as_str()) {
+            Aritmetični(op) => match (referenca.tip(), drevo.tip()) {
+               (Tip::Celo, Tip::Celo) => Ok(op(Tip::Celo, referenca.clone(), drevo)),
+               (Tip::Real, Tip::Real) => Ok(op(Tip::Real, referenca.clone(), drevo)),
+               _ => Err(Napake::from_zaporedje(&[*operator], E3,
+                                               &format!("Nekompatibilna tipa: {} {} {}", referenca.tip(), operator.as_str(), drevo.tip()))),
+            },
+            Logični(op) => match (referenca.tip(), drevo.tip()) {
+                (Tip::Bool, Tip::Bool) => Ok(op(referenca.clone(), drevo)),
+               _ => Err(Napake::from_zaporedje(&[*operator], E3,
+                                               &format!("Nekompatibilna tipa: {} {} {}", referenca.tip(), operator.as_str(), drevo.tip()))),
+            }
+            Bitni(op) => match (referenca.tip(), drevo.tip()) {
+                (Tip::Celo, Tip::Celo) => Ok(op(referenca.clone(), drevo)),
+               _ => Err(Napake::from_zaporedje(&[*operator], E3,
+                                               &format!("Nekompatibilna tipa: {} {} {}", referenca.tip(), operator.as_str(), drevo.tip()))),
+            }
+            Brez => Err(Napake::from_zaporedje(&[*operator], E4, "Neznan operator"))
+        }?.rc();
+
+        Ok(PrirejanjeRef { referenca, izraz }.rc())
     }
 
     fn vrni(&mut self, vrni: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
@@ -758,8 +804,13 @@ impl<'a> Parser<'a> {
         let razdeljeno = razdeli(izraz, &[","])?;
 
         for argument in razdeljeno {
-            match argument.first() {
-                Some(Operator("@", ..)) => {
+            match argument {
+                [] => {
+                    tipi.push(Tip::Brez);
+                    argumenti.push(Prazno.rc());
+                    spremenljivke.push(Prazno.rc());
+                },
+                [ Operator("@", ..), Literal(..) ] => {
                     match self.drevo(&argument[1..]) {
                         Ok(drevo) => {
                             let tip = drevo.tip();
@@ -773,7 +824,7 @@ impl<'a> Parser<'a> {
                         Err(n) => napake.razširi(n),
                     }
                 },
-                Some(..) => {
+                [ .. ] => {
                     match self.drevo(argument) {
                         Ok(drevo) => {
                             tipi.push(drevo.tip());
@@ -783,11 +834,6 @@ impl<'a> Parser<'a> {
                         Err(n) => napake.razširi(n),
                     }
                 },
-                None => {
-                    tipi.push(Tip::Brez);
-                    argumenti.push(Prazno.rc());
-                    spremenljivke.push(Prazno.rc());
-                }
             }
         }
 

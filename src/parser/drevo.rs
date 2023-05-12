@@ -100,6 +100,7 @@ pub enum Vozlišče {
     Zanka{ pogoj: Rc<Vozlišče>, telo: Rc<Vozlišče> },
 
     Prirejanje{ spremenljivka: Rc<Vozlišče>, izraz: Rc<Vozlišče> },
+    PrirejanjeRef{ referenca: Rc<Vozlišče>, izraz: Rc<Vozlišče> },
 
     Vrni(Rc<Vozlišče>),
     Zaporedje(Vec<Rc<Vozlišče>>),
@@ -169,6 +170,8 @@ impl Display for Vozlišče {
             Zanka{..}         => "dokler".to_owned(),
 
             Prirejanje{ spremenljivka, .. } => spremenljivka.to_string() + " = ",
+            PrirejanjeRef{ referenca, .. } => referenca.to_string() + " = ",
+
             Vrni(_) => "vrni".to_owned(),
 
             Funkcija{ tip, ime, parametri, .. } => {
@@ -248,6 +251,8 @@ impl PartialEq for Vozlišče {
 
             (Prirejanje{ spremenljivka: ls, izraz: li }, Prirejanje{ spremenljivka: ds, izraz: di }) =>
                 ls == ds && li == di,
+            (PrirejanjeRef{ referenca: lr, izraz: li }, PrirejanjeRef{ referenca: dr, izraz: di }) =>
+                lr == dr && li == di,
 
             (Vrni(l), Vrni(d)) => l == d,
             (Zaporedje(l), Zaporedje(d)) => l == d,
@@ -324,7 +329,7 @@ impl Vozlišče {
                 + &"  ".repeat(globina) + "}\n",
 
 
-            Prirejanje{ spremenljivka: _, izraz } => 
+            Prirejanje{ izraz, .. } | PrirejanjeRef{ izraz, .. } => 
                 "  ".repeat(globina) + &self.to_string() + "\n" 
                 + &izraz.drevo(globina + 1),
 
@@ -414,7 +419,7 @@ impl Vozlišče {
             PogojniStavek{ pogoj, resnica, laž }    => pogoj.sprememba_stacka() - 1 + resnica.sprememba_stacka().max(laž.sprememba_stacka()),
             Zanka{ pogoj, telo }                    => pogoj.sprememba_stacka() - 1 + telo.sprememba_stacka(),
 
-            Prirejanje{ spremenljivka: _, izraz, .. } => izraz.sprememba_stacka() - 1,
+            Prirejanje{ izraz, .. } | PrirejanjeRef{ izraz, .. } => izraz.sprememba_stacka() - 1,
 
             Vrni(_)             => 0,
             Zaporedje(izrazi)   => izrazi.iter().map(|i| i.sprememba_stacka()).sum(),
@@ -433,7 +438,7 @@ impl Vozlišče {
 
             Push(_) => Tip::Celo,
             Pop(_)  => Tip::Brez,
-            Vrh(_)    => Tip::Celo,
+            Vrh(_)  => Tip::Celo,
 
             ShraniOdmik => Tip::Brez,
             NaložiOdmik => Tip::Celo,
@@ -467,7 +472,7 @@ impl Vozlišče {
 
             PogojniStavek{ .. } => Tip::Brez,
             Zanka{ .. } => Tip::Brez,
-            Prirejanje{ .. } => Tip::Brez,
+            Prirejanje{ .. } | PrirejanjeRef { ..  } => Tip::Brez,
 
             Vrni(vozlišče) => vozlišče.tip(),
             Zaporedje(..) => Tip::Brez,

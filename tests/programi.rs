@@ -34,7 +34,7 @@ fn natisni_izraz() {
 #[test]
 fn referenca() {
     let mut izhod: Vec<u8> = Vec::new();
-    let program = r#"
+    let mut program = r#"
         funkcija naloži(ref: @real) {
             natisni(ref@, " ")
         }
@@ -49,11 +49,26 @@ fn referenca() {
         naloži(@42)
         natisni(b@)
         "#;
-
-    println!("{}", program.tokenize().parse().unwrap().to_string());
-    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "13 3.14 42 3.14 13");
+    assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "13 3.14 42 3.14 13");
+
+    izhod.clear();
+    program = r#"
+        funkcija spremeni(ref: @celo, val: celo) {
+            ref@ = val;
+        }
+
+        naj a = 7
+        spremeni(@a, 13)
+        natisni(a)
+        "#;
+    let parsed = program.tokenize().parse().unwrap();
+    let program = parsed.to_program();
+    println!("{}", parsed.to_string());
+    println!("{}", program.to_assembler());
+    program.zaženi_debug();
+    program.zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "13");
 }
 
 #[test]
