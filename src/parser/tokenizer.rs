@@ -152,7 +152,7 @@ impl<'a> Tokenizer {
             (Regex::new(&format!( "^{PRESLEDEK}(\"[^\n\"]*\")")).unwrap(), niz),
             (Regex::new(&format!(r"^{PRESLEDEK}(\d+\.\d+|\d{{1,3}}(_\d{{3}})+\.(\d{{3}}_)+\d{{1,3}}){ZADNJA_MEJA}")).unwrap(), real),
             (Regex::new(&format!(r"^{PRESLEDEK}(\d+|\d{{1,3}}(_\d{{3}})+){ZADNJA_MEJA}")).unwrap(), celo),
-            (Regex::new(&format!(r"^{PRESLEDEK}([,;:#\n(){{}}\[\]]|->)")).unwrap(), Ločilo),
+            (Regex::new(&format!(r"^{PRESLEDEK}([.,;:#\n(){{}}\[\]]|->)")).unwrap(), Ločilo),
             (Regex::new(&format!(r"^{PRESLEDEK}(?x)(
                         # pretvorba
                             kot |

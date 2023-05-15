@@ -51,9 +51,16 @@ impl Prevedi for Vozlišče {
                 vozlišče.prevedi().as_slice(),
                 [Osnovni(LDDY(0))].as_slice(),
             ].concat(),
-
             Indeksiraj { seznam_ref, indeks } =>
                 Dereferenciraj(Seštevanje(Tip::Celo, seznam_ref.clone(), indeks.clone()).rc()).prevedi(),
+            Dolžina(vozlišče) => match vozlišče.tip() {
+                Tip::Seznam(_, dolžina) => Celo(dolžina).rc().prevedi(),
+                Tip::Referenca(referenca) => match &*referenca {
+                    Tip::Seznam(..) => Dereferenciraj(Odštevanje(Tip::Celo, vozlišče.clone(), Celo(1).rc()).rc()).prevedi(),
+                    _ => unreachable!("Jemanje dolžine nečesa, kar ni seznam"),
+                },
+                _ => unreachable!("Jemanje dolžine nečesa, kar ni seznam"),
+            },
 
             Seštevanje(Tip::Celo, l, d) => [
                 l.prevedi().as_slice(),
@@ -221,7 +228,7 @@ impl Prevedi for Vozlišče {
 
             Prirejanje{ spremenljivka, izraz } => {
                 let (naslov, velikost, z_odmikom) = match &**spremenljivka { 
-                    Spremenljivka { tip, naslov, z_odmikom, .. } => (naslov.clone(), tip.sprememba_stacka(), *z_odmikom),
+                    Spremenljivka { naslov, z_odmikom, .. } => (naslov.clone(), izraz.tip().sprememba_stacka(), *z_odmikom),
                     _ => unreachable!("Vedno prirejamo spremenljivki.")
                 };
 

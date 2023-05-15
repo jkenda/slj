@@ -61,6 +61,7 @@ pub enum Vozlišče {
     Referenca(Rc<Vozlišče>),
     Dereferenciraj(Rc<Vozlišče>),
     Indeksiraj{ seznam_ref: Rc<Vozlišče>, indeks: Rc<Vozlišče> },
+    Dolžina(Rc<Vozlišče>),
 
     Resnica,
     Laž,
@@ -136,6 +137,7 @@ impl Display for Vozlišče {
             Spremenljivka{ tip, ime, naslov, z_odmikom } => format!("{ime}: {tip} ({}{naslov})", if *z_odmikom { "+" } else { "@" }),
             Referenca(spremenljivka) => "@".to_string() + &spremenljivka.to_string(),
             Dereferenciraj(spremenljivka) => spremenljivka.to_string() + &"@".to_string(),
+            Dolžina(spr) => format!("{}.dolžina", spr.to_string()),
 
             Resnica => "resnica".to_owned(),
             Laž     => "laž".to_owned(),
@@ -283,19 +285,19 @@ impl Vozlišče {
                 "".to_string(),
 
             Niz(_) | Celo(_) | Real(_) | Znak(_) | Resnica | Laž
-                | Spremenljivka {..} | Referenca(..) | Dereferenciraj(..) =>
+                | Spremenljivka {..} | Referenca(..) | Dereferenciraj(..) | Dolžina(..) =>
                 "  ".repeat(globina) + &self.to_string() + "\n",
 
-                Indeksiraj { seznam_ref, indeks } => match &**seznam_ref {
-                    Referenca(spr) => match &**spr {
-                        Spremenljivka { ime, .. } =>
-                            " ".repeat(globina) + &format!("{ime}[")
-                            + &indeks.drevo(globina + 1)
-                            + &" ".repeat(globina) + "]\n",
-                        _ => unreachable!("Vedno indeksiramo referenco na seznam."),
-                    }
+            Indeksiraj { seznam_ref, indeks } => match &**seznam_ref {
+                Referenca(spr) => match &**spr {
+                    Spremenljivka { ime, .. } =>
+                        " ".repeat(globina) + &format!("{ime}[")
+                        + &indeks.drevo(globina + 1)
+                        + &" ".repeat(globina) + "]\n",
                     _ => unreachable!("Vedno indeksiramo referenco na seznam."),
                 }
+                _ => unreachable!("Vedno indeksiramo referenco na seznam."),
+            }
 
             Konjunkcija(l, d) | Disjunkcija(l, d) | BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d)
                 | BitniPremikLevo(l, d) | BitniPremikDesno(l, d) =>
@@ -413,6 +415,7 @@ impl Vozlišče {
                 },
                 _ => unreachable!("Vedno indeksiramo referenco na seznam."),
             }
+            Dolžina(..) => 1,
 
             Resnica => 1,
             Laž     => 1,
@@ -482,6 +485,7 @@ impl Vozlišče {
                 },
                 _ => unreachable!("Vedno indeksiramo referenco na seznam."),
             },
+            Dolžina(..) => Tip::Celo,
 
             Resnica | Laž => Tip::Bool,
             Zanikaj(..) | Konjunkcija(..) | Disjunkcija(..) => Tip::Bool,

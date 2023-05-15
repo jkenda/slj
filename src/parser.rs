@@ -270,11 +270,16 @@ impl<'a> Parser<'a> {
     }
 
     fn deklaracija(&mut self, ime: &Token, tip: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
-        match self.spremenljivke.get(ime.as_str()) {
+        let tip = Tip::from(tip)?;
+        let spremenljivka = match self.spremenljivke.get(ime.as_str()) {
             Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Spremenljivka že obstaja")),
-            None => Ok(self.dodaj_spremenljivko(ime.to_string(), Tip::from(tip)?)),
+            None => Ok(self.dodaj_spremenljivko(ime.to_string(), tip.clone())),
         }?;
-        Ok(Prazno.rc())
+        
+        match tip {
+            Tip::Seznam(_, dolžina) => Ok(Prirejanje { spremenljivka, izraz: Celo(dolžina).rc() }.rc()),
+            _ => Ok(Prazno.rc()),
+        }
     }
 
     fn inicializacija(&mut self, ime: &Token<'a>, tip_izraza: Option<&[Token]>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
@@ -831,6 +836,22 @@ impl<'a> Parser<'a> {
                             &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", spremenljivka.tip()))),
                 }
             }
+
+            [ ime @ Ime(..), Ločilo(".", ..), Ime("dolžina", ..) ] => {
+                let spremenljivka = self.spremenljivke.get(ime.as_str())
+                    .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?;
+
+                match spremenljivka.tip() {
+                    Tip::Seznam(..) => Ok(Dolžina(spremenljivka.clone()).rc()),
+                    Tip::Referenca(referenca) => match &*referenca {
+                        Tip::Seznam(..) => Ok(Dolžina(spremenljivka.clone()).rc()),
+                        _ => Err(Napake::from_zaporedje(&[*ime], E2, 
+                                &format!("Tip '{}' nima dolžine", spremenljivka.tip())))
+                    },
+                    _ => Err(Napake::from_zaporedje(&[*ime], E2, 
+                            &format!("Tip '{}' nima dolžine", spremenljivka.tip())))
+                }
+            },
 
             [ neznano @ Neznano(..) ] => Err(Napake::from_zaporedje(&[*neznano], E1, "Neznana beseda")),
             [] => Ok(Prazno.rc()),
