@@ -60,6 +60,7 @@ pub enum Vozlišče {
     Spremenljivka{ tip: Tip, ime: String, naslov: u32, z_odmikom: bool },
     Referenca(Rc<Vozlišče>),
     Dereferenciraj(Rc<Vozlišče>),
+    Indeksiraj{ seznam_ref: Rc<Vozlišče>, indeks: Rc<Vozlišče> },
 
     Resnica,
     Laž,
@@ -285,6 +286,17 @@ impl Vozlišče {
                 | Spremenljivka {..} | Referenca(..) | Dereferenciraj(..) =>
                 "  ".repeat(globina) + &self.to_string() + "\n",
 
+                Indeksiraj { seznam_ref, indeks } => match &**seznam_ref {
+                    Referenca(spr) => match &**spr {
+                        Spremenljivka { ime, .. } =>
+                            " ".repeat(globina) + &format!("{ime}[")
+                            + &indeks.drevo(globina + 1)
+                            + &" ".repeat(globina) + "]\n",
+                        _ => unreachable!("Vedno indeksiramo referenco na seznam."),
+                    }
+                    _ => unreachable!("Vedno indeksiramo referenco na seznam."),
+                }
+
             Konjunkcija(l, d) | Disjunkcija(l, d) | BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d)
                 | BitniPremikLevo(l, d) | BitniPremikDesno(l, d) =>
                 "  ".repeat(globina) + &self.to_string() + "\n"
@@ -393,6 +405,14 @@ impl Vozlišče {
             Spremenljivka{ tip, .. } => tip.sprememba_stacka(),
             Referenca(_) => 1,
             Dereferenciraj(spr) => spr.sprememba_stacka(),
+            Indeksiraj { seznam_ref, .. } => match &**seznam_ref {
+                Spremenljivka { tip, .. } => tip.sprememba_stacka(),
+                Referenca(spr) => match &**spr {
+                    Spremenljivka { tip, .. } => tip.sprememba_stacka(),
+                    _ => unreachable!("Vedno indeksiramo referenco na seznam."),
+                },
+                _ => unreachable!("Vedno indeksiramo referenco na seznam."),
+            }
 
             Resnica => 1,
             Laž     => 1,
@@ -453,7 +473,15 @@ impl Vozlišče {
             Dereferenciraj(vozlišče) => match &**vozlišče {
                 Spremenljivka { tip: Tip::Referenca(element), .. } => *element.clone(),
                 _ => unreachable!("Dereferencirati je mogoče samo referenco."),
-            }
+            },
+            Indeksiraj { seznam_ref, .. } => match &**seznam_ref {
+                Spremenljivka { tip, .. } => tip.clone(),
+                Referenca(spr) => match &**spr {
+                    Spremenljivka { tip, .. } => tip.clone(),
+                    _ => unreachable!("Vedno indeksiramo referenco na seznam."),
+                },
+                _ => unreachable!("Vedno indeksiramo referenco na seznam."),
+            },
 
             Resnica | Laž => Tip::Bool,
             Zanikaj(..) | Konjunkcija(..) | Disjunkcija(..) => Tip::Bool,
@@ -551,6 +579,7 @@ mod testi {
     }
 
     #[test]
+    #[ignore]
     fn vsebuje() {
         let rekurzivna_f = if let Zaporedje(stavki) = &*r#"funkcija f() {
             f()

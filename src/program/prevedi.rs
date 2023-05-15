@@ -49,6 +49,9 @@ impl Prevedi for Vozlišče {
                 [Osnovni(LDDY(0))].as_slice(),
             ].concat(),
 
+            Indeksiraj { seznam_ref, indeks } =>
+                Dereferenciraj(Seštevanje(Tip::Celo, seznam_ref.clone(), indeks.clone()).rc()).prevedi(),
+
             Seštevanje(Tip::Celo, l, d) => [
                 l.prevedi().as_slice(),
                 d.prevedi().as_slice(),

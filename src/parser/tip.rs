@@ -42,8 +42,7 @@ impl Tip {
 
     pub fn len(&self) -> usize {
         match self {
-            Seznam(tip, len) => tip.len() * len,
-            Strukt(polja) => polja.values().map(|p| p.len()).sum(),
+            Seznam(_, len) => *len,
             _ => panic!("Tip {self} nima dolžine.")
         }
     }
@@ -52,7 +51,7 @@ impl Tip {
         match self {
             Brez => 0,
             Bool | Celo | Real | Znak => 1,
-            Seznam(tip, len) => (tip.len() * len) as isize + 1,
+            Seznam(tip, len) => (tip.sprememba_stacka() as usize * len) as isize + 1,
             Strukt(polja) => polja.values().map(|p| p.sprememba_stacka()).sum(),
             Referenca(_) => 1,
         }

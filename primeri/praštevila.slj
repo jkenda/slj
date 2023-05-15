@@ -15,16 +15,20 @@ funkcija je_praštevilo(kandidat: celo) -> bool {
     vrni praštevilo
 }
 
+funkcija poišči_praštevila(od: celo, do: celo, praštevil: @celo) {
+    naj kandidat = od
+    dokler kandidat <= do {
+        če je_praštevilo(kandidat) {
+            praštevil@ += 1
+        }
+        kandidat += 2
+    }
+}
+
 naj MEJA = 1_000_000
 naj praštevil = 2 # [2, 3]
-naj kandidat = 5
 
-dokler kandidat <= MEJA {
-    če je_praštevilo(kandidat) {
-        praštevil += 1
-    }
-    kandidat += 2
-}
+poišči_praštevila(5, MEJA, @praštevil)
 
 natisni("praštevil do ", MEJA, ": ", praštevil, "\n")
 

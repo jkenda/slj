@@ -72,7 +72,6 @@ fn referenca() {
     let program = parsed.to_program();
     println!("{}", parsed.to_string());
     println!("{}", program.to_assembler());
-    program.zaženi_debug();
     program.zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "7 13 17");
 }
@@ -181,7 +180,7 @@ fn spr_pred_funkcijo() {
 }
 
 #[test]
-fn makro_funkcija() {
+fn multi_funkcija() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         naj a = 0; naj b = 0.0
@@ -197,5 +196,19 @@ fn makro_funkcija() {
     "#;
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "42, 3.14");
+}
+
+#[test]
+fn indeksiranje() {
+    let mut izhod: Vec<u8> = Vec::new();
+    let program = r#"
+        naj seznam: [real; 3]
+        naj ref = @seznam;
+        natisni(seznam[0], " ", seznam[1], " ", ref[2])
+    "#;
+    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
+    program.tokenize().parse().unwrap().to_program().zaženi_debug();
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod).unwrap(), "0 0 0");
 }
 

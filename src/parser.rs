@@ -214,8 +214,10 @@ impl<'a> Parser<'a> {
         match izraz {
             // multifunkcijski klic
             [ ime @ Ime(..), Operator("!", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.multi_klic(ime, argumenti),
+            // deklaracija
+            [ Rezerviranka("naj", ..), ime @ Ime(..), Ločilo(":", ..), tip @ .. ] => self.deklaracija(ime, tip),
             // inicializacija
-            [ Rezerviranka("naj", ..), ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.inicializacija(ime, ostanek),
+            [ Rezerviranka("naj", ..), ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.inicializacija(ime, None, ostanek),
             // prirejanje referenci
             [ ime @ Ime(..), Operator("@", ..), Operator("=", ..), ostanek @ .. ] => self.prirejanje_ref(ime, ostanek),
             // prirejanje
@@ -255,14 +257,32 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn inicializacija(&mut self, ime: &Token<'a>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn deklaracija(&mut self, ime: &Token, tip: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+        match self.spremenljivke.get(ime.as_str()) {
+            Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Spremenljivka že obstaja")),
+            None => Ok(self.dodaj_spremenljivko(ime.to_string(), Tip::from(tip)?)),
+        }?;
+        Ok(Prazno.rc())
+    }
+
+    fn inicializacija(&mut self, ime: &Token<'a>, tip_izraza: Option<&[Token]>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
+        let tip_spr = match tip_izraza {
+            Some(tip) => Tip::from(tip)?,
+            None => izraz.tip(),
+        };
         let spremenljivka = match self.spremenljivke.get(ime.as_str()) {
             Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Spremenljivka že obstaja")),
-            None => Ok(self.dodaj_spremenljivko(ime.to_string(), izraz.tip()))
+            None => Ok(self.dodaj_spremenljivko(ime.to_string(), tip_spr.clone()))
         }?;
 
-        Ok(Prirejanje { spremenljivka, izraz }.rc())
+        if tip_spr == izraz.tip() {
+            Ok(Prirejanje { spremenljivka, izraz }.rc())
+        }
+        else {
+            Err(Napake::from_zaporedje(tip_izraza.unwrap(), E3,
+                    &format!("Izraza tipa '{}' ni mogoče prirediti spremenljivki tipa '{}'", izraz.tip(), tip_spr)))
+        }
     }
 
     fn prirejanje(&mut self, ime: &Token<'a>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
@@ -757,6 +777,27 @@ impl<'a> Parser<'a> {
                         _ => Err(Napake::from_zaporedje(deref, E2, "Dereferenciramo lahko samo referenco.")),
                     },
                     _ => Err(Napake::from_zaporedje(deref, E2, "Dereferenciramo lahko samo spremenljivko.")),
+                }
+            }
+
+            // indeksiraj
+            [ ime @ Ime(..), Ločilo("[", ..), indeks @ .., Ločilo("]", ..) ] => {
+                let indeks = self.drevo(indeks)?.rc();
+                let spremenljivka = self.spremenljivke.get(ime.as_str())
+                    .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?;
+
+                match &**spremenljivka {
+                    Spremenljivka { tip: Tip::Referenca(spr), .. } => {
+                        match &**spr {
+                            Tip::Seznam(..) => Ok(Indeksiraj{ seznam_ref: spremenljivka.clone(), indeks }.rc()),
+                            _ => Err(Napake::from_zaporedje(izraz, E2, 
+                                    &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", spr))),
+                        }
+                    }
+                    Spremenljivka { tip: Tip::Seznam(..), .. } =>
+                        Ok(Indeksiraj{ seznam_ref: Referenca(spremenljivka.clone()).rc(), indeks }.rc()),
+                    _ => Err(Napake::from_zaporedje(izraz, E2, 
+                            &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", spremenljivka.tip()))),
                 }
             }
 
