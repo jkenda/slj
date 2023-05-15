@@ -19,6 +19,7 @@ pub enum Tip {
     Seznam(Box<Tip>, i32),
     Strukt(BTreeMap<String, Box<Tip>>),
     Referenca(Box<Tip>),
+    RefSeznama(Box<Tip>),
 }
 
 impl Tip {
@@ -35,8 +36,10 @@ impl Tip {
                 Err(err) => panic!("Iz vrednosti ni mogoče ustvariti števila: {err} {}", len.lokacija_str())
             })),
             [ Ločilo("{", ..), vmes @ .., Ločilo("}", ..) ] => Ok(Tip::Strukt(zgradi_tip_strukta(vmes)?)),
+            [ Operator("@", ..), Ločilo("[", ..), ostanek @ .. , Ločilo("]", ..)] => Ok(RefSeznama(Box::new(Tip::from(ostanek)?))),
             [ Operator("@", ..), ostanek @ .. ] => Ok(Referenca(Box::new(Tip::from(ostanek)?))),
-            _ => Err(Napake::from_zaporedje(izraz, OznakaNapake::E1, "Neznan tip")),
+            _ => Err(Napake::from_zaporedje(izraz, OznakaNapake::E1, 
+                    &format!("Neznan tip: '{}'", izraz.iter().map(|t| t.as_str()).collect::<Vec<&str>>().join("")))),
         }
     }
 
@@ -54,6 +57,14 @@ impl Tip {
             Seznam(tip, len) => (tip.sprememba_stacka() * len) + 1,
             Strukt(polja) => polja.values().map(|p| p.sprememba_stacka()).sum(),
             Referenca(_) => 1,
+            RefSeznama(_) => 1,
+        }
+    }
+
+    pub fn vsebuje_tip(&self) -> Self {
+        match self {
+            Tip::Seznam(tip, _) => (**tip).clone(),
+            _ => unreachable!("Samo seznami vsebujejo tipe"),
         }
     }
 }
@@ -77,6 +88,7 @@ impl Display for Tip {
                 str
             },
             Referenca(tip) => format!("@{tip}"),
+            RefSeznama(tip) => format!("@[{tip}]"),
         })
     }
 }
@@ -149,6 +161,6 @@ mod testi {
         assert_eq!(Tip::from("{ _arr: [celo; 128], len: celo }".tokenize().as_slice()).unwrap().to_string(), "{\n_arr: [celo; 128],\nlen: celo,\n}");
 
         assert_eq!(Tip::from("@celo".tokenize().as_slice()).unwrap().to_string(), "@celo");
-        assert_eq!(Tip::from("@[real; 32]".tokenize().as_slice()).unwrap().to_string(), "@[real; 32]");
+        assert_eq!(Tip::from("@[real]".tokenize().as_slice()).unwrap().to_string(), "@[real]");
     }
 }

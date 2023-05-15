@@ -59,6 +59,8 @@ pub enum Vozlišče {
 
     Spremenljivka{ tip: Tip, ime: String, naslov: u32, z_odmikom: bool },
     Referenca(Rc<Vozlišče>),
+    RefSeznama(Rc<Vozlišče>),
+
     Dereferenciraj(Rc<Vozlišče>),
     Indeksiraj{ seznam_ref: Rc<Vozlišče>, indeks: Rc<Vozlišče> },
     Dolžina(Rc<Vozlišče>),
@@ -135,7 +137,8 @@ impl Display for Vozlišče {
             Znak(znak)    => znak.to_string(),
 
             Spremenljivka{ tip, ime, naslov, z_odmikom } => format!("{ime}: {tip} ({}{naslov})", if *z_odmikom { "+" } else { "@" }),
-            Referenca(spremenljivka) => "@".to_string() + &spremenljivka.to_string(),
+            Referenca(spremenljivka) | RefSeznama(spremenljivka) => "@".to_string() + &spremenljivka.to_string(),
+
             Dereferenciraj(spremenljivka) => spremenljivka.to_string() + &"@".to_string(),
             Dolžina(spr) => format!("{}.dolžina", spr.to_string()),
 
@@ -285,7 +288,7 @@ impl Vozlišče {
                 "".to_string(),
 
             Niz(_) | Celo(_) | Real(_) | Znak(_) | Resnica | Laž
-                | Spremenljivka {..} | Referenca(..) | Dereferenciraj(..) | Dolžina(..) =>
+                | Spremenljivka {..} | Referenca(..) | RefSeznama(..) | Dereferenciraj(..) | Dolžina(..) =>
                 "  ".repeat(globina) + &self.to_string() + "\n",
 
             Indeksiraj { seznam_ref, indeks } => match &**seznam_ref {
@@ -405,7 +408,8 @@ impl Vozlišče {
             Niz(niz) => niz.chars().count() as i32,
 
             Spremenljivka{ tip, .. } => tip.sprememba_stacka(),
-            Referenca(_) => 1,
+            Referenca(_) | RefSeznama(_) => 1,
+
             Dereferenciraj(spr) => spr.sprememba_stacka(),
             Indeksiraj { seznam_ref, .. } => match &**seznam_ref {
                 Spremenljivka { tip, .. } => tip.sprememba_stacka(),
@@ -473,6 +477,8 @@ impl Vozlišče {
             
             Spremenljivka{ tip, .. } => tip.clone(),
             Referenca(vozlišče) => Tip::Referenca(Box::new(vozlišče.tip())),
+            RefSeznama(vozlišče) => Tip::RefSeznama(Box::new(vozlišče.tip().vsebuje_tip())),
+
             Dereferenciraj(vozlišče) => match &**vozlišče {
                 Spremenljivka { tip: Tip::Referenca(element), .. } => *element.clone(),
                 _ => unreachable!("Dereferencirati je mogoče samo referenco."),

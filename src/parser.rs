@@ -328,11 +328,7 @@ impl<'a> Parser<'a> {
             .clone();
 
         match spr.tip() {
-            Tip::Referenca(referenca) => match &*referenca {
-                Tip::Seznam(..) => Ok(PrirejanjeRef { referenca: spr, indeks, izraz }.rc()),
-                _ => Err(Napake::from_zaporedje(&[*ime], E2, 
-                        &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", spr.tip()))),
-            }
+            Tip::RefSeznama(..) => Ok(PrirejanjeRef { referenca: spr, indeks, izraz }.rc()),
             Tip::Seznam(..) => Ok(PrirejanjeRef { referenca: Referenca(spr).rc(), indeks, izraz }.rc()),
             tip @ _ => Err(Napake::from_zaporedje(&[*ime], E2, 
                     &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", tip))),
@@ -798,9 +794,15 @@ impl<'a> Parser<'a> {
                                     .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone()),
 
             // referenciraj
-            [ Operator("@", ..), ime @ Ime(..) ] =>
-                Ok(Referenca(self.spremenljivke.get(ime.as_str())
-                             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone()).rc()),
+            [ Operator("@", ..), ime @ Ime(..) ] => {
+                let spremenljivka = self.spremenljivke.get(ime.as_str())
+                        .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone();
+
+                match spremenljivka.tip() {
+                    Tip::Seznam(..) => Ok(RefSeznama(spremenljivka).rc()),
+                    _ => Ok(Referenca(spremenljivka).rc())
+                }
+            }
 
             // dereferenciraj
             deref @ [ ime @ Ime(..), Operator("@", ..) ] => {
@@ -823,15 +825,10 @@ impl<'a> Parser<'a> {
                     .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?;
 
                 match &**spremenljivka {
-                    Spremenljivka { tip: Tip::Referenca(spr), .. } => {
-                        match &**spr {
-                            Tip::Seznam(..) => Ok(Indeksiraj{ seznam_ref: spremenljivka.clone(), indeks }.rc()),
-                            _ => Err(Napake::from_zaporedje(izraz, E2, 
-                                    &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", spr))),
-                        }
-                    }
                     Spremenljivka { tip: Tip::Seznam(..), .. } =>
                         Ok(Indeksiraj{ seznam_ref: Referenca(spremenljivka.clone()).rc(), indeks }.rc()),
+                    Spremenljivka { tip: Tip::RefSeznama(..), .. } =>
+                        Ok(Indeksiraj{ seznam_ref: spremenljivka.clone(), indeks }.rc()),
                     _ => Err(Napake::from_zaporedje(izraz, E2, 
                             &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", spremenljivka.tip()))),
                 }
@@ -843,11 +840,7 @@ impl<'a> Parser<'a> {
 
                 match spremenljivka.tip() {
                     Tip::Seznam(..) => Ok(Dolžina(spremenljivka.clone()).rc()),
-                    Tip::Referenca(referenca) => match &*referenca {
-                        Tip::Seznam(..) => Ok(Dolžina(spremenljivka.clone()).rc()),
-                        _ => Err(Napake::from_zaporedje(&[*ime], E2, 
-                                &format!("Tip '{}' nima dolžine", spremenljivka.tip())))
-                    },
+                    Tip::RefSeznama(..) => Ok(Dolžina(spremenljivka.clone()).rc()),
                     _ => Err(Napake::from_zaporedje(&[*ime], E2, 
                             &format!("Tip '{}' nima dolžine", spremenljivka.tip())))
                 }

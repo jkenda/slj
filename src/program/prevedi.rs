@@ -36,7 +36,7 @@ impl Prevedi for Vozlišče {
             Laž     => [PUSHI(0)].to_vec(),
 
             Spremenljivka{ naslov, z_odmikom, .. } => [Osnovni(if *z_odmikom { LDOF(*naslov) } else { LOAD(*naslov) })].to_vec(),
-            Referenca(vozlišče) => match &**vozlišče {
+            Referenca(vozlišče) | RefSeznama(vozlišče) => match &**vozlišče {
                 Spremenljivka { naslov, .. } => [
                     match vozlišče.tip() {
                         Tip::Seznam(..) => PUSHI(*naslov as i32 + 1),
@@ -47,6 +47,7 @@ impl Prevedi for Vozlišče {
                 ].to_vec(),
                 _ => unreachable!("Referenciramo lahko samo spremenljivko.")
             },
+
             Dereferenciraj(vozlišče) => [
                 vozlišče.prevedi().as_slice(),
                 [Osnovni(LDDY(0))].as_slice(),
@@ -55,10 +56,7 @@ impl Prevedi for Vozlišče {
                 Dereferenciraj(Seštevanje(Tip::Celo, seznam_ref.clone(), indeks.clone()).rc()).prevedi(),
             Dolžina(vozlišče) => match vozlišče.tip() {
                 Tip::Seznam(_, dolžina) => Celo(dolžina).rc().prevedi(),
-                Tip::Referenca(referenca) => match &*referenca {
-                    Tip::Seznam(..) => Dereferenciraj(Odštevanje(Tip::Celo, vozlišče.clone(), Celo(1).rc()).rc()).prevedi(),
-                    _ => unreachable!("Jemanje dolžine nečesa, kar ni seznam"),
-                },
+                Tip::RefSeznama(..) => Dereferenciraj(Odštevanje(Tip::Celo, vozlišče.clone(), Celo(1).rc()).rc()).prevedi(),
                 _ => unreachable!("Jemanje dolžine nečesa, kar ni seznam"),
             },
 
