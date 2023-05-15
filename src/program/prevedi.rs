@@ -38,7 +38,10 @@ impl Prevedi for Vozlišče {
             Spremenljivka{ naslov, z_odmikom, .. } => [Osnovni(if *z_odmikom { LDOF(*naslov) } else { LOAD(*naslov) })].to_vec(),
             Referenca(vozlišče) => match &**vozlišče {
                 Spremenljivka { naslov, .. } => [
-                    PUSHI(*naslov as i32),
+                    match vozlišče.tip() {
+                        Tip::Seznam(..) => PUSHI(*naslov as i32 + 1),
+                        _ => PUSHI(*naslov as i32),
+                    },
                     Osnovni(LOFF),
                     Osnovni(ADDI),
                 ].to_vec(),
@@ -232,20 +235,19 @@ impl Prevedi for Vozlišče {
                 ].concat()
             },
 
-            PrirejanjeRef{ referenca, izraz } => {
-                let (začetek, velikost, z_odmikom) = match &**referenca { 
-                    Spremenljivka { tip, naslov, z_odmikom, .. } => (naslov.clone(), tip.sprememba_stacka(), *z_odmikom),
-                    _ => unreachable!("Vedno prirejamo spremenljivki, na katero kaže referenca.")
+            PrirejanjeRef { referenca, indeks, izraz } => {
+                let shrani = match indeks {
+                    Some(indeks) => [
+                        referenca.prevedi().as_slice(),
+                        indeks.prevedi().as_slice(),
+                        [Osnovni(ADDI),
+                        Osnovni(STDY(0))].as_slice(),
+                    ].concat(),
+                    None => [
+                        referenca.prevedi().as_slice(),
+                        [Osnovni(STDY(0))].as_slice(),
+                    ].concat(),
                 };
-
-                let shrani = (začetek..začetek+velikost as u32)
-                    .rev()
-                    .map(|naslov| [
-                        Osnovni(if z_odmikom { LDOF(naslov) } else { LOAD(naslov) }),
-                        Osnovni(STDY(naslov - začetek)),
-                    ])
-                    .flatten()
-                    .collect::<Vec<UkazPodatekRelative>>();
 
                 [
                     izraz.clone().prevedi().as_slice(),

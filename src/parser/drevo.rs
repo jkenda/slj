@@ -101,7 +101,7 @@ pub enum Vozlišče {
     Zanka{ pogoj: Rc<Vozlišče>, telo: Rc<Vozlišče> },
 
     Prirejanje{ spremenljivka: Rc<Vozlišče>, izraz: Rc<Vozlišče> },
-    PrirejanjeRef{ referenca: Rc<Vozlišče>, izraz: Rc<Vozlišče> },
+    PrirejanjeRef{ referenca: Rc<Vozlišče>, indeks: Option<Rc<Vozlišče>>, izraz: Rc<Vozlišče> },
 
     Vrni(Rc<Vozlišče>),
     Zaporedje(Vec<Rc<Vozlišče>>),
@@ -252,8 +252,8 @@ impl PartialEq for Vozlišče {
 
             (Prirejanje{ spremenljivka: ls, izraz: li }, Prirejanje{ spremenljivka: ds, izraz: di }) =>
                 ls == ds && li == di,
-            (PrirejanjeRef{ referenca: lr, izraz: li }, PrirejanjeRef{ referenca: dr, izraz: di }) =>
-                lr == dr && li == di,
+            (PrirejanjeRef{ referenca: lr, indeks: lin, izraz: li }, PrirejanjeRef{ referenca: dr, indeks: din, izraz: di }) =>
+                lr == dr && lin == din && li == di,
 
             (Vrni(l), Vrni(d)) => l == d,
             (Zaporedje(l), Zaporedje(d)) => l == d,

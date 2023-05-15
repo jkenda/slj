@@ -204,11 +204,14 @@ fn indeksiranje() {
     let program = r#"
         naj seznam: [real; 3]
         naj ref = @seznam;
+        seznam[0] = 1
+        seznam[1] = 2
+        seznam[2] = 3
         natisni(seznam[0], " ", seznam[1], " ", ref[2])
     "#;
     println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
     program.tokenize().parse().unwrap().to_program().zaženi_debug();
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "0 0 0");
+    assert_eq!(String::from_utf8(izhod).unwrap(), "1 2 3");
 }
 

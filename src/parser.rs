@@ -236,6 +236,18 @@ impl<'a> Parser<'a> {
                     _ => self.kombinirano_prirejanje(ime, operator, ostanek),
                 }
             },
+            // prirejanje elementu seznama
+            [ ime @ Ime(..), Ločilo("[", ..), ostanek @ .. ] => {
+                let (indeks, _, ostanek) = loči_spredaj(ostanek, &["]"])
+                    .ok_or(Napake::from_zaporedje(ostanek, E5, "Pričakovan ']'"))??;
+                let (prazno, _, izraz) = loči_spredaj(ostanek, &["="])
+                    .ok_or(Napake::from_zaporedje(ostanek, E5, "Pričakovan '='"))??;
+                
+                match prazno {
+                    [] => self.prirejanje_seznamu(ime, indeks, izraz),
+                    _ => Err(Napake::from_zaporedje(prazno, E5, "Pričakovan '='")),
+                }
+            },
             // okvir
             [ Ločilo("{", ..), vmes @ .., Ločilo("}", ..) ] => self.okvir(vmes),
             // funkcija natisni (zaenkrat še posebna funkcija)
@@ -300,7 +312,26 @@ impl<'a> Parser<'a> {
             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?
             .clone();
 
-        Ok(PrirejanjeRef { referenca, izraz }.rc())
+        Ok(PrirejanjeRef { referenca, izraz, indeks: None }.rc())
+    }
+
+    fn prirejanje_seznamu(&mut self, ime: &Token<'a>, indeks: &[Token<'a>], izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+        let izraz = self.drevo(izraz)?;
+        let indeks = Some(self.drevo(indeks)?);
+        let spr = self.spremenljivke.get(ime.as_str())
+            .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?
+            .clone();
+
+        match spr.tip() {
+            Tip::Referenca(referenca) => match &*referenca {
+                Tip::Seznam(..) => Ok(PrirejanjeRef { referenca: spr, indeks, izraz }.rc()),
+                _ => Err(Napake::from_zaporedje(&[*ime], E2, 
+                        &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", spr.tip()))),
+            }
+            Tip::Seznam(..) => Ok(PrirejanjeRef { referenca: Referenca(spr).rc(), indeks, izraz }.rc()),
+            tip @ _ => Err(Napake::from_zaporedje(&[*ime], E2, 
+                    &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", tip))),
+        }
     }
 
     fn kombinirano_prirejanje(&mut self, ime: &Token, operator: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
@@ -322,7 +353,7 @@ impl<'a> Parser<'a> {
         let drevo = self.drevo(izraz)?;
         let izraz = Self::prirejanje_v_kombinirano(spremenljivka, operator, drevo)?;
 
-        Ok(PrirejanjeRef { referenca, izraz }.rc())
+        Ok(PrirejanjeRef { referenca, izraz, indeks: None }.rc())
     }
 
     fn prirejanje_v_kombinirano(spremenljivka: Rc<Vozlišče>, operator: &Token, drevo: Rc<Vozlišče>) -> Result<Rc<Vozlišče>, Napake> {
