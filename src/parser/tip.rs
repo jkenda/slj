@@ -16,7 +16,7 @@ pub enum Tip {
     Celo,
     Real,
     Znak,
-    Seznam(Box<Tip>, usize),
+    Seznam(Box<Tip>, i32),
     Strukt(BTreeMap<String, Box<Tip>>),
     Referenca(Box<Tip>),
 }
@@ -40,18 +40,18 @@ impl Tip {
         }
     }
 
-    pub fn len(&self) -> usize {
+    pub fn dolžina(&self) -> i32 {
         match self {
             Seznam(_, len) => *len,
-            _ => panic!("Tip {self} nima dolžine.")
+            _ => unreachable!("Tip {self} nima dolžine.")
         }
     }
 
-    pub fn sprememba_stacka(&self) -> isize {
+    pub fn sprememba_stacka(&self) -> i32 {
         match self {
             Brez => 0,
             Bool | Celo | Real | Znak => 1,
-            Seznam(tip, len) => (tip.sprememba_stacka() as usize * len) as isize + 1,
+            Seznam(tip, len) => (tip.sprememba_stacka() * len) + 1,
             Strukt(polja) => polja.values().map(|p| p.sprememba_stacka()).sum(),
             Referenca(_) => 1,
         }

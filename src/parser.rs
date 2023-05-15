@@ -167,7 +167,7 @@ impl<'a> Parser<'a> {
         let št_spr = if !self.znotraj_funkcije {
             self.spremenljivke_stack.last().unwrap()
                 .values()
-                .map(|s| s.sprememba_stacka() as usize)
+                .map(|s| s.sprememba_stacka())
                 .sum()
         }
         else {
@@ -432,7 +432,7 @@ impl<'a> Parser<'a> {
 
         self.spremenljivke_stack.push(HashMap::new());
         let telo = self.zaporedje(telo_izraz)?;
-        let št_spr = self.spremenljivke_stack.pop().unwrap().values().map(|s| s.sprememba_stacka() as usize).sum::<usize>();
+        let št_spr = self.spremenljivke_stack.pop().unwrap().values().map(|s| s.sprememba_stacka()).sum();
 
         Ok(Okvir { zaporedje: Zanka { pogoj, telo }.rc(), št_spr }.rc())
     }
@@ -527,11 +527,11 @@ impl<'a> Parser<'a> {
 
         let telo = okolje_funkcije.zaporedje(telo)?;
         let spr_funkcije = okolje_funkcije.spremenljivke_stack.last().unwrap();
-        let prostor = spr_funkcije.values().map(|s| s.sprememba_stacka() as usize).sum::<usize>()
-            - spr_funkcije["0_vrni"].sprememba_stacka() as usize
-            - spr_funkcije["0_PC"].sprememba_stacka() as usize
-            - parametri.iter().map(|p| p.sprememba_stacka() as usize).sum::<usize>()
-            - spr_funkcije["0_OF"].sprememba_stacka() as usize;
+        let prostor = spr_funkcije.values().map(|s| s.sprememba_stacka()).sum::<i32>()
+            - spr_funkcije["0_vrni"].sprememba_stacka()
+            - spr_funkcije["0_PC"].sprememba_stacka()
+            - parametri.iter().map(|p| p.sprememba_stacka()).sum::<i32>()
+            - spr_funkcije["0_OF"].sprememba_stacka();
         let fun = Funkcija { tip, ime: podpis_funkcije.clone(), parametri, telo, prostor, št_klicev: 0 }.rc();
 
         self.funkcije_stack.last_mut().unwrap().insert(podpis_funkcije.clone(), fun.clone());
@@ -566,7 +566,7 @@ impl<'a> Parser<'a> {
 
         Ok(Zaporedje(vec![
             klic,
-            Pop(velikost as usize).rc(),
+            Pop(velikost).rc(),
         ]).rc())
     }
 

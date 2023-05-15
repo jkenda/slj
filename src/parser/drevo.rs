@@ -45,8 +45,8 @@ pub enum VozliščeOption {
 pub enum Vozlišče {
     Prazno,
 
-    Push(usize),
-    Pop(usize),
+    Push(i32),
+    Pop(i32),
     Vrh(i32),
 
     ShraniOdmik,
@@ -105,9 +105,9 @@ pub enum Vozlišče {
 
     Vrni(Rc<Vozlišče>),
     Zaporedje(Vec<Rc<Vozlišče>>),
-    Okvir{ zaporedje: Rc<Vozlišče>, št_spr: usize },
+    Okvir{ zaporedje: Rc<Vozlišče>, št_spr: i32 },
 
-    Funkcija{ tip: Tip, ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>, prostor: usize, št_klicev: usize },
+    Funkcija{ tip: Tip, ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>, prostor: i32, št_klicev: usize },
     FunkcijskiKlic{ funkcija: Rc<Vozlišče>, spremenljivke: Rc<Vozlišče>, argumenti: Rc<Vozlišče> },
 
     Natisni(Vec<Rc<Vozlišče>>),
@@ -386,12 +386,12 @@ impl Vozlišče {
         Rc::new(RefCell::new(self.clone()))
     }
 
-    pub fn sprememba_stacka(&self) -> isize {
+    pub fn sprememba_stacka(&self) -> i32 {
         match self {
             Prazno => 0,
 
-            Push(krat) => *krat as isize,
-            Pop(krat)  => -(*krat as isize),
+            Push(krat) => *krat,
+            Pop(krat)  => -(*krat),
             Vrh(_)     => 0,
 
             ShraniOdmik => -1,
@@ -400,7 +400,7 @@ impl Vozlišče {
             Celo(_) => 1,
             Real(_) => 1,
             Znak(_) => 1,
-            Niz(niz) => niz.chars().count() as isize,
+            Niz(niz) => niz.chars().count() as i32,
 
             Spremenljivka{ tip, .. } => tip.sprememba_stacka(),
             Referenca(_) => 1,
@@ -466,7 +466,7 @@ impl Vozlišče {
             Celo(_) => Tip::Celo,
             Real(_) => Tip::Real,
             Znak(_) => Tip::Znak,
-            Niz(niz)  => Tip::Seznam(Box::new(Tip::Znak), niz.len()),
+            Niz(niz)  => Tip::Seznam(Box::new(Tip::Znak), niz.len() as i32),
             
             Spremenljivka{ tip, .. } => tip.clone(),
             Referenca(vozlišče) => Tip::Referenca(Box::new(vozlišče.tip())),

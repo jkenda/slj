@@ -17,8 +17,8 @@ impl Prevedi for Vozlišče {
         match self {
             Prazno => [].to_vec(),
 
-            Push(krat) => iter::repeat(PUSHI(0)).take(*krat).collect(),
-            Pop(krat) => iter::repeat(Osnovni(POP).clone()).take(*krat).collect(),
+            Push(krat) => iter::repeat(PUSHI(0)).take(*krat as usize).collect(),
+            Pop(krat) => iter::repeat(Osnovni(POP).clone()).take(*krat as usize).collect(),
             Vrh(odmik) => [Osnovni(TOP(*odmik as i32))].to_vec(),
 
             ShraniOdmik => [Osnovni(SOFF)].to_vec(),
@@ -269,14 +269,14 @@ impl Prevedi for Vozlišče {
 
             Funkcija{ tip, ime, parametri, telo, prostor, .. } => {
                 let parametri_velikost = parametri.iter()
-                    .map(|p| p.sprememba_stacka() as usize)
-                    .sum::<usize>();
+                    .map(|p| p.sprememba_stacka())
+                    .sum();
 
                 let pred = Zaporedje(vec![
                     NaložiOdmik.rc(),
                     Vrh((- tip.sprememba_stacka()                    // vrni (+0)
                          - ProgramskiŠtevec(0).sprememba_stacka()    // PC (+1)
-                         - parametri_velikost as isize               // [ argumenti ] (+2 ...)
+                         - parametri_velikost               // [ argumenti ] (+2 ...)
                          - NaložiOdmik.sprememba_stacka()            // prejšnji odmik
                         ) as i32).rc(),
                     Push(*prostor).rc(),
@@ -302,7 +302,7 @@ impl Prevedi for Vozlišče {
             FunkcijskiKlic{ funkcija, spremenljivke, argumenti } => {
                 let (vrni, skok) = match &**funkcija {
                     Funkcija { tip, ime, .. } => (
-                        Push(tip.sprememba_stacka() as usize).rc(),
+                        Push(tip.sprememba_stacka()).rc(),
                         Skok(OdmikIme::Ime(ime.clone())).rc()),
                     _ => unreachable!("Funkcijski klic vedno kliče funkcijo"),
                 };
