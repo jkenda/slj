@@ -327,26 +327,24 @@ impl Prevedi for Vozlišče {
 
             Natisni(izrazi) => {
                 izrazi.iter()
-                .map(|izraz| [
-                    izraz.prevedi(),
-                    if izraz.tip() == Tip::Znak {
-                        vec![Osnovni(PRTC)]
-                    }
-                    else {
-                        match &**izraz {
-                            Niz(_) => [
-                                vec![Osnovni(POP)],
-                                iter::repeat(Osnovni(PRTC))
-                                    .take(izraz.sprememba_stacka() as usize)
-                                    .collect::<Vec<UkazPodatekRelative>>(),
-                            ].concat(),
-                            _ => match izraz.tip() {
-                                Tip::Real => [Osnovni(PRTF)].to_vec(),
-                                _         => [Osnovni(PRTI)].to_vec(),
-                            }
+                    .map(|izraz| [
+                        izraz.prevedi(),
+                        match izraz.tip() {
+                            Tip::Znak => vec![Osnovni(PRTC)],
+                            Tip::Celo => [Osnovni(PRTI)].to_vec(),
+                            Tip::Real => [Osnovni(PRTF)].to_vec(),
+                            Tip::Seznam(tip, dolžina) => match &*tip {
+                                Tip::Znak => [
+                                    vec![Osnovni(POP)],
+                                    iter::repeat(Osnovni(PRTC))
+                                        .take(dolžina as usize)
+                                        .collect::<Vec<UkazPodatekRelative>>(),
+                                ].concat(),
+                                tip @ _ => unreachable!("Ni mogoče tiskati tipa '{tip}'"),
+                            },
+                            tip @ _ => unreachable!("Ni mogoče tiskati tipa '{tip}'"),
                         }
-                    }
-                ].concat()).flatten().collect()
+                    ].concat()).flatten().collect()
             },
         }
     }
