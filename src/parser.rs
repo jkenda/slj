@@ -317,7 +317,20 @@ impl<'a> Parser<'a> {
             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?
             .clone();
 
-        Ok(PrirejanjeRef { referenca, izraz, indeks: None }.rc())
+        match referenca.tip() {
+            Tip::Referenca(tip) => {
+                if *tip == izraz.tip() {
+                    Ok(PrirejanjeRef { referenca, izraz, indeks: None }.rc())
+                }
+                else {
+                    Err(Napake::from_zaporedje(&[*ime], E3,
+                            &format!("Nemogoča operacija: {} = {}", *tip, izraz.tip())))
+                }
+            },
+            tip @ _ => Err(Napake::from_zaporedje(&[*ime], E2, 
+                    &format!("V spremenljivko tipa '{}' ni mogoče Dereferencirati.", tip))),
+        }
+
     }
 
     fn prirejanje_seznamu(&mut self, ime: &Token<'a>, indeks: &[Token<'a>], izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
@@ -330,8 +343,8 @@ impl<'a> Parser<'a> {
         match spr.tip() {
             Tip::Seznam(tip, _) | Tip::RefSeznama(tip) =>
                 if *tip != izraz.tip() {
-                    return Err(Napake::from_zaporedje(&[*ime], E2, 
-                            &format!("Izraza tipa '{}' ni mogoče prirediti spremenljivki tipa '{}'", izraz.tip(), *tip)));
+                    return Err(Napake::from_zaporedje(&[*ime], E3,
+                        &format!("Nemogoča operacija: {} = {}", *tip, izraz.tip())));
                 },
             tip @ _ => return Err(Napake::from_zaporedje(&[*ime], E2, 
                     &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", tip))),

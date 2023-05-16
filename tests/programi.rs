@@ -32,51 +32,6 @@ fn natisni_izraz() {
 }
 
 #[test]
-fn referenca() {
-    let mut izhod: Vec<u8> = Vec::new();
-    let mut program = r#"
-        funkcija naloži(ref: @real) {
-            natisni(ref@, " ")
-        }
-        funkcija naloži(ref: @celo) {
-            natisni(ref@, " ")
-            naloži(@3.14)
-        }
-
-        naj a = 13
-        naj b = @a
-        naloži(@a)
-        naloži(@42)
-        natisni(b@)
-        "#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "13 3.14 42 3.14 13");
-
-    izhod.clear();
-    program = r#"
-        funkcija spremeni(ref: @celo, val: celo) {
-            ref@ = val;
-        }
-        funkcija povečaj(ref: @celo, val: celo) {
-            ref@ += val
-        }
-
-        naj a = 7
-        natisni(a, " ")
-        spremeni(@a, 13)
-        natisni(a, " ")
-        povečaj(@a, 4)
-        natisni(a)
-        "#;
-    let parsed = program.tokenize().parse().unwrap();
-    let program = parsed.to_program();
-    println!("{}", parsed.to_string());
-    println!("{}", program.to_assembler());
-    program.zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "7 13 17");
-}
-
-#[test]
 fn one_liner() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"naj x=1;če x-1==0{natisni("x=1")}else{natisni("x!=1")}"#;
@@ -196,6 +151,51 @@ fn multi_funkcija() {
     "#;
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "42, 3.14");
+}
+
+#[test]
+fn referenca() {
+    let mut izhod: Vec<u8> = Vec::new();
+    let mut program = r#"
+        funkcija naloži(ref: @real) {
+            natisni(ref@, " ")
+        }
+        funkcija naloži(ref: @celo) {
+            natisni(ref@, " ")
+            naloži(@3.14)
+        }
+
+        naj a = 13
+        naj b = @a
+        naloži(@a)
+        naloži(@42)
+        natisni(b@)
+        "#;
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "13 3.14 42 3.14 13");
+
+    izhod.clear();
+    program = r#"
+        funkcija spremeni(ref: @celo, val: celo) {
+            ref@ = val;
+        }
+        funkcija povečaj(ref: @celo, val: celo) {
+            ref@ += val
+        }
+
+        naj a = 7
+        natisni(a, " ")
+        spremeni(@a, 13)
+        natisni(a, " ")
+        povečaj(@a, 4)
+        natisni(a)
+        "#;
+    let parsed = program.tokenize().parse().unwrap();
+    let program = parsed.to_program();
+    println!("{}", parsed.to_string());
+    println!("{}", program.to_assembler());
+    program.zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "7 13 17");
 }
 
 #[test]
