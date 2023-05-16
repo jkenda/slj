@@ -59,7 +59,7 @@ impl Prevedi for Vozlišče {
                 Dereferenciraj(Seštevanje(Tip::Celo, seznam_ref.clone(), indeks.clone()).rc()).prevedi(),
             Dolžina(vozlišče) => match vozlišče.tip() {
                 Tip::Seznam(_, dolžina) => Celo(dolžina).rc().prevedi(),
-                Tip::RefSeznama(..) => Dereferenciraj(Odštevanje(Tip::Celo, vozlišče.clone(), Celo(1).rc()).rc()).prevedi(),
+                Tip::RefSeznama(..) => Indeksiraj { seznam_ref: vozlišče.clone(), indeks: Celo(-1).rc() }.prevedi(),
                 _ => unreachable!("Jemanje dolžine nečesa, kar ni seznam"),
             },
 

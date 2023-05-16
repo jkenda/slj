@@ -1,6 +1,6 @@
 [package]
 name = "slj"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["Jakob Kenda <kenda.jakob@gmail.com>"]
 edition = "2021"
 default-run = "slj"

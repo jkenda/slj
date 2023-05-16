@@ -336,18 +336,20 @@ impl<'a> Parser<'a> {
     fn prirejanje_seznamu(&mut self, ime: &Token<'a>, indeks: &[Token<'a>], izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
         let indeks = Some(self.drevo(indeks)?);
+        let tip_indeksa = indeks.clone().unwrap().tip();
         let spr = self.spremenljivke.get(ime.as_str())
             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?
             .clone();
 
-        match spr.tip() {
-            Tip::Seznam(tip, _) | Tip::RefSeznama(tip) =>
-                if *tip != izraz.tip() {
-                    return Err(Napake::from_zaporedje(&[*ime], E3,
+        if let Tip::Seznam(tip, _) | Tip::RefSeznama(tip) = spr.tip() {
+            if *tip != izraz.tip() {
+                return Err(Napake::from_zaporedje(&[*ime], E3,
                         &format!("Nemogoča operacija: {} = {}", *tip, izraz.tip())));
-                },
-            tip @ _ => return Err(Napake::from_zaporedje(&[*ime], E2, 
-                    &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", tip))),
+            }
+        }
+        if tip_indeksa != Tip::Celo {
+            return Err(Napake::from_zaporedje(&[*ime], E3,
+                    &format!("Neveljaven tip indeksa: '{}'", tip_indeksa)));
         }
 
         match spr.tip() {
@@ -454,9 +456,35 @@ impl<'a> Parser<'a> {
             return Err(Napake::from_zaporedje(pogoj_izraz, E6, "Pogoj mora biti Boolova vrednost"));
         }
 
-        self.spremenljivke_stack.push(HashMap::new());
+        if !self.znotraj_funkcije {
+            self.spremenljivke_stack.push(HashMap::new());
+            self.funkcije_stack.push(HashMap::new());
+            self.reference_stack.push(HashMap::new());
+        }
+
         let telo = self.zaporedje(telo_izraz)?;
-        let št_spr = self.spremenljivke_stack.pop().unwrap().values().map(|s| s.sprememba_stacka()).sum();
+
+        let št_spr = if !self.znotraj_funkcije {
+            self.spremenljivke_stack.last().unwrap()
+                .values()
+                .map(|s| s.sprememba_stacka())
+                .sum()
+        }
+        else {
+            0
+        };
+
+        if !self.znotraj_funkcije {
+            for (ime, _) in self.spremenljivke_stack.pop().unwrap() {
+                self.spremenljivke.remove(&ime);
+            }
+            for (ime, _) in self.funkcije_stack.pop().unwrap() {
+                self.funkcije.remove(&ime);
+            }
+            for (ime, _) in self.reference_stack.pop().unwrap() {
+                self.reference.remove(&ime);
+            }
+        }
 
         Ok(Okvir { zaporedje: Zanka { pogoj, telo }.rc(), št_spr }.rc())
     }

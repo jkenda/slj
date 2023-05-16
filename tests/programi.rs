@@ -203,10 +203,23 @@ fn indeksiranje() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         naj seznam: [real; 3]
-        naj ref = @seznam;
-        seznam[0] = 1.0
-        seznam[1] = 2.0
-        ref[2] = 3.0
+        naj ref = @seznam
+        naj dolžina = 0
+    
+        funkcija dodaj(seznam: @[real], št: real) {
+            seznam[dolžina] = št
+            dolžina += 1
+        }
+
+        funkcija dodaj(seznam: @[real], št: @real) {
+            seznam[dolžina] = št@
+            dolžina += 1
+        }
+
+        dodaj(@seznam, @1.0)
+        dodaj(@seznam, 2.0)
+        dodaj(ref, 3.0)
+
         natisni(seznam[0], " ", seznam[1], " ", ref[2], "\n")
         naj i = 0; dokler i < seznam.dolžina {
             seznam[i] = (ref.dolžina - i) kot real

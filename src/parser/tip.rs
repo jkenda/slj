@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt::Display;
 use Tip::*;
 
-use crate::parser::napaka::OznakaNapake;
+use crate::parser::napaka::OznakaNapake::*;
 use crate::parser::tokenizer::L;
 
 use super::napaka::{Napake, Napaka};
@@ -31,14 +31,17 @@ impl Tip {
             [ Token::Tip("celo", ..) ] => Ok(Tip::Celo),
             [ Token::Tip("real", ..) ] => Ok(Tip::Real),
             [ Token::Tip("znak", ..) ] => Ok(Tip::Znak),
-            [ Ločilo("[", ..), tip @ .., Ločilo(";", ..), len @ Token::Literal(L::Celo(..)), Ločilo("]", ..) ] => Ok(Tip::Seznam(Box::new(Tip::from(tip)?), match len.as_str().parse() {
-                Ok(len) => len,
-                Err(err) => panic!("Iz vrednosti ni mogoče ustvariti števila: {err} {}", len.lokacija_str())
-            })),
+            [ Ločilo("[", ..), tip @ .., Ločilo(";", ..), len @ Token::Literal(L::Celo(..)), Ločilo("]", ..) ] => 
+                Ok(Tip::Seznam(Box::new(Tip::from(tip)?), 
+                        match len.as_str().replace("_", "").parse() {
+                            Ok(len) => Ok(len),
+                            Err(err) => Err(Napake::from_zaporedje(&[*len], E1,
+                                    &format!("Iz vrednosti ni mogoče ustvariti števila: {err} {}", len.lokacija_str())))
+            }?)),
             [ Ločilo("{", ..), vmes @ .., Ločilo("}", ..) ] => Ok(Tip::Strukt(zgradi_tip_strukta(vmes)?)),
             [ Operator("@", ..), Ločilo("[", ..), ostanek @ .. , Ločilo("]", ..)] => Ok(RefSeznama(Box::new(Tip::from(ostanek)?))),
             [ Operator("@", ..), ostanek @ .. ] => Ok(Referenca(Box::new(Tip::from(ostanek)?))),
-            _ => Err(Napake::from_zaporedje(izraz, OznakaNapake::E1, 
+            _ => Err(Napake::from_zaporedje(izraz, E1, 
                     &format!("Neznan tip: '{}'", izraz.iter().map(|t| t.as_str()).collect::<Vec<&str>>().join("")))),
         }
     }
@@ -105,13 +108,13 @@ fn zgradi_tip_strukta<'a: 'b, 'b>(mut izraz: &'b [Token<'a>]) -> Result<BTreeMap
             [ ime @ Token::Ime(..), Token::Ločilo(":", ..), tip @ .. ] => {
                 match Tip::from(tip) {
                     Ok(tip) => match polja.insert(ime.to_string(), Box::new(tip)) {
-                        Some(..) => _ = napake.add_napaka(Napaka::from_zaporedje(&[*ime], OznakaNapake::E1, "Polje s tem imenom že obstaja")),
+                        Some(..) => _ = napake.add_napaka(Napaka::from_zaporedje(&[*ime], E1, "Polje s tem imenom že obstaja")),
                         None => (),
                     },
                     Err(n)  => _ = napake.razširi(n),
                 }
             },
-            _ => _ = napake.add_napaka(Napaka::from_zaporedje(polje, OznakaNapake::E1, "Neveljavno polje")),
+            _ => _ = napake.add_napaka(Napaka::from_zaporedje(polje, E1, "Neveljavno polje")),
         };
 
         izraz = ostanek;
@@ -122,13 +125,13 @@ fn zgradi_tip_strukta<'a: 'b, 'b>(mut izraz: &'b [Token<'a>]) -> Result<BTreeMap
             [ ime @ Token::Ime(..), Token::Ločilo(":", ..), tip @ .. ] => {
                 match Tip::from(tip) {
                     Ok(tip) => match polja.insert(ime.to_string(), Box::new(tip)) {
-                        Some(..) => _ = napake.add_napaka(Napaka::from_zaporedje(&[*ime], OznakaNapake::E1, "Polje s tem imenom že obstaja")),
+                        Some(..) => _ = napake.add_napaka(Napaka::from_zaporedje(&[*ime], E1, "Polje s tem imenom že obstaja")),
                         None => (),
                     },
                     Err(n)  => _ = napake.razširi(n),
                 }
             },
-            _ => _ = napake.add_napaka(Napaka::from_zaporedje(izraz, OznakaNapake::E1, "Neveljavno polje")),
+            _ => _ = napake.add_napaka(Napaka::from_zaporedje(izraz, E1, "Neveljavno polje")),
         };
     }
 
