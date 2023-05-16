@@ -40,14 +40,19 @@ impl Prevedi for Vozlišče {
 
             Spremenljivka{ naslov, z_odmikom, .. } => [Osnovni(if *z_odmikom { LDOF(*naslov) } else { LOAD(*naslov) })].to_vec(),
             Referenca(vozlišče) | RefSeznama(vozlišče) => match &**vozlišče {
-                Spremenljivka { naslov, .. } => [
-                    match vozlišče.tip() {
+                Spremenljivka { naslov, z_odmikom, .. } => [
+                    [match vozlišče.tip() {
                         Tip::Seznam(..) => PUSHI(*naslov as i32 + 1),
                         _ => PUSHI(*naslov as i32),
+                    }].as_slice(),
+                    if *z_odmikom {
+                        [Osnovni(LOFF),
+                        Osnovni(ADDI)].as_slice()
+                    }
+                    else {
+                        [].as_slice()
                     },
-                    Osnovni(LOFF),
-                    Osnovni(ADDI),
-                ].to_vec(),
+                ].concat(),
                 _ => unreachable!("Referenciramo lahko samo spremenljivko.")
             },
 
@@ -401,11 +406,16 @@ mod test {
         assert_eq!(Spremenljivka { tip: Tip::Real, ime: "šmir".to_string(), naslov: 55, z_odmikom: true  }.prevedi(), [Osnovni(LDOF(55))].to_vec());
         assert_eq!(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false }.prevedi(), [Osnovni(LOAD(55))].to_vec());
         assert_eq!(
-            Referenca(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false }.rc()).prevedi(),
+            Referenca(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: true }.rc()).prevedi(),
             [
                 PUSHI(55),
                 Osnovni(LOFF),
                 Osnovni(ADDI),
+            ].to_vec());
+        assert_eq!(
+            Referenca(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false }.rc()).prevedi(),
+            [
+                PUSHI(55),
             ].to_vec());
 
         assert_eq!(Resnica.prevedi(), [PUSHI(1)].to_vec());

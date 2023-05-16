@@ -251,7 +251,7 @@ impl<'a> Parser<'a> {
             // okvir
             [ Ločilo("{", ..), vmes @ .., Ločilo("}", ..) ] => self.okvir(vmes),
             // funkcija natisni (zaenkrat še posebna funkcija)
-            [ Ime("natisni", ..), Ločilo("(", ..), vmes @ .., Ločilo(")", ..) ] => Ok(Natisni(self.argumenti(vmes)?.argumenti).rc()),
+            [ Ime("natisni", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => Ok(Natisni(self.argumenti(argumenti)?.argumenti).rc()),
             // funkcijski klic
             [ ime @ Ime(..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.funkcijski_klic_zavrzi_izhod(ime, argumenti),
             // pogojni stavek
