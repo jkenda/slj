@@ -25,10 +25,13 @@ impl Prevedi for Vozlišče {
             NaložiOdmik => [Osnovni(LOFF)].to_vec(),
 
             Znak(znak) => [PUSHC(*znak)].to_vec(),
-            Niz(niz) => niz
-                .chars().rev()
-                .map(|znak| PUSHC(znak))
-                .collect::<Vec<UkazPodatekRelative>>(),
+            Niz(niz) => [
+                niz
+                    .chars().rev()
+                    .map(|znak| PUSHC(znak))
+                    .collect::<Vec<UkazPodatekRelative>>(),
+                vec![PUSHI(niz.chars().count() as i32)],
+            ].concat(),
             Celo(število) => [PUSHI(*število)].to_vec(),
             Real(število) => [PUSHF(*število)].to_vec(),
 
@@ -323,18 +326,26 @@ impl Prevedi for Vozlišče {
             },
 
             Natisni(izrazi) => {
-                izrazi.into_iter()
+                izrazi.iter()
                 .map(|izraz| [
-                    izraz.prevedi().as_slice(),
-                    match &**izraz {
-                        Niz(_) => iter::repeat(Osnovni(PRTC))
-                            .take(izraz.sprememba_stacka() as usize)
-                            .collect(),
-                        _ => match izraz.tip() {
-                            Tip::Real => [Osnovni(PRTF)].to_vec(),
-                            _         => [Osnovni(PRTI)].to_vec(),
+                    izraz.prevedi(),
+                    if izraz.tip() == Tip::Znak {
+                        vec![Osnovni(PRTC)]
+                    }
+                    else {
+                        match &**izraz {
+                            Niz(_) => [
+                                vec![Osnovni(POP)],
+                                iter::repeat(Osnovni(PRTC))
+                                    .take(izraz.sprememba_stacka() as usize)
+                                    .collect::<Vec<UkazPodatekRelative>>(),
+                            ].concat(),
+                            _ => match izraz.tip() {
+                                Tip::Real => [Osnovni(PRTF)].to_vec(),
+                                _         => [Osnovni(PRTI)].to_vec(),
+                            }
                         }
-                    }.as_slice()
+                    }
                 ].concat()).flatten().collect()
             },
         }
@@ -385,6 +396,7 @@ mod test {
                    PUSHC('p'),
                    PUSHC('i'),
                    PUSHC('š'),
+                   PUSHI(4),
         ]);
         assert_eq!(Real(-3.14).prevedi(), [PUSHF(-3.14)]);
 
@@ -482,17 +494,21 @@ mod test {
             laž: Natisni([Niz("laž".to_owned()).rc()].to_vec()).rc(),
         }.prevedi(), [
             PUSHI(1),
-            JMPCRelative(8),
+            JMPCRelative(10),
             PUSHC('ž'),
             PUSHC('a'),
             PUSHC('l'),
+            PUSHI(3),
+            Osnovni(POP),
             Osnovni(PRTC),
             Osnovni(PRTC),
             Osnovni(PRTC),
-            JUMPRelative(OdmikIme::Odmik(7)),
+            JUMPRelative(OdmikIme::Odmik(9)),
             PUSHC('s'),
             PUSHC('e'),
             PUSHC('r'),
+            PUSHI(3),
+            Osnovni(POP),
             Osnovni(PRTC),
             Osnovni(PRTC),
             Osnovni(PRTC),
@@ -617,6 +633,8 @@ mod test {
                    PUSHC('n' ),
                    PUSHC('i' ),
                    PUSHC('đ' ),
+                   PUSHI(5),
+                   Osnovni(POP),
                    Osnovni(PRTC),
                    Osnovni(PRTC),
                    Osnovni(PRTC),

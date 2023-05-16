@@ -146,7 +146,7 @@ impl<'a> Tokenizer {
 
         let regexi: Vec<(Regex, fn(&'a str, usize, usize) -> Token<'a>)> = vec![
             (Regex::new(&format!(r"^{PRESLEDEK}(naj|čene|če|dokler|za|funkcija|vrni|prekini){ZADNJA_MEJA}")).unwrap(), Rezerviranka),
-            (Regex::new(&format!(r"^{PRESLEDEK}(brez|bool|celo|real|znak|niz){ZADNJA_MEJA}")).unwrap(), Tip),
+            (Regex::new(&format!(r"^{PRESLEDEK}(brez|bool|celo|real|znak){ZADNJA_MEJA}")).unwrap(), Tip),
             (Regex::new(&format!(r"^{PRESLEDEK}(resnica|laž){ZADNJA_MEJA}")).unwrap(), bool),
             (Regex::new(&format!(r"^{PRESLEDEK}('[^\n']')")).unwrap(), znak),
             (Regex::new(&format!( "^{PRESLEDEK}(\"[^\n\"]*\")")).unwrap(), niz),

@@ -473,7 +473,7 @@ impl Vozlišče {
             Celo(_) => Tip::Celo,
             Real(_) => Tip::Real,
             Znak(_) => Tip::Znak,
-            Niz(niz)  => Tip::Seznam(Box::new(Tip::Znak), niz.len() as i32),
+            Niz(niz)  => Tip::Seznam(Box::new(Tip::Znak), niz.chars().count() as i32),
             
             Spremenljivka{ tip, .. } => tip.clone(),
             Referenca(vozlišče) => Tip::Referenca(Box::new(vozlišče.tip())),
@@ -481,15 +481,15 @@ impl Vozlišče {
 
             Dereferenciraj(vozlišče) => match &**vozlišče {
                 Spremenljivka { tip: Tip::Referenca(element), .. } => *element.clone(),
+                Spremenljivka { tip: Tip::RefSeznama(element), .. } => *element.clone(),
                 _ => unreachable!("Dereferencirati je mogoče samo referenco."),
             },
-            Indeksiraj { seznam_ref, .. } => match &**seznam_ref {
-                Spremenljivka { tip, .. } => tip.clone(),
-                Referenca(spr) => match &**spr {
-                    Spremenljivka { tip, .. } => tip.clone(),
+            Indeksiraj { seznam_ref, .. } => {
+                match seznam_ref.tip() {
+                    Tip::Seznam(tip, ..) => *tip.clone(),
+                    Tip::RefSeznama(tip, ..) => *tip.clone(),
                     _ => unreachable!("Vedno indeksiramo referenco na seznam."),
-                },
-                _ => unreachable!("Vedno indeksiramo referenco na seznam."),
+                }
             },
             Dolžina(..) => Tip::Celo,
 

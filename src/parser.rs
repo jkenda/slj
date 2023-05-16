@@ -328,8 +328,18 @@ impl<'a> Parser<'a> {
             .clone();
 
         match spr.tip() {
+            Tip::Seznam(tip, _) | Tip::RefSeznama(tip) =>
+                if *tip != izraz.tip() {
+                    return Err(Napake::from_zaporedje(&[*ime], E2, 
+                            &format!("Izraza tipa '{}' ni mogoče prirediti spremenljivki tipa '{}'", izraz.tip(), *tip)));
+                },
+            tip @ _ => return Err(Napake::from_zaporedje(&[*ime], E2, 
+                    &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", tip))),
+        }
+
+        match spr.tip() {
             Tip::RefSeznama(..) => Ok(PrirejanjeRef { referenca: spr, indeks, izraz }.rc()),
-            Tip::Seznam(..) => Ok(PrirejanjeRef { referenca: Referenca(spr).rc(), indeks, izraz }.rc()),
+            Tip::Seznam(..) => Ok(PrirejanjeRef { referenca: RefSeznama(spr).rc(), indeks, izraz }.rc()),
             tip @ _ => Err(Napake::from_zaporedje(&[*ime], E2, 
                     &format!("V spremenljivko tipa '{}' ni mogoče indeksirati.", tip))),
         }
@@ -826,7 +836,7 @@ impl<'a> Parser<'a> {
 
                 match &**spremenljivka {
                     Spremenljivka { tip: Tip::Seznam(..), .. } =>
-                        Ok(Indeksiraj{ seznam_ref: Referenca(spremenljivka.clone()).rc(), indeks }.rc()),
+                        Ok(Indeksiraj{ seznam_ref: RefSeznama(spremenljivka.clone()).rc(), indeks }.rc()),
                     Spremenljivka { tip: Tip::RefSeznama(..), .. } =>
                         Ok(Indeksiraj{ seznam_ref: spremenljivka.clone(), indeks }.rc()),
                     _ => Err(Napake::from_zaporedje(izraz, E2, 
@@ -848,7 +858,8 @@ impl<'a> Parser<'a> {
 
             [ neznano @ Neznano(..) ] => Err(Napake::from_zaporedje(&[*neznano], E1, "Neznana beseda")),
             [] => Ok(Prazno.rc()),
-            _ => Err(Napake::from_zaporedje(izraz, E1, &format!("Neznan izraz")))
+            _ => Err(Napake::from_zaporedje(izraz, E1,
+                    &format!("Neznan izraz: {}", izraz.iter().map(|t| t.as_str()).collect::<Vec<&str>>().join(" "))))
         }
     }
 
@@ -889,9 +900,14 @@ impl<'a> Parser<'a> {
                             let spr = self.dodaj_spremenljivko(self.naključno_ime(25), tip.clone());
                             let prirejanje = Prirejanje { spremenljivka: spr.clone(), izraz: drevo }.rc();
 
-                            tipi.push(Tip::Referenca(Box::new(tip)));
+                            let referenca = match tip {
+                                Tip::Seznam(..) => RefSeznama(spr).rc(),
+                                _ => Referenca(spr).rc()
+                            };
+
+                            tipi.push(referenca.tip());
                             spremenljivke.push(prirejanje);
-                            argumenti.push(Referenca(spr).rc());
+                            argumenti.push(referenca);
                         },
                         Err(n) => napake.razširi(n),
                     }
