@@ -9,17 +9,23 @@ fn main() {
 
     let datoteka = fs::read_to_string(pot).unwrap_or("{}".to_owned());
 
+    let vrstice: Vec<&str> = datoteka.split('\n').collect();
     let drevo = datoteka
         .as_str()
         .tokenize()
-        .parse()
-        .unwrap();
+        .parse();
 
 
-    println!("{}", drevo
-             .to_string());
-
-    println!("{}", drevo
-             .to_program()
-             .to_assembler());
+    match drevo {
+        Ok(drevo) => {
+            println!("{}", drevo
+                .to_string());
+            println!("{}", drevo
+                .to_program()
+                .to_assembler());
+        },
+        Err(napake) => {
+            napake.izpiši(&vrstice);
+        }
+    }
 }
