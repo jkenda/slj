@@ -17,9 +17,7 @@ fn main() {
         return;
     }
 
-    let pot = &args.last().unwrap();
-
-    let datoteka = fs::read_to_string(pot)
+    let datoteka = fs::read_to_string(&args[1])
         .expect("Napaka: ne morem odpreti datoteke");
 
     let vrstice: Vec<&str> = datoteka.split('\n').collect();
@@ -59,7 +57,7 @@ impl Možnosti {
 }
 
 fn pomoč(ukaz: &String) {
-        println!("Argumenti: {ukaz} [možnosti] <pot>");
+        println!("Ukaz: {ukaz} [možnosti] <pot>");
         println!("[možnosti]:");
         println!("\t-p, --pomoč: izpiši to pomoč,");
         println!("\t-d, --debug: namesto izhoda programa izpisuj ukaze in stanje stacka pa vsakem ukazu.");

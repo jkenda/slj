@@ -5,9 +5,13 @@ use slj::program::ToProgram;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let pot = args.last().unwrap();
+    if args.len() < 2 {
+        pomoč(&args[0]);
+        return;
+    }
 
-    let datoteka = fs::read_to_string(pot).unwrap_or("{}".to_owned());
+    let datoteka = fs::read_to_string(&args[1])
+        .expect("Napaka: ne morem odpreti datoteke");
 
     let vrstice: Vec<&str> = datoteka.split('\n').collect();
     let drevo = datoteka
@@ -29,3 +33,8 @@ fn main() {
         }
     }
 }
+
+fn pomoč(ukaz: &String) {
+        println!("Ukaz: {ukaz} <pot>");
+}
+
