@@ -297,8 +297,25 @@ fn zanke() {
         za i = 1, i <= 3, i += 1 {
             natisni(i)
         }
+        naj i = 123
     "#;
     println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "123");
+
+    let mut izhod: Vec<u8> = Vec::new();
+    let program = r#"
+        naj i = 1
+        za , i <= 3, i += 1 {
+            natisni(i)
+        }
+        i = 1
+        za , i <= 3, {
+            natisni(i)
+            i += 1
+        }
+    "#;
+    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod).unwrap(), "123123");
 }

@@ -267,7 +267,6 @@ impl<'a> Parser<'a> {
     }
 
     fn zanka_za(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
-        println!("{:?}", izraz);
         let (prirejanje_izraz, _, izraz) = loči_spredaj(izraz, &[","])
             .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan ','"))??;
 
@@ -288,7 +287,12 @@ impl<'a> Parser<'a> {
 
         self.v_okvir();
         // {
-        let prirejanje = self.inicializacija(&prirejanje_izraz[0], None, &prirejanje_izraz[2..])?;
+        let prirejanje = match loči_spredaj(prirejanje_izraz, &["="]) {
+            Some(Ok(([ime @ Ime(..)], _, izraz))) => self.inicializacija(ime, None, izraz),
+            Some(Ok(_)) => Err(Napake::from_zaporedje(prirejanje_izraz, E5, "Pričakovan '='")),
+            Some(Err(err)) => Err(err),
+            None => Ok(Prazno.rc()),
+        }?;
         let pogoj = self.drevo(pogoj_izraz)?;
         let telo = self.okvir(telo_izraz.as_slice())?;
         // }
