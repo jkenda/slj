@@ -143,6 +143,8 @@ impl Prevedi for Vozlišče {
                 vozlišče.prevedi().as_slice(),
                 [Osnovni(FTOI)].as_slice(),
             ].concat(),
+            CeloVZnak(vozlišče) => vozlišče.prevedi(),
+            ZnakVCelo(vozlišče) => vozlišče.prevedi(),
 
             Zanikaj(vozlišče) => [
                 [PUSHI(1)].as_slice(),
@@ -330,26 +332,11 @@ impl Prevedi for Vozlišče {
                 ]).prevedi()
             },
 
-            Natisni(izrazi) => {
-                izrazi.iter()
-                    .map(|izraz| [
-                        izraz.prevedi(),
-                        match izraz.tip() {
-                            Tip::Znak => vec![Osnovni(PRTC)],
-                            Tip::Celo => [Osnovni(PRTI)].to_vec(),
-                            Tip::Real => [Osnovni(PRTF)].to_vec(),
-                            Tip::Seznam(tip, dolžina) => match &*tip {
-                                Tip::Znak => [
-                                    vec![Osnovni(POP)],
-                                    iter::repeat(Osnovni(PRTC))
-                                        .take(dolžina as usize)
-                                        .collect::<Vec<UkazPodatekRelative>>(),
-                                ].concat(),
-                                tip @ _ => unreachable!("Ni mogoče tiskati tipa '{tip}'"),
-                            },
-                            tip @ _ => unreachable!("Ni mogoče tiskati tipa '{tip}'"),
-                        }
-                    ].concat()).flatten().collect()
+            Natisni(znak) => {
+                [
+                    znak.prevedi().as_slice(),
+                    [Osnovni(PRTC)].as_slice(),
+                ].concat()
             },
         }
     }
@@ -498,27 +485,15 @@ mod test {
 
         assert_eq!(PogojniStavek { 
             pogoj: Resnica.rc(),
-            resnica: Natisni([Niz("res".to_owned()).rc()].to_vec()).rc(),
-            laž: Natisni([Niz("laž".to_owned()).rc()].to_vec()).rc(),
+            resnica: Natisni(Znak('r').rc()).rc(),
+            laž: Natisni(Znak('l').rc()).rc(),
         }.prevedi(), [
             PUSHI(1),
-            JMPCRelative(10),
-            PUSHC('ž'),
-            PUSHC('a'),
+            JMPCRelative(4),
             PUSHC('l'),
-            PUSHI(3),
-            Osnovni(POP),
             Osnovni(PRTC),
-            Osnovni(PRTC),
-            Osnovni(PRTC),
-            JUMPRelative(OdmikIme::Odmik(9)),
-            PUSHC('s'),
-            PUSHC('e'),
+            JUMPRelative(OdmikIme::Odmik(3)),
             PUSHC('r'),
-            PUSHI(3),
-            Osnovni(POP),
-            Osnovni(PRTC),
-            Osnovni(PRTC),
             Osnovni(PRTC),
         ]);
 
@@ -625,29 +600,6 @@ mod test {
             PUSHF(1.0),
             PUSHF(2.0),
             JUMPRelative(OdmikIme::Ime("ena".to_string())),
-        ]);
-
-        assert_eq!(Natisni([Real(13.0).rc()].to_vec()).prevedi(), [
-                   PUSHF(13.0),
-                   Osnovni(PRTF),
-        ]);
-        assert_eq!(Natisni([Celo(13).rc()].to_vec()).prevedi(), [
-                   PUSHI(13),
-                   Osnovni(PRTI),
-        ]);
-        assert_eq!(Natisni([Niz("đins\n".to_string()).rc()].to_vec()).prevedi(), [
-                   PUSHC('\n'),
-                   PUSHC('s' ),
-                   PUSHC('n' ),
-                   PUSHC('i' ),
-                   PUSHC('đ' ),
-                   PUSHI(5),
-                   Osnovni(POP),
-                   Osnovni(PRTC),
-                   Osnovni(PRTC),
-                   Osnovni(PRTC),
-                   Osnovni(PRTC),
-                   Osnovni(PRTC),
         ]);
     }
 }

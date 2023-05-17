@@ -2,26 +2,26 @@ naj x=1; naj y=2
 
 # izpiši razliko
 če x == y {
-    natisni(0, "\n")
+    natisni!(0, "\n")
 } čene če x > y {
-    natisni(x - y, "\n")
+    natisni!(x - y, "\n")
 } čene {
-    natisni(y - x, "\n")
+    natisni!(y - x, "\n")
 }
 
 naj i = 0; dokler i < 10 {
-    natisni(i, ", ")
+    natisni!(i, ", ")
     i = i + 1
 }
 natisni("\n\n")
 
 i = 0; dokler i < 10 {
     naj j = 0; dokler j < 10 {
-        natisni(10 * i + j, " ")
+        natisni!(10 * i + j, " ")
         j += 1
     }
     natisni("\n")
     i += 1
 }
-natisni(10 * 10 + 0, "\n")
+natisni!(10 * 10 + 0, "\n")
 

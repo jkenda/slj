@@ -17,7 +17,7 @@ use rand::{distributions::Alphanumeric, Rng};
 
 use drevo::{Drevo, Vozlišče::{*, self}, VozliščeOption::*};
 use tip::Tip;
-use tokenizer::{Token::{*, self}, L};
+use tokenizer::{Token::{*, self}, L, Tokenize};
 use loci::*;
 
 use self::napaka::{Napake, OznakaNapake::*, Napaka};
@@ -59,10 +59,19 @@ impl<'a> Parser<'a> {
     }
 
     fn parse(&mut self, izraz: &[Token<'a>]) -> Result<Drevo, Napake> {
-        let okvir = self.okvir(&Parser::predprocesiraj(izraz))?;
+        let izraz = [
+            Self::standard().as_slice(),
+            izraz,
+        ].concat();
+        let okvir = self.okvir(&Parser::predprocesiraj(izraz.as_slice()))?;
         Ok(Drevo::new(okvir))
     }
 
+    fn standard() -> Vec<Token<'static>> {
+        const STANDARD: &str = include_str!("../../standard/natisni.slj");
+        let drevo = STANDARD.tokenize();
+        Parser::predprocesiraj(&drevo)
+    }
 
     fn dodaj_spremenljivko(&mut self, ime: String, tip: Tip) -> Rc<Vozlišče> {
         let naslov = match self.znotraj_funkcije {

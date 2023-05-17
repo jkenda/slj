@@ -28,8 +28,8 @@ dokler kandidat <= MEJA {
 }
 
 naj i = 0; dokler i < praštevil {
-    natisni(praštevila[i], " ")
+    natisni!(praštevila[i], " ")
     i += 1
 }
 
-natisni("\npraštevil do ", MEJA, ": ", praštevil, "\n")
+natisni!("\npraštevil do ", MEJA, ": ", praštevil, "\n")

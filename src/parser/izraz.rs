@@ -160,6 +160,8 @@ impl<'a> Parser<'a> {
             [ Literal(L::Real(število, ..)) ] => Ok(Vozlišče::Real(število.replace("_", "").parse().unwrap()).rc()),
             [ Operator("-", ..), Literal(L::Celo(str, ..)) ] => Ok(Vozlišče::Celo(-str.replace("_", "").parse::<i32>().unwrap()).rc()),
             [ Operator("-", ..), Literal(L::Real(str, ..)) ] => Ok(Vozlišče::Real(-str.replace("_", "").parse::<f32>().unwrap()).rc()),
+            // znak
+            [ Literal(L::Znak(str, ..)) ] => Ok(Vozlišče::Znak(str.chars().nth(1).unwrap()).rc()),
             // niz
             [ Literal(L::Niz(niz, ..)) ] => Ok(Vozlišče::Niz(interpoliraj_niz(&niz[1..niz.len()-1])).rc()),
             // izraz v oklepaju
@@ -257,6 +259,8 @@ impl<'a> Parser<'a> {
         match (tip_noter.clone(), tip_ven.clone()) {
             (Tip::Real, Tip::Celo) => Ok(RealVCelo(drevo).rc()),
             (Tip::Celo, Tip::Real) => Ok(CeloVReal(drevo).rc()),
+            (Tip::Celo, Tip::Znak) => Ok(CeloVZnak(drevo).rc()),
+            (Tip::Znak, Tip::Celo) => Ok(ZnakVCelo(drevo).rc()),
             (a, b) if a == b => Ok(drevo),
             _ => Err(Napake::from_zaporedje(&[*tip_ven_izraz], E1,
                     &format!("Tipa {} ni mogoče pretvoriti v {}", tip_noter, tip_ven)))
@@ -282,6 +286,7 @@ mod testi {
         assert_eq!(parser.osnovni([ Literal(L::Celo("3", 1, 1))].as_slice()).unwrap(), Celo(3).rc());
         assert_eq!(parser.osnovni([ Literal(L::Real("3.125", 1, 1))].as_slice()).unwrap(), Real(3.125).rc());
         assert_eq!(parser.osnovni([ Literal(L::Celo("1_000", 1, 1))].as_slice()).unwrap(), Celo(1000).rc());
+        assert_eq!(parser.osnovni([ Literal(L::Znak("'đ'", 1, 1))].as_slice()).unwrap(), Znak('đ').rc());
         assert_eq!(parser.osnovni([ Literal(L::Niz("\"angleščina\\n\"", 1, 1))].as_slice()).unwrap(), Niz("angleščina\n".to_string()).rc());
 
         parser.funkcije.insert("fun()".to_string(), Funkcija {

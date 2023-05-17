@@ -74,8 +74,6 @@ impl Program {
                 SOFF => { *addroff = stack.pop().unwrap().i as u32;   *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff as i32 }); *pc + 1 },
 
-                PRTF => { write!(izhod, "{}", stack.pop().unwrap().f).unwrap(); *pc + 1 },
-                PRTI => { write!(izhod, "{}", stack.pop().unwrap().i).unwrap(); *pc + 1 },
                 PRTC => { write!(izhod, "{}", stack.pop().unwrap().c).unwrap(); *pc + 1 },
 
                 ADDF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    + stack.pop().unwrap().f;  *pc + 1 },
@@ -141,8 +139,6 @@ impl Program {
                 SOFF => { *addroff = stack.pop()?.i as u32;   *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff as i32 }); *pc + 1 },
 
-                PRTF => { write!(izhod, "{}", stack.pop()?.f).ok()?; *pc + 1 },
-                PRTI => { write!(izhod, "{}", stack.pop()?.i).ok()?; *pc + 1 },
                 PRTC => { write!(izhod, "{}", stack.pop()?.c).ok()?; *pc + 1 },
 
                 ADDF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f    + stack.pop()?.f;  *pc + 1 },

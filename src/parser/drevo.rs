@@ -77,6 +77,8 @@ pub enum Vozlišče {
 
     CeloVReal(Rc<Vozlišče>),
     RealVCelo(Rc<Vozlišče>),
+    CeloVZnak(Rc<Vozlišče>),
+    ZnakVCelo(Rc<Vozlišče>),
 
     Zanikaj(Rc<Vozlišče>),
     Konjunkcija(Rc<Vozlišče>, Rc<Vozlišče>),
@@ -113,7 +115,7 @@ pub enum Vozlišče {
     Funkcija{ tip: Tip, ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>, prostor: i32, št_klicev: usize },
     FunkcijskiKlic{ funkcija: Rc<Vozlišče>, spremenljivke: Rc<Vozlišče>, argumenti: Rc<Vozlišče> },
 
-    Natisni(Vec<Rc<Vozlišče>>),
+    Natisni(Rc<Vozlišče>),
 }
 
 use Vozlišče::*;
@@ -185,6 +187,7 @@ impl Display for Vozlišče {
                 format!("funkcija {}({}) -> {}", ime, parametri, tip)
             },
             FunkcijskiKlic{ funkcija, .. } => if let Funkcija { tip: _, ime, .. } = &**funkcija { ime.clone() } else { "".to_string() },
+            Natisni(znak) => format!("natisni({znak})"),
             _ => "".to_owned(),
         })
     }
@@ -317,8 +320,13 @@ impl Vozlišče {
             CeloVReal(vozlišče) =>
                 vozlišče.drevo(globina) 
                 + " kot real\n",
-
             RealVCelo(vozlišče) =>
+                vozlišče.drevo(globina) 
+                + " kot celo\n",
+            CeloVZnak(vozlišče) =>
+                vozlišče.drevo(globina) 
+                + " kot znak\n",
+            ZnakVCelo(vozlišče) =>
                 vozlišče.drevo(globina) 
                 + " kot celo\n",
 
@@ -372,14 +380,8 @@ impl Vozlišče {
                 + &argumenti.drevo(globina + 1)
                 + &"  ".repeat(globina) + ")\n",
 
-            Natisni(zaporedje) => 
-                "  ".repeat(globina) + "natisni(\n" 
-                + &zaporedje
-                    .into_iter()
-                    .map(|v| v.drevo(globina + 1))
-                    .collect::<Vec<String>>()
-                    .join(&("  ".repeat(globina) + ",\n"))
-                + &"  ".repeat(globina) + ")\n",
+            Natisni(znak) => 
+                "  ".repeat(globina) + &znak.to_string() + "\n",
         }
     }
 
@@ -428,7 +430,7 @@ impl Vozlišče {
                 Enako(_, l, d) | NiEnako(_, l, d) | Večje(_, l, d) | VečjeEnako(_, l, d) | Manjše(_, l, d) | ManjšeEnako(_, l, d)
                 => l.sprememba_stacka() + d.sprememba_stacka() - 1,
 
-            CeloVReal(..) | RealVCelo(..) => 0,
+            CeloVReal(..) | RealVCelo(..) | CeloVZnak(..) | ZnakVCelo(..) => 0,
 
             Zanikaj(izraz)
                 => izraz.sprememba_stacka(),
@@ -502,6 +504,8 @@ impl Vozlišče {
 
             CeloVReal(..) => Tip::Real,
             RealVCelo(..) => Tip::Celo,
+            CeloVZnak(..) => Tip::Znak,
+            ZnakVCelo(..) => Tip::Celo,
 
             ProgramskiŠtevec(..) => Tip::Celo,
             Skok(..) => Tip::Brez,

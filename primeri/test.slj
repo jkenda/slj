@@ -2,10 +2,10 @@ naj x = 6.0 / (1.0 + 1.0) * ((5.0 - 3.0) + (0.5 + 0.5))
 x += (1.0 * x) * (1.0 * x)
 naj y = x * 2.0 + x * 2.0
 naj z = y % 7.0
-natisni("rezultati:\n")
-natisni(x, "\n")
-natisni(y, "\n")
-natisni(x + 3.0, "\n")
-natisni(z, "\n")
+natisni!("rezultati:\n")
+natisni!(x, "\n")
+natisni!(y, "\n")
+natisni!(x + 3.0, "\n")
+natisni!(z, "\n")
 
-natisni("5 + 3 * 2 = ", 5 + 3 * 2, "\n");
+natisni!("5 + 3 * 2 = ", 5 + 3 * 2, "\n");

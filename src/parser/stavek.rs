@@ -1,4 +1,4 @@
-use super::*;
+use super::{*, argumenti::Argumenti};
 
 impl<'a> Parser<'a> {
     pub fn stavek<'b>(&mut self, izraz: &'b[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
@@ -42,7 +42,7 @@ impl<'a> Parser<'a> {
             // okvir
             [ Ločilo("{", ..), vmes @ .., Ločilo("}", ..) ] => self.okvir(vmes),
             // funkcija natisni (zaenkrat še posebna funkcija)
-            [ Ime("natisni", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => Ok(Natisni(self.argumenti(argumenti)?.argumenti).rc()),
+            [ ime @ Ime("natisni", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.natisni(ime, argumenti),
             // funkcijski klic
             [ ime @ Ime(..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.funkcijski_klic_zavrzi_izhod(ime, argumenti),
             // pogojni stavek
@@ -192,6 +192,15 @@ impl<'a> Parser<'a> {
                         &format!("Nemogoča operacija: {} {} {}", spremenljivka.tip(), operator.as_str(), drevo.tip()))),
             }
             Brez => Err(Napake::from_zaporedje(&[*operator], E4, "Neznan operator"))
+        }
+    }
+
+    fn natisni(&mut self, ime: &Token, argumenti_izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+        let Argumenti { tipi, argumenti, .. } = self.argumenti(argumenti_izraz)?;
+
+        match tipi.as_slice() {
+            [ Tip::Znak ] => Ok(Natisni(argumenti[0].clone()).rc()),
+            _ => self.funkcijski_klic(ime, argumenti_izraz)
         }
     }
 

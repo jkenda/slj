@@ -1,0 +1,58 @@
+funkcija natisni(niz: @[znak]) {
+    naj dolžina = niz.dolžina
+    naj i = 0; dokler i < dolžina {
+        natisni(niz[i])
+        i += 1
+    }
+}
+
+funkcija _natisni(št: celo) {
+    če št < 10 {
+        natisni((št % 10 + '0' kot celo) kot znak)
+        vrni
+    }
+    _natisni(št / 10)
+    natisni((št % 10 + '0' kot celo) kot znak)
+}
+
+funkcija natisni(št: celo) {
+    če št < 0 {
+        natisni('-')
+        št *= -1
+    }
+
+    _natisni(št)
+}
+
+naj FLOAT_PREC = 10
+
+funkcija natisni(št: real) {
+    če št < 0.0 {
+        natisni('-')
+        št *= -1.0
+    }
+
+    naj celi_del = št kot celo
+    naj ostanek = št % 1.0 * 10.0
+    natisni(št kot celo)
+
+    če ostanek == 0.0 {
+        vrni
+    }
+
+    natisni('.')
+
+    naj i = 0; dokler i < FLOAT_PREC && ostanek > 0.5 {
+        natisni(ostanek kot celo)
+        ostanek = ostanek * 10.0 % 10.0
+        i += 1
+    }
+}
+
+funkcija natisni(a: bool) {
+    če a {
+        natisni("resnica")
+    } čene {
+        natisni("laž")
+    }
+}

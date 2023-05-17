@@ -30,5 +30,5 @@ naj praštevil = 2 # [2, 3]
 
 poišči_praštevila(5, MEJA, @praštevil)
 
-natisni("praštevil do ", MEJA, ": ", praštevil, "\n")
+natisni!("praštevil do ", MEJA, ": ", praštevil, "\n")
 

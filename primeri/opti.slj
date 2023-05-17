@@ -1,41 +1,41 @@
 naj x = 5.0; naj y = 7.0
-natisni("x = ", x, ", y = ", y, "\n")
+natisni!("x = ", x, ", y = ", y, "\n")
 
-natisni("številski izraz: ", 2**(4 - 1) * 3, "\n")
-natisni("enaki veji: ", (x * (3.0 - 1.0)) + (x * 2.0), "\n")
+natisni!("številski izraz: ", 2**(4 - 1) * 3, "\n")
+natisni!("enaki veji: ", (x * (3.0 - 1.0)) + (x * 2.0), "\n")
 
-natisni("x * x -> x**2: ", x * x, "\n")
-natisni("x + x -> 2 * x: ", x + x, "\n")
+natisni!("x * x -> x**2: ", x * x, "\n")
+natisni!("x + x -> 2 * x: ", x + x, "\n")
 
-natisni("x - x -> 0: ", x - x, "\n")
-natisni("x / x -> 1: ", (x + 1.0) / (x + (2.0 - 1.0)), "\n")
+natisni!("x - x -> 0: ", x - x, "\n")
+natisni!("x / x -> 1: ", (x + 1.0) / (x + (2.0 - 1.0)), "\n")
 
-natisni("\nseštevanje:\n")
-natisni((x + 3.0) + 4.0, "\n") # 12
-natisni((3.0 + x) + 4.0, "\n") # 12
-natisni(3.0 + (x + 4.0), "\n") # 12
-natisni(3.0 + (4.0 + x), "\n") # 12
+natisni!("\nseštevanje:\n")
+natisni!((x + 3.0) + 4.0, "\n") # 12
+natisni!((3.0 + x) + 4.0, "\n") # 12
+natisni!(3.0 + (x + 4.0), "\n") # 12
+natisni!(3.0 + (4.0 + x), "\n") # 12
 
-natisni("\nodštevanje:\n")
-natisni((x - 3.0) - 4.0, "\n") # -2
-natisni((3.0 - x) - 4.0, "\n") # -6
-natisni(3.0 - (x - 4.0), "\n") # -6
-natisni(3.0 - (4.0 - x), "\n") # -6
+natisni!("\nodštevanje:\n")
+natisni!((x - 3.0) - 4.0, "\n") # -2
+natisni!((3.0 - x) - 4.0, "\n") # -6
+natisni!(3.0 - (x - 4.0), "\n") # -6
+natisni!(3.0 - (4.0 - x), "\n") # -6
 
-natisni("\nmnoženje:\n")
-natisni((x * 3.0) * 4.0, "\n") # 60
-natisni((3.0 * x) * 4.0, "\n") # 60
-natisni(3.0 * (x * 4.0), "\n") # 60
-natisni(3.0 * (4.0 * x), "\n") # 60
+natisni!("\nmnoženje:\n")
+natisni!((x * 3.0) * 4.0, "\n") # 60
+natisni!((3.0 * x) * 4.0, "\n") # 60
+natisni!(3.0 * (x * 4.0), "\n") # 60
+natisni!(3.0 * (4.0 * x), "\n") # 60
 
-natisni("\ndeljenje:\n")
-natisni((x / 3.0) / 4.0, "\n") # 0.4166666...
-natisni((3.0 / x) / 4.0, "\n") # 0.15
-natisni(3.0 / (x / 4.0), "\n") # 2.4
-natisni(3.0 / (4.0 / x), "\n") # 3.75
+natisni!("\ndeljenje:\n")
+natisni!((x / 3.0) / 4.0, "\n") # 0.4166666...
+natisni!((3.0 / x) / 4.0, "\n") # 0.15
+natisni!(3.0 / (x / 4.0), "\n") # 2.4
+natisni!(3.0 / (4.0 / x), "\n") # 3.75
 
-natisni("\nmodulo:\n")
-natisni(((x % (3.0+2.0)) + (y % (3.0+2.0))) % (3.0+2.0), "\n") # 2
-natisni(((x % (3.0+2.0)) * (y % (3.0+2.0))) % (3.0+2.0), "\n") # 2
+natisni!("\nmodulo:\n")
+natisni!(((x % (3.0+2.0)) + (y % (3.0+2.0))) % (3.0+2.0), "\n") # 2
+natisni!(((x % (3.0+2.0)) * (y % (3.0+2.0))) % (3.0+2.0), "\n") # 2
 
-natisni("xx", "\n")
+natisni!("xx", "\n")

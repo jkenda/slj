@@ -22,8 +22,9 @@ impl<'a> Parser<'a> {
                     argumenti.push(Prazno.rc());
                     spremenljivke.push(Prazno.rc());
                 },
-                [ Operator("@", ..), Literal(..) ] => {
-                    match self.drevo(&argument[1..]) {
+                [ Operator("@", ..), literal @ Literal(..) ]
+                    | [ literal @ Literal(L::Niz(..)) ] => {
+                    match self.drevo(&[*literal]) {
                         Ok(drevo) => {
                             let tip = drevo.tip();
                             let spr = self.dodaj_spremenljivko(self.naključno_ime(25), tip.clone());

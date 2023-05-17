@@ -1,4 +1,17 @@
-use slj::{parser::{tokenizer::{Tokenize, Token::*, L}, drevo::Vozlišče::{*, self}, Parse}, program::ToProgram};
+use slj::{parser::{tokenizer::{Tokenize, Token::*, L}, Parse}, program::ToProgram};
+
+#[test]
+fn natisni_znak() {
+    let mut izhod: Vec<u8> = Vec::new();
+    let program = r#"
+        natisni('z')
+        natisni('v')
+        natisni('e')
+        natisni('r')
+        "#;
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod).unwrap(), "zver");
+}
 
 #[test]
 fn natisni_niz() {
@@ -11,16 +24,21 @@ fn natisni_niz() {
 #[test]
 fn natisni_število() {
     let mut izhod: Vec<u8> = Vec::new();
-    let program = r#"natisni(3.14)"#;
+    let program = r#"natisni(3.14159268)"#;
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "3.14");
+    assert_eq!(String::from_utf8(izhod).unwrap(), "3.14159268");
 
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(42)"#;
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(program.tokenize(), [Ime("natisni", 1, 1), Ločilo("(", 1, 8), Literal(L::Celo("42", 1, 9)), Ločilo(")", 1, 11)]);
-    assert_eq!(program.tokenize().parse().unwrap().root, Okvir{ zaporedje: Zaporedje(vec![Natisni(vec![Vozlišče::Celo(42).rc()]).rc()]).rc(), št_spr: 0 }.rc());
     assert_eq!(String::from_utf8(izhod).unwrap(), "42");
+
+    let mut izhod: Vec<u8> = Vec::new();
+    let program = r#"natisni(0)"#;
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
+    assert_eq!(program.tokenize(), [Ime("natisni", 1, 1), Ločilo("(", 1, 8), Literal(L::Celo("42", 1, 9)), Ločilo(")", 1, 11)]);
+    assert_eq!(String::from_utf8(izhod).unwrap(), "0");
 }
 
 #[test]
@@ -91,7 +109,7 @@ fn praštevil_do_1000() {
             }
         }
 
-        natisni("praštevil do ", MEJA, ": ", praštevil, "\n")
+        natisni!("praštevil do ", MEJA, ": ", praštevil, "\n")
     "#;
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "praštevil do 1000: 168\n");
@@ -107,7 +125,7 @@ fn rekurzija() {
             }
             vrni a * faktoriela(a - 1)
         }
-        natisni("7! = ", faktoriela(7), "\n")
+        natisni!("7! = ", faktoriela(7), "\n")
     "#;
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "7! = 5040\n");
@@ -147,7 +165,7 @@ fn multi_funkcija() {
         }
 
         prištej!(42, 3.14)
-        natisni(a, ", ", b)
+        natisni!(a, ", ", b)
     "#;
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "42, 3.14");
@@ -158,10 +176,10 @@ fn referenca() {
     let mut izhod: Vec<u8> = Vec::new();
     let mut program = r#"
         funkcija naloži(ref: @real) {
-            natisni(ref@, " ")
+            natisni!(ref@, " ")
         }
         funkcija naloži(ref: @celo) {
-            natisni(ref@, " ")
+            natisni!(ref@, " ")
             naloži(@3.14)
         }
 
@@ -184,9 +202,9 @@ fn referenca() {
         }
 
         naj a = 7
-        natisni(a, " ")
+        natisni!(a, " ")
         spremeni(@a, 13)
-        natisni(a, " ")
+        natisni!(a, " ")
         povečaj(@a, 4)
         natisni(a)
         "#;
@@ -220,10 +238,10 @@ fn indeksiranje() {
         dodaj(@seznam, 2.0)
         dodaj(ref, 3.0)
 
-        natisni(seznam[0], " ", seznam[1], " ", ref[2], "\n")
+        natisni!(seznam[0], " ", seznam[1], " ", ref[2], "\n")
         naj i = 0; dokler i < seznam.dolžina {
             seznam[i] = (ref.dolžina - i) kot real
-            natisni(ref[i], " ")
+            natisni!(ref[i], " ")
             i += 1
         }
     "#;
@@ -233,7 +251,7 @@ fn indeksiranje() {
 }
 
 #[test]
-fn natisni() {
+fn fake_natisni() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         funkcija _natisni(niz: @[znak]) {
