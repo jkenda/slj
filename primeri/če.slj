@@ -16,7 +16,7 @@ natisni("\n\n")
 
 naj i = 0; dokler i < 10 {
     za j = 0, j < 10, j += 1 {
-        natisni!(10 * i + j, " ")
+        natisni(10 * i + j, 3)
     }
     natisni("\n")
     i += 1

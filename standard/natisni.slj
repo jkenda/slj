@@ -11,11 +11,9 @@ funkcija natisni(niz: @[znak]) {
 }
 
 funkcija _natisni(št: celo) {
-    če št < 10 {
-        natisni((št % 10 + '0' kot celo) kot znak)
-        vrni
+    če št > 9 {
+        _natisni(št / 10)
     }
-    _natisni(št / 10)
     natisni((št % 10 + '0' kot celo) kot znak)
 }
 
@@ -25,6 +23,36 @@ funkcija natisni(št: celo) {
         št *= -1
     }
 
+    _natisni(št)
+}
+
+funkcija _dolžina(št: celo) -> celo {
+    če št < 10 {
+        vrni 1
+    }
+
+    naj dolžina = 1
+    dokler št > 9 {
+        št /= 10
+        dolžina += 1
+    }
+    vrni dolžina
+}
+
+funkcija natisni(št: celo, dolžina: celo) {
+    naj neg = laž
+    če št < 0 {
+        neg = resnica
+        št *= -1
+        dolžina -= 1
+    }
+
+    za i = 0, i < dolžina - _dolžina(št), i += 1 {
+        natisni(' ')
+    }
+    če neg {
+        natisni('-')
+    }
     _natisni(št)
 }
 
