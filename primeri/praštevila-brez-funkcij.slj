@@ -1,6 +1,5 @@
-naj praštevil = 0
 naj praštevila: [celo; 1_000_000]
-naj MEJA = praštevila.dolžina
+naj praštevil = 0
 
 funkcija dodaj(seznam: @[celo], velikost: @celo, št: celo) {
     seznam[velikost@] = št
@@ -9,27 +8,23 @@ funkcija dodaj(seznam: @[celo], velikost: @celo, št: celo) {
 
 dodaj(@praštevila, @praštevil, 2)
 dodaj(@praštevila, @praštevil, 3)
-naj kandidat = 5
 
-dokler kandidat <= MEJA {
+za kandidat = 5, kandidat <= praštevila.dolžina, kandidat += 2 {
     naj praštevilo = resnica
 
-    naj i = 0; dokler praštevila[i]**2 <= kandidat && praštevilo {
+    za i = 0, praštevila[i]**2 <= kandidat && praštevilo, i += 1 {
         če kandidat % praštevila[i] == 0 {
             praštevilo = laž
         }
-        i += 1
     }
-    kandidat += 2
 
     če praštevilo {
         dodaj(@praštevila, @praštevil, kandidat)
     }
 }
 
-naj i = 0; dokler i < praštevil {
+za i = 0, i < praštevil, i += 1 {
     natisni!(praštevila[i], " ")
-    i += 1
 }
 
-natisni!("\npraštevil do ", MEJA, ": ", praštevil, "\n")
+natisni!("\npraštevil do ", praštevila.dolžina, ": ", praštevil, "\n")

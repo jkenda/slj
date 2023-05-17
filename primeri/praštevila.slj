@@ -2,33 +2,37 @@ funkcija je_deljivo(deljenec: celo, delitelj: celo) -> bool {
     vrni deljenec % delitelj == 0
 }
 
-funkcija je_praštevilo(kandidat: celo) -> bool {
+funkcija je_praštevilo(kandidat: celo, praštevila: @[celo]) -> bool {
     naj praštevilo = resnica
 
-    naj i = 2; dokler i**2 <= kandidat && praštevilo {
-        če je_deljivo(kandidat, i) {
+    za i = 0, praštevila[i]**2 <= kandidat && praštevilo, i += 1 {
+        če kandidat % praštevila[i] == 0 {
             praštevilo = laž
         }
-        i += 1
     }
 
     vrni praštevilo
 }
 
-funkcija poišči_praštevila(od: celo, do: celo, praštevil: @celo) {
-    naj kandidat = od
-    dokler kandidat <= do {
-        če je_praštevilo(kandidat) {
+funkcija poišči_praštevila(od: celo, do: celo, praštevila: @[celo], praštevil: @celo) {
+    za kandidat = od, kandidat <= do, kandidat += 2 {
+        če je_praštevilo(kandidat, praštevila) {
+            praštevila[praštevil@] = kandidat
             praštevil@ += 1
         }
-        kandidat += 2
     }
 }
 
-naj MEJA = 1_000_000
-naj praštevil = 2 # [2, 3]
+naj praštevila: [celo; 1_000_000]
+praštevila[0] = 2
+praštevila[1] = 3
+naj praštevil = 2
 
-poišči_praštevila(5, MEJA, @praštevil)
+poišči_praštevila(5, praštevila.dolžina, @praštevila, @praštevil)
 
-natisni!("praštevil do ", MEJA, ": ", praštevil, "\n")
+za i = 0, i < praštevil, i += 1 {
+    natisni!(praštevila[i], " ")
+}
+
+natisni!("praštevil do ", praštevila.dolžina, ": ", praštevil, "\n")
 
