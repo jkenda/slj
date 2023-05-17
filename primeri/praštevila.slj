@@ -34,5 +34,5 @@ za i = 0, i < praštevil, i += 1 {
     natisni!(praštevila[i], " ")
 }
 
-natisni!("praštevil do ", praštevila.dolžina, ": ", praštevil, "\n")
+natisni!("\npraštevil do ", praštevila.dolžina, ": ", praštevil, "\n")
 

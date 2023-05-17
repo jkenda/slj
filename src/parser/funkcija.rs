@@ -142,21 +142,18 @@ impl<'a> Parser<'a> {
 
         for (tip, (spremenljivka, argument)) in iter::zip(tipi, iter::zip(spremenljivke, argumenti)) {
             let podpis_funkcije = Self::podpis_funkcije(ime, &[tip]);
-            let funkcija = self.funkcije.get(&podpis_funkcije)
-                .ok_or(Napake::from_zaporedje(argumenti_izraz, E2, &format!("Funkcija '{podpis_funkcije}' ne obstaja")))?
-                .clone();
+            let funkcija = self.funkcije.get(&podpis_funkcije);
 
-            if let Funkcija { tip, .. } = &*funkcija {
-                if *tip == Tip::Brez {
+            match funkcija {
+                Some(funkcija) => 
                     funkcijski_klici.push(FunkcijskiKlic {
-                        funkcija,
+                        funkcija: funkcija.clone(),
                         spremenljivke: Zaporedje(vec![spremenljivka.rc()]).rc(),
                         argumenti: Zaporedje(vec![argument.rc()]).rc(),
-                    }.rc());
-                }
-                else {
-                    napake.add_napaka(Napaka::from_zaporedje(&[*ime], E8,
-                                      &format!("{podpis_funkcije} -> {tip}: Funkcije, ki jih vključuje multifunkcijski klic, ne smejo ničesar vračati")));
+                    }.rc()),
+                None => {
+                    napake.add_napaka(Napaka::from_zaporedje(&[*ime], E2,
+                        &format!("Funkcija '{podpis_funkcije}' ne obstaja")));
                 }
             }
         }
