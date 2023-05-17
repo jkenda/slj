@@ -104,3 +104,15 @@ pub fn interpoliraj_niz(niz: &str) -> String {
         .replace(r#"\"""#, "\"")
         .replace(r"\'", "\'")
 }
+
+#[cfg(test)]
+mod testi {
+    use super::*;
+    use crate::parser::{Token::*, tokenizer::Tokenize};
+
+    #[test]
+    fn poišči() {
+        assert_eq!(loči_spredaj("{}".tokenize().as_slice(), &["{"]), Some(Ok(([].as_slice(), &Ločilo("{", 1, 1), [Ločilo("}", 1, 2)].as_slice()))));
+    }
+
+}
