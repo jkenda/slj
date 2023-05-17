@@ -2,35 +2,9 @@ use super::*;
 
 impl<'a> Parser<'a> {
     pub fn okvir(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
-        if !self.znotraj_funkcije {
-            self.spremenljivke_stack.push(HashMap::new());
-            self.funkcije_stack.push(HashMap::new());
-            self.reference_stack.push(HashMap::new());
-        }
-
+        self.v_okvir();
         let zaporedje = self.zaporedje(izraz)?;
-
-        let št_spr = if !self.znotraj_funkcije {
-            self.spremenljivke_stack.last().unwrap()
-                .values()
-                .map(|s| s.sprememba_stacka())
-                .sum()
-        }
-        else {
-            0
-        };
-
-        if !self.znotraj_funkcije {
-            for (ime, _) in self.spremenljivke_stack.pop().unwrap() {
-                self.spremenljivke.remove(&ime);
-            }
-            for (ime, _) in self.funkcije_stack.pop().unwrap() {
-                self.funkcije.remove(&ime);
-            }
-            for (ime, _) in self.reference_stack.pop().unwrap() {
-                self.reference.remove(&ime);
-            }
-        }
+        let št_spr = self.iz_okvirja();
 
         Ok(Okvir { zaporedje, št_spr }.rc())
     }
@@ -54,6 +28,40 @@ impl<'a> Parser<'a> {
         else {
             Err(napake)
         }
+    }
+
+    pub fn v_okvir(&mut self) {
+        if !self.znotraj_funkcije {
+            self.spremenljivke_stack.push(HashMap::new());
+            self.funkcije_stack.push(HashMap::new());
+            self.reference_stack.push(HashMap::new());
+        }
+    }
+
+    pub fn iz_okvirja(&mut self) -> i32 {
+        let št_spr = if !self.znotraj_funkcije {
+            self.spremenljivke_stack.last().unwrap()
+                .values()
+                .map(|s| s.sprememba_stacka())
+                .sum()
+        }
+        else {
+            0
+        };
+
+        if !self.znotraj_funkcije {
+            for (ime, _) in self.spremenljivke_stack.pop().unwrap() {
+                self.spremenljivke.remove(&ime);
+            }
+            for (ime, _) in self.funkcije_stack.pop().unwrap() {
+                self.funkcije.remove(&ime);
+            }
+            for (ime, _) in self.reference_stack.pop().unwrap() {
+                self.reference.remove(&ime);
+            }
+        }
+
+        št_spr
     }
 
 }

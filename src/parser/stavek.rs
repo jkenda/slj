@@ -49,6 +49,8 @@ impl<'a> Parser<'a> {
             [ Rezerviranka("če", ..), ostanek @ .. ] => self.pogojni_stavek(ostanek),
             // zanka dokler (while loop)
             [ Rezerviranka("dokler", ..), ostanek @ .. ] => self.zanka_dokler(ostanek),
+            // zanka za (for loop)
+            [ Rezerviranka("za", ..), ostanek @ .. ] => self.zanka_za(ostanek),
             // deklaracija funkcije
             [ Rezerviranka("funkcija", ..), ime @ Ime(..), ostanek @ .. ] => self.funkcija(ime, ostanek),
             // vrni (return)
@@ -256,37 +258,48 @@ impl<'a> Parser<'a> {
             return Err(Napake::from_zaporedje(pogoj_izraz, E6, "Pogoj mora biti Boolova vrednost"));
         }
 
-        if !self.znotraj_funkcije {
-            self.spremenljivke_stack.push(HashMap::new());
-            self.funkcije_stack.push(HashMap::new());
-            self.reference_stack.push(HashMap::new());
-        }
-
+        self.v_okvir();
+        // {
         let telo = self.zaporedje(telo_izraz)?;
-
-        let št_spr = if !self.znotraj_funkcije {
-            self.spremenljivke_stack.last().unwrap()
-                .values()
-                .map(|s| s.sprememba_stacka())
-                .sum()
-        }
-        else {
-            0
-        };
-
-        if !self.znotraj_funkcije {
-            for (ime, _) in self.spremenljivke_stack.pop().unwrap() {
-                self.spremenljivke.remove(&ime);
-            }
-            for (ime, _) in self.funkcije_stack.pop().unwrap() {
-                self.funkcije.remove(&ime);
-            }
-            for (ime, _) in self.reference_stack.pop().unwrap() {
-                self.reference.remove(&ime);
-            }
-        }
-
+        // }
+        let št_spr = self.iz_okvirja();
         Ok(Okvir { zaporedje: Zanka { pogoj, telo }.rc(), št_spr }.rc())
+    }
+
+    fn zanka_za(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+        println!("{:?}", izraz);
+        let (prirejanje_izraz, _, izraz) = loči_spredaj(izraz, &[","])
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan ','"))??;
+
+        let (pogoj_izraz, _, izraz) = loči_spredaj(izraz, &[","])
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan ','"))??;
+
+        let (za_izraz, _, izraz) = loči_spredaj(izraz, &["{"])
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '{'"))??;
+
+        let (telo_izraz, _, _) = loči_zadaj(izraz, &["}"])
+            .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '}'"))??;
+
+        let telo_izraz = [
+            telo_izraz,
+            [Ločilo(";", 1, 1)].as_slice(),
+            za_izraz,
+        ].concat();
+
+        self.v_okvir();
+        // {
+        let prirejanje = self.inicializacija(&prirejanje_izraz[0], None, &prirejanje_izraz[2..])?;
+        let pogoj = self.drevo(pogoj_izraz)?;
+        let telo = self.okvir(telo_izraz.as_slice())?;
+        // }
+        let št_spr = self.iz_okvirja();
+        
+        let zaporedje = Zaporedje(vec![
+            prirejanje,
+            Zanka { pogoj, telo }.rc(),
+        ]).rc();
+
+        Ok(Okvir { zaporedje, št_spr }.rc())
     }
 
 }
