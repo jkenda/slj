@@ -24,11 +24,6 @@ fn natisni_niz() {
 #[test]
 fn natisni_število() {
     let mut izhod: Vec<u8> = Vec::new();
-    let program = r#"natisni(3.14159268)"#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "3.14159268");
-
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(42)"#;
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(program.tokenize(), [Ime("natisni", 1, 1), Ločilo("(", 1, 8), Literal(L::Celo("42", 1, 9)), Ločilo(")", 1, 11)]);
@@ -37,8 +32,23 @@ fn natisni_število() {
     let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(0)"#;
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(program.tokenize(), [Ime("natisni", 1, 1), Ločilo("(", 1, 8), Literal(L::Celo("42", 1, 9)), Ločilo(")", 1, 11)]);
+    assert_eq!(program.tokenize(), [Ime("natisni", 1, 1), Ločilo("(", 1, 8), Literal(L::Celo("0", 1, 9)), Ločilo(")", 1, 10)]);
     assert_eq!(String::from_utf8(izhod).unwrap(), "0");
+
+    let mut izhod: Vec<u8> = Vec::new();
+    let program = r#"natisni(0.02)"#;
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod).unwrap(), "0.02");
+
+    let mut izhod: Vec<u8> = Vec::new();
+    let program = r#"natisni(0.5)"#;
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod).unwrap(), "0.5");
+
+    let mut izhod: Vec<u8> = Vec::new();
+    let program = r#"natisni(3.141592653589793)"#;
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod).unwrap(), "3.141592");
 }
 
 #[test]

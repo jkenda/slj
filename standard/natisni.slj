@@ -1,3 +1,7 @@
+funkcija natisni(z: znak) {
+    natisni(z)
+}
+
 funkcija natisni(niz: @[znak]) {
     naj dolžina = niz.dolžina
     naj i = 0; dokler i < dolžina {
@@ -24,7 +28,15 @@ funkcija natisni(št: celo) {
     _natisni(št)
 }
 
-naj FLOAT_PREC = 10
+naj NATANČNOST_REAL = 6
+
+funkcija _natisni_dol(št: celo, dolžina: celo) {
+    če dolžina == 0 {
+        vrni
+    }
+    _natisni_dol(št / 10, dolžina - 1)
+    natisni((št % 10 + '0' kot celo) kot znak)
+}
 
 funkcija natisni(št: real) {
     če št < 0.0 {
@@ -33,20 +45,21 @@ funkcija natisni(št: real) {
     }
 
     naj celi_del = št kot celo
-    naj ostanek = št % 1.0 * 10.0
-    natisni(št kot celo)
+    naj za_vejico = št % 1.0
+    natisni(celi_del)
 
-    če ostanek == 0.0 {
+    če za_vejico == 0.0 {
         vrni
     }
 
-    natisni('.')
-
-    naj i = 0; dokler i < FLOAT_PREC && ostanek > 0.5 {
-        natisni(ostanek kot celo)
-        ostanek = ostanek * 10.0 % 10.0
-        i += 1
+    naj decimalke = (za_vejico * 10.0**NATANČNOST_REAL kot real) kot celo;
+    naj natančnost = NATANČNOST_REAL
+    dokler decimalke % 10 == 0 {
+        decimalke /= 10
+        natančnost -= 1
     }
+    natisni('.')
+    _natisni_dol(decimalke, natančnost)
 }
 
 funkcija natisni(a: bool) {
