@@ -9,16 +9,14 @@ naj x=1; naj y=2
     natisni!(y - x, "\n")
 }
 
-naj i = 0; dokler i < 10 {
+za i = 0, i < 10, i = i + 1 {
     natisni!(i, ", ")
-    i = i + 1
 }
 natisni("\n\n")
 
-i = 0; dokler i < 10 {
-    naj j = 0; dokler j < 10 {
+naj i = 0; dokler i < 10 {
+    za j = 0, j < 10, j += 1 {
         natisni!(10 * i + j, " ")
-        j += 1
     }
     natisni("\n")
     i += 1
