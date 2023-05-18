@@ -3,15 +3,12 @@ funkcija je_deljivo(deljenec: celo, delitelj: celo) -> bool {
 }
 
 funkcija je_praštevilo(kandidat: celo, praštevila: @[celo]) -> bool {
-    naj praštevilo = resnica
-
-    za i = 0, praštevila[i]**2 <= kandidat && praštevilo, i += 1 {
+    za i = 0, praštevila[i]**2 < kandidat, i += 1 {
         če kandidat % praštevila[i] == 0 {
-            praštevilo = laž
+            vrni laž
         }
     }
-
-    vrni praštevilo
+    vrni resnica
 }
 
 funkcija poišči_praštevila(od: celo, do: celo, praštevila: @[celo], praštevil: @celo) {

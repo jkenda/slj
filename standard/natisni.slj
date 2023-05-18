@@ -4,9 +4,15 @@ funkcija natisni(z: znak) {
 
 funkcija natisni(niz: @[znak]) {
     naj dolžina = niz.dolžina
-    naj i = 0; dokler i < dolžina {
+    za i = 0, i < dolžina, i += 1 {
         natisni(niz[i])
-        i += 1
+    }
+}
+
+funkcija natisni(niz: @[znak], dolžina: celo) {
+    dolžina = min(niz.dolžina, dolžina)
+    za i = 0, i < dolžina, i += 1 {
+        natisni(niz[i])
     }
 }
 
@@ -22,7 +28,6 @@ funkcija natisni(št: celo) {
         natisni('-')
         št *= -1
     }
-
     _natisni(št)
 }
 

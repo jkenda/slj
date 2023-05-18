@@ -319,3 +319,15 @@ fn zanke() {
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod).unwrap(), "123123");
 }
+
+#[test]
+fn pretvorbe() {
+    let mut izhod: Vec<u8> = Vec::new();
+    let program = r#"
+        natisni(v_celo("1312"))
+    "#;
+    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
+    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
+    assert_eq!(String::from_utf8(izhod).unwrap(), "1312");
+}
+

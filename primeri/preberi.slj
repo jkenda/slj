@@ -1,3 +1,3 @@
 naj medpomnilnik: [znak; 64]
 naj dolžina = preberi(@medpomnilnik)
-natisni(@medpomnilnik)
+natisni(@medpomnilnik, dolžina)

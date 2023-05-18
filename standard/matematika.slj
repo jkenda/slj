@@ -1,0 +1,28 @@
+funkcija min(a: celo, b: celo) -> celo {
+    če a < b  {
+        vrni a
+    } čene {
+        vrni b
+    }
+}
+
+funkcija max(a: celo, b: celo) -> celo {
+    če a >= b  {
+        vrni a
+    } čene {
+        vrni b
+    }
+}
+
+funkcija je_števka(z: znak) -> bool {
+    vrni z >= '0' && z <= '9'
+}
+
+funkcija v_celo(niz: @[znak]) -> celo {
+    naj št = 0
+    za i = 0, i < niz.dolžina && je_števka(niz[i]), i += 1 {
+        št = št * 10 + (niz[i] kot celo - '0' kot celo)
+    }
+    vrni št
+}
+
