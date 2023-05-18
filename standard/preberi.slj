@@ -1,0 +1,12 @@
+funkcija preberi() -> znak {
+    vrni asm("GETC")
+}
+
+funkcija preberi(niz: @[znak]) -> celo {
+    za i = 0, i < niz.dolžina, i += 1 {
+        niz[i] = preberi()
+        če niz[i] == '\n' {
+            vrni i + 1
+        }
+    }
+}

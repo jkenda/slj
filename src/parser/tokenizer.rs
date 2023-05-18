@@ -148,7 +148,7 @@ impl<'a> Tokenizer {
             (Regex::new(&format!(r"^{PRESLEDEK}(naj|čene|če|dokler|za|funkcija|vrni|prekini){ZADNJA_MEJA}")).unwrap(), Rezerviranka),
             (Regex::new(&format!(r"^{PRESLEDEK}(brez|bool|celo|real|znak){ZADNJA_MEJA}")).unwrap(), Tip),
             (Regex::new(&format!(r"^{PRESLEDEK}(resnica|laž){ZADNJA_MEJA}")).unwrap(), bool),
-            (Regex::new(&format!(r"^{PRESLEDEK}('[^\n']')")).unwrap(), znak),
+            (Regex::new(&format!(r"^{PRESLEDEK}('(.|\\[\\nrt'])')")).unwrap(), znak),
             (Regex::new(&format!( "^{PRESLEDEK}(\"[^\n\"]*\")")).unwrap(), niz),
             (Regex::new(&format!(r"^{PRESLEDEK}(\d+\.\d+|\d{{1,3}}(_\d{{3}})+\.(\d{{3}}_)+\d{{1,3}}){ZADNJA_MEJA}")).unwrap(), real),
             (Regex::new(&format!(r"^{PRESLEDEK}(\d+|\d{{1,3}}(_\d{{3}})+){ZADNJA_MEJA}")).unwrap(), celo),
@@ -251,6 +251,13 @@ mod testi {
     fn literali() {
         assert_eq!("resnica".tokenize(), [Literal(Bool("resnica", 1, 1))]);
         assert_eq!("laž".tokenize(), [Literal(Bool("laž", 1, 1))]);
+
+        assert_eq!("'a'".tokenize(), [Literal(Znak("'a'", 1, 1))]);
+        assert_eq!("'đ'".tokenize(), [Literal(Znak("'đ'", 1, 1))]);
+        assert_eq!(r"'\n'".tokenize(), [Literal(Znak(r"'\n'", 1, 1))]);
+        assert_eq!(r"'\\'".tokenize(), [Literal(Znak(r"'\\'", 1, 1))]);
+        assert_eq!(r"'\r'".tokenize(), [Literal(Znak(r"'\r'", 1, 1))]);
+        assert_eq!(r"'\f'".tokenize(), [Neznano(r"'\f'", 1, 1)]);
 
         assert_eq!("\"\"".tokenize(), [Literal(Niz("\"\"", 1, 1))]);
         assert_eq!("\"niz\"".tokenize(), [Literal(Niz("\"niz\"", 1, 1))]);

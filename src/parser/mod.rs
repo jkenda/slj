@@ -61,22 +61,28 @@ impl<'a> Parser<'a> {
     fn parse(&mut self, izraz: &[Token<'a>]) -> Result<Drevo, Napake> {
         let izraz = [
             Self::standard().as_slice(),
-            izraz,
+            &[Ločilo("\n", 0, 0)],
+            &Parser::predprocesiraj(izraz),
         ].concat();
-        let okvir = self.okvir(&Parser::predprocesiraj(izraz.as_slice()))?;
+        let okvir = self.okvir(izraz.as_slice())?;
         Ok(Drevo::new(okvir))
     }
 
     fn standard() -> Vec<Token<'static>> {
-        const STANDARD: &str = include_str!("../../standard/natisni.slj");
-        let drevo = STANDARD.tokenize();
-        Parser::predprocesiraj(&drevo)
+        const NATISNI: &str = include_str!("../../standard/natisni.slj");
+        const PREBERI: &str = include_str!("../../standard/preberi.slj");
+        [
+            Parser::predprocesiraj(&NATISNI.tokenize()).as_slice(),
+            &[Ločilo("\n", 0, 0)],
+            &Parser::predprocesiraj(&PREBERI.tokenize()),
+            &[Ločilo("\n", 0, 0)],
+        ].concat()
     }
 
     fn dodaj_spremenljivko(&mut self, ime: String, tip: Tip) -> Rc<Vozlišče> {
         let naslov = match self.znotraj_funkcije {
-            true  => self.spremenljivke_stack.last().unwrap().values().map(|s| s.sprememba_stacka() as u32).sum::<u32>(),
-            false => self.spremenljivke.values().map(|s| s.sprememba_stacka() as u32).sum::<u32>(),
+            true  => self.spremenljivke_stack.last().unwrap().values().map(|s| s.sprememba_stacka()).sum(),
+            false => self.spremenljivke.values().map(|s| s.sprememba_stacka()).sum(),
         };
         let spr = Spremenljivka { tip, ime: ime.clone(), naslov, z_odmikom: self.znotraj_funkcije }.rc();
         self.spremenljivke_stack.last_mut().unwrap().insert(ime.clone(), spr.clone());

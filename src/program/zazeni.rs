@@ -1,3 +1,7 @@
+use std::io::Write;
+
+use console::Term;
+
 use super::*;
 
 impl Program {
@@ -6,8 +10,8 @@ impl Program {
     }
 
     pub fn zaženi_debug(&self) {
-        let mut pc: u32 = 0;
-        let mut addroff: u32 = 0;
+        let mut pc: i32 = 0;
+        let mut addroff: i32 = 0;
         let mut stack: Vec<Podatek> = Vec::new();
         stack.reserve(512);
 
@@ -27,8 +31,8 @@ impl Program {
     }
 
     pub fn zaženi_z_izhodom(&self, izhod: &mut impl io::Write) {
-        let mut pc: u32 = 0;
-        let mut addroff: u32 = 0;
+        let mut pc: i32 = 0;
+        let mut addroff: i32 = 0;
         let mut stack: Vec<Podatek> = Vec::new();
         stack.reserve(512);
 
@@ -38,13 +42,13 @@ impl Program {
         assert!(stack.len() == 0);
     }
 
-    fn korak(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut u32, addroff: &mut u32, izhod: &mut impl io::Write) {
+    fn korak(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut i32, addroff: &mut i32, izhod: &mut impl io::Write) {
         *pc = unsafe {
             match ukaz_podatek {
                 NOOP => *pc + 1,
 
                 JUMP(naslov) => *naslov,
-                JMPD => stack.pop().unwrap().i as u32,
+                JMPD => stack.pop().unwrap().i,
                 JMPC(naslov) => if stack.pop().unwrap() != LAŽ { *naslov } else { *pc + 1 },
 
                 PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
@@ -54,10 +58,10 @@ impl Program {
                 ZERO => { *stack.last_mut().unwrap() = if stack.last().unwrap().f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
 
                 LOAD(naslov) => { stack.push(*stack.get(*naslov as usize).unwrap()); *pc + 1 },
-                LDOF(naslov) => { stack.push(*stack.get(*addroff as usize + *naslov as usize).unwrap()); *pc + 1 },
+                LDOF(naslov) => { stack.push(*stack.get((*addroff + *naslov) as usize).unwrap()); *pc + 1 },
                 LDDY(naslov) => {
                     let dynaddr = stack.pop().unwrap().i;
-                    stack.push(*stack.get(*naslov as usize + dynaddr as usize).unwrap());
+                    stack.push(*stack.get((*naslov + dynaddr) as usize).unwrap());
                     *pc + 1
                 },
 
@@ -69,12 +73,19 @@ impl Program {
                     *pc + 1
                 }
 
-                TOP (naslov) => { *addroff = (stack.len() as i32 + naslov) as u32; *pc + 1 },
+                TOP (naslov) => { *addroff = stack.len() as i32 + naslov; *pc + 1 },
 
-                SOFF => { *addroff = stack.pop().unwrap().i as u32;   *pc + 1 },
-                LOFF => { stack.push(Podatek { i: *addroff as i32 }); *pc + 1 },
+                SOFF => { *addroff = stack.pop().unwrap().i;   *pc + 1 },
+                LOFF => { stack.push(Podatek { i: *addroff }); *pc + 1 },
 
                 PRTC => { write!(izhod, "{}", stack.pop().unwrap().c).unwrap(); *pc + 1 },
+                GETC => {
+                    let mut term = Term::stdout();
+                    let c = term.read_char().unwrap();
+                    let _ = term.write_all(c.to_string().as_bytes());
+                    stack.push(Podatek { c });
+                    *pc + 1
+                }
 
                 ADDF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    + stack.pop().unwrap().f;  *pc + 1 },
                 SUBF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    - stack.pop().unwrap().f;  *pc + 1 },
@@ -103,13 +114,13 @@ impl Program {
         };
     }
 
-    fn korak_debug(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut u32, addroff: &mut u32, izhod: &mut impl io::Write) -> Option<()> {
+    fn korak_debug(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut i32, addroff: &mut i32, izhod: &mut impl io::Write) -> Option<()> {
         *pc = unsafe {
             match ukaz_podatek {
                 NOOP => *pc + 1,
 
                 JUMP(naslov) => *naslov,
-                JMPD => stack.pop()?.i as u32,
+                JMPD => stack.pop()?.i,
                 JMPC(naslov) => if stack.pop()? != LAŽ { *naslov } else { *pc + 1 },
 
                 PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
@@ -134,12 +145,19 @@ impl Program {
                     *pc + 1
                 }
 
-                TOP (naslov) => { *addroff = (stack.len() as i32 + naslov) as u32; *pc + 1 },
+                TOP (naslov) => { *addroff = stack.len() as i32 + naslov; *pc + 1 },
 
-                SOFF => { *addroff = stack.pop()?.i as u32;   *pc + 1 },
+                SOFF => { *addroff = stack.pop()?.i;   *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff as i32 }); *pc + 1 },
 
                 PRTC => { write!(izhod, "{}", stack.pop()?.c).ok()?; *pc + 1 },
+                GETC => {
+                    let mut term = Term::stdout();
+                    let c = term.read_char().ok()?;
+                    let _ = term.write_all(c.to_string().as_bytes());
+                    stack.push(Podatek { c });
+                    *pc + 1
+                }
 
                 ADDF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f    + stack.pop()?.f;  *pc + 1 },
                 SUBF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f    - stack.pop()?.f;  *pc + 1 },
@@ -176,8 +194,8 @@ mod testi {
 
     #[test]
     fn zaženi() {
-        let mut pc: u32 = 0;
-        let mut addroff: u32 = 0;
+        let mut pc: i32 = 0;
+        let mut addroff: i32 = 0;
         let mut stack: Vec<Podatek> = Vec::new();
 
         assert_eq!(stack, []);

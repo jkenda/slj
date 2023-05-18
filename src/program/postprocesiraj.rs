@@ -31,14 +31,14 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
             i += 1;
         }
 
-        let mut oznake_vrstic: HashMap<String, u32> = HashMap::new();
+        let mut oznake_vrstic: HashMap<String, i32> = HashMap::new();
 
         // preberi oznake vrstic in jih odstrani
         let mut i: usize = 0;
         while i < postproc1.len() {
             match &postproc1[i] {
                 Oznaka(oznaka) => {
-                    oznake_vrstic.insert(oznaka.clone(), i as u32);
+                    oznake_vrstic.insert(oznaka.clone(), i as i32);
                     postproc1.remove(i);
                 },
                 JUMPRelative(OdmikIme::Odmik(1)) => {
@@ -56,10 +56,10 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
                 PUSHF(real) => { push_tipi.push(Tip::Real); PUSH(Podatek { f: *real }) },
                 PUSHC(znak) => { push_tipi.push(Tip::Znak); PUSH(Podatek { c: *znak }) },
                 JUMPRelative(odmik_ime) => match odmik_ime {
-                    OdmikIme::Odmik(rel_skok) => JUMP((št_vrstice as isize + rel_skok) as u32),
+                    OdmikIme::Odmik(rel_skok) => JUMP(št_vrstice as i32 + rel_skok),
                     OdmikIme::Ime(ime)        => JUMP(oznake_vrstic[ime]),
                 },
-                JMPCRelative(rel_skok) => JMPC((št_vrstice as i32 + rel_skok) as u32),
+                JMPCRelative(rel_skok) => JMPC(št_vrstice as i32 + rel_skok),
                 PC(odmik) => { push_tipi.push(Tip::Celo); PUSH(Podatek { i: št_vrstice as i32 + odmik }) },
                 Oznaka(_) => NOOP,
             });

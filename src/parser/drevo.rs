@@ -4,7 +4,7 @@ use super::tip::Tip;
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum OdmikIme {
-    Odmik(isize),
+    Odmik(i32),
     Ime(String),
 }
 
@@ -57,7 +57,7 @@ pub enum Vozlišče {
     Znak(char),
     Niz(String),
 
-    Spremenljivka{ tip: Tip, ime: String, naslov: u32, z_odmikom: bool },
+    Spremenljivka{ tip: Tip, ime: String, naslov: i32, z_odmikom: bool },
     Referenca(Rc<Vozlišče>),
     RefSeznama(Rc<Vozlišče>),
 
@@ -116,6 +116,7 @@ pub enum Vozlišče {
     FunkcijskiKlic{ funkcija: Rc<Vozlišče>, spremenljivke: Rc<Vozlišče>, argumenti: Rc<Vozlišče> },
 
     Natisni(Rc<Vozlišče>),
+    Preberi,
 }
 
 use Vozlišče::*;
@@ -188,6 +189,7 @@ impl Display for Vozlišče {
             },
             FunkcijskiKlic{ funkcija, .. } => if let Funkcija { tip: _, ime, .. } = &**funkcija { ime.clone() } else { "".to_string() },
             Natisni(znak) => format!("natisni({znak})"),
+            Preberi => "preberi()".to_string(),
             _ => "".to_owned(),
         })
     }
@@ -295,14 +297,11 @@ impl Vozlišče {
                 "  ".repeat(globina) + &self.to_string() + "\n",
 
             Indeksiraj { seznam_ref, indeks } => match &**seznam_ref {
-                Referenca(spr) => match &**spr {
-                    Spremenljivka { ime, .. } =>
-                        " ".repeat(globina) + &format!("{ime}[")
-                        + &indeks.drevo(globina + 1)
-                        + &" ".repeat(globina) + "]\n",
-                    _ => unreachable!("Vedno indeksiramo referenco na seznam."),
-                }
-                _ => unreachable!("Vedno indeksiramo referenco na seznam."),
+                Spremenljivka { tip: Tip::Seznam(..) | Tip::RefSeznama(..), ime, .. } =>
+                    " ".repeat(globina) + &format!("{ime}[")
+                    + &indeks.drevo(globina + 1)
+                    + &" ".repeat(globina) + "]\n",
+                vozl @ _ => unreachable!("Referenca mora vsebovati spremenljivko, ne pa {:?}", vozl),
             }
 
             Konjunkcija(l, d) | Disjunkcija(l, d) | BitniAli(l, d) | BitniXor(l, d) | BitniIn(l, d)
@@ -382,6 +381,7 @@ impl Vozlišče {
 
             Natisni(znak) => 
                 "  ".repeat(globina) + &znak.to_string() + "\n",
+            Preberi => " ".repeat(globina) + &self.to_string(),
         }
     }
 
@@ -458,6 +458,7 @@ impl Vozlišče {
             FunkcijskiKlic{ .. } => 1,
 
             Natisni(_) => 0,
+            Preberi => 1,
         }
     }
 
@@ -524,6 +525,7 @@ impl Vozlišče {
             FunkcijskiKlic{ funkcija, .. } => if let Funkcija { tip, .. } = &**funkcija { tip.clone() } else { Tip::Brez },
 
             Natisni(..) => Tip::Brez,
+            Preberi => Tip::Znak,
         }
     }
 

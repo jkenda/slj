@@ -42,23 +42,24 @@ impl PartialEq for Podatek {
 enum UkazPodatek
 {
     NOOP,
-    JUMP(u32),
+    JUMP(i32),
     JMPD,
-    JMPC(u32),
+    JMPC(i32),
     PUSH(Podatek),
     POP,
     POS,
     ZERO,
-    LOAD(u32), // load normal
-    LDOF(u32), // load w/ offset
-    LDDY(u32), // load dynamic
-    STOR(u32), // store normal
-    STOF(u32), // store w/ offset
-    STDY(u32), // store dynamic
+    LOAD(i32), // load normal
+    LDOF(i32), // load w/ offset
+    LDDY(i32), // load dynamic
+    STOR(i32), // store normal
+    STOF(i32), // store w/ offset
+    STDY(i32), // store dynamic
     TOP(i32),
     SOFF,
     LOFF,
     PRTC,
+    GETC,
     ADDF,
     SUBF,
     MULF,
@@ -169,6 +170,7 @@ mod test {
                 SOFF,
                 LOFF,
                 PRTC,
+                GETC,
                 ADDF,
                 SUBF,
                 MULF,

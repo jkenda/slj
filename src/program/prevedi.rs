@@ -64,7 +64,10 @@ impl Prevedi for Vozlišče {
                 Dereferenciraj(Seštevanje(Tip::Celo, seznam_ref.clone(), indeks.clone()).rc()).prevedi(),
             Dolžina(vozlišče) => match vozlišče.tip() {
                 Tip::Seznam(_, dolžina) => Celo(dolžina).rc().prevedi(),
-                Tip::RefSeznama(..) => Indeksiraj { seznam_ref: vozlišče.clone(), indeks: Celo(-1).rc() }.prevedi(),
+                Tip::RefSeznama(..) => [
+                    vozlišče.prevedi().as_slice(),
+                    [Osnovni(LDDY(-1))].as_slice(),
+                ].concat(),
                 _ => unreachable!("Jemanje dolžine nečesa, kar ni seznam"),
             },
 
@@ -213,7 +216,7 @@ impl Prevedi for Vozlišče {
             ].concat(),
 
             PogojniStavek{ pogoj, resnica, laž } => {
-                let skok = Skok(OdmikIme::Odmik((resnica.len() + 1) as isize)).rc();
+                let skok = Skok(OdmikIme::Odmik(resnica.len() as i32 + 1)).rc();
                 Zaporedje(vec![
                           PogojniSkok(pogoj.clone(), (laž.len() + skok.len() + 1) as i32).rc(),
                           laž.clone(),
@@ -230,7 +233,7 @@ impl Prevedi for Vozlišče {
                               pogoj,
                               (telo.len() + 2) as i32).rc(),
                           telo.clone(),
-                          Skok(OdmikIme::Odmik(-(telo.len() as isize) - pogoj_len as isize - 1)).rc()
+                          Skok(OdmikIme::Odmik(-(telo.len() as i32) - pogoj_len as i32 - 1)).rc()
                 ]).prevedi()
             },
 
@@ -240,7 +243,7 @@ impl Prevedi for Vozlišče {
                     _ => unreachable!("Vedno prirejamo spremenljivki.")
                 };
 
-                let shrani = (naslov..naslov+velikost as u32)
+                let shrani = (naslov..naslov+velikost)
                     .map(|naslov| Osnovni(if z_odmikom { STOF(naslov) } else { STOR(naslov) }))
                     .collect::<Vec<UkazPodatekRelative>>();
 
@@ -305,7 +308,7 @@ impl Prevedi for Vozlišče {
                 ]);
 
                 [
-                    Skok(OdmikIme::Odmik((1 + pred.len() + telo.len() + za.len()) as isize)).prevedi().as_slice(),
+                    Skok(OdmikIme::Odmik((1 + pred.len() + telo.len() + za.len()) as i32)).prevedi().as_slice(),
                     [Oznaka(ime.clone())].as_slice(),
                     pred.prevedi().as_slice(),
                     telo.prevedi().as_slice(),
@@ -338,6 +341,7 @@ impl Prevedi for Vozlišče {
                     [Osnovni(PRTC)].as_slice(),
                 ].concat()
             },
+            Preberi => vec![Osnovni(GETC)],
         }
     }
 

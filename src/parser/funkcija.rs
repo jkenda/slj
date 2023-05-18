@@ -25,14 +25,14 @@ impl<'a> Parser<'a> {
         }
         
         let vrni = Spremenljivka { tip: tip.clone(), ime: "0_vrni".to_string(), naslov: 0, z_odmikom: true }.rc();
-        let pc   = Spremenljivka { tip: Tip::Celo, ime: "0_PC".to_string(), naslov: vrni.sprememba_stacka() as u32, z_odmikom: true }.rc();
+        let pc   = Spremenljivka { tip: Tip::Celo, ime: "0_PC".to_string(), naslov: vrni.sprememba_stacka(), z_odmikom: true }.rc();
 
         let mut spr_funkcije = HashMap::from([
             ("0_vrni".to_string(), vrni.clone()),
             ("0_PC".to_string(), pc.clone()),
         ]);
 
-        let mut naslov_nove = (vrni.sprememba_stacka() + pc.sprememba_stacka()) as u32;
+        let mut naslov_nove = vrni.sprememba_stacka() + pc.sprememba_stacka();
 
         let mut parametri = Vec::new(); 
         let mut napake = Napake::new();
@@ -62,7 +62,7 @@ impl<'a> Parser<'a> {
                 let spr = Spremenljivka { tip: tip.clone(), ime: ime.to_string(), naslov: naslov_nove, z_odmikom: true }.rc();
                 spr_funkcije.insert(ime.to_string(), spr.clone());
                 parametri.push(spr);
-                naslov_nove += tip.sprememba_stacka() as u32;
+                naslov_nove += tip.sprememba_stacka();
             }
         }
 

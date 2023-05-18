@@ -89,6 +89,7 @@ impl<'a> Parser<'a> {
                 let d = self.primerjalni(d_izraz)?;
                 match (l.tip(), d.tip()) {
                     (Tip::Celo, Tip::Celo) => Ok(primerjalni_op(op.as_str()).unwrap()(Tip::Celo, l, d).rc()),
+                    (Tip::Znak, Tip::Znak) => Ok(primerjalni_op(op.as_str()).unwrap()(Tip::Celo, ZnakVCelo(l).rc(), ZnakVCelo(d).rc()).rc()),
                     (Tip::Real, Tip::Real) => Ok(primerjalni_op(op.as_str()).unwrap()(Tip::Real, l, d).rc()),
                     _ => Err(Napake::from_zaporedje(&[*op], E5, &format!("Nemogoča operacija: {} {} {}", l.tip(), op.as_str(), d.tip()))),
                 }
@@ -161,11 +162,13 @@ impl<'a> Parser<'a> {
             [ Operator("-", ..), Literal(L::Celo(str, ..)) ] => Ok(Vozlišče::Celo(-str.replace("_", "").parse::<i32>().unwrap()).rc()),
             [ Operator("-", ..), Literal(L::Real(str, ..)) ] => Ok(Vozlišče::Real(-str.replace("_", "").parse::<f32>().unwrap()).rc()),
             // znak
-            [ Literal(L::Znak(str, ..)) ] => Ok(Vozlišče::Znak(str.chars().nth(1).unwrap()).rc()),
+            [ Literal(L::Znak(str, ..)) ] => Ok(Vozlišče::Znak(interpoliraj_niz(&str[1..str.len()-1]).chars().nth(0).unwrap()).rc()),
             // niz
             [ Literal(L::Niz(niz, ..)) ] => Ok(Vozlišče::Niz(interpoliraj_niz(&niz[1..niz.len()-1])).rc()),
             // izraz v oklepaju
             [ Ločilo("(", ..), ostanek @ .., Ločilo(")", ..) ] => self.drevo(ostanek),
+            // funkcija asm(str)
+            [ Ime("asm", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.asm(argumenti),
             // klic funkcije
             [ ime @ Ime(..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.funkcijski_klic(ime, argumenti),
             // pretvorba tipa 
@@ -264,6 +267,19 @@ impl<'a> Parser<'a> {
             (a, b) if a == b => Ok(drevo),
             _ => Err(Napake::from_zaporedje(&[*tip_ven_izraz], E1,
                     &format!("Tipa {} ni mogoče pretvoriti v {}", tip_noter, tip_ven)))
+        }
+    }
+
+    fn asm(&self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+        let niz = match izraz {
+            [ Literal(L::Niz(niz, ..)) ] => &niz[1..niz.len()-1],
+            _ => Err(Napake::from_zaporedje(izraz, E5, "Funkcija 'asm' sprejema samo nize"))?,
+        };
+
+        match niz {
+            "GETC" => Ok(Preberi.rc()),
+            _ => Err(Napake::from_zaporedje(izraz, E1,
+                    &format!("Neznan ukaz: {niz}")))
         }
     }
 }

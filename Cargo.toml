@@ -8,3 +8,4 @@ default-run = "slj"
 [dependencies]
 regex = "1"
 rand = "0.5"
+console = "0.15.6"
