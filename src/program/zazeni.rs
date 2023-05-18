@@ -12,8 +12,7 @@ impl Program {
     pub fn zaženi_debug(&self) {
         let mut pc: i32 = 0;
         let mut addroff: i32 = 0;
-        let mut stack: Vec<Podatek> = Vec::new();
-        stack.reserve(512);
+        let mut stack: Vec<Podatek> = Vec::with_capacity(32_768);
 
         let mut stdout = io::stdout();
 
@@ -33,8 +32,7 @@ impl Program {
     pub fn zaženi_z_izhodom(&self, izhod: &mut impl io::Write) {
         let mut pc: i32 = 0;
         let mut addroff: i32 = 0;
-        let mut stack: Vec<Podatek> = Vec::new();
-        stack.reserve(512);
+        let mut stack: Vec<Podatek> = Vec::with_capacity(32_768);
 
         while (pc as usize) < self.ukazi.len() {
             Program::korak(&self.ukazi[pc as usize], &mut stack, &mut pc, &mut addroff, izhod);
@@ -52,7 +50,7 @@ impl Program {
                 JMPC(naslov) => if stack.pop().unwrap() != LAŽ { *naslov } else { *pc + 1 },
 
                 PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
-                POP => { stack.pop(); *pc + 1 },
+                ALOC(razlika) => { stack.resize((stack.len() as i32 + razlika) as usize, LAŽ); *pc + 1 }
 
                 POS  => { *stack.last_mut().unwrap() = if stack.last().unwrap().f  > 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
                 ZERO => { *stack.last_mut().unwrap() = if stack.last().unwrap().f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
@@ -124,7 +122,7 @@ impl Program {
                 JMPC(naslov) => if stack.pop()? != LAŽ { *naslov } else { *pc + 1 },
 
                 PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
-                POP => { stack.pop(); *pc + 1 },
+                ALOC(razlika) => { stack.set_len((stack.len() as i32 + razlika) as usize); *pc + 1 }
 
                 POS  => { *stack.last_mut()? = if stack.last()?.f  > 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
                 ZERO => { *stack.last_mut()? = if stack.last()?.f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
@@ -303,7 +301,7 @@ mod testi {
         assert_eq!(addroff, 0);
 
         // POP
-        Program::korak(&POP, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&ALOC(-1), &mut stack, &mut pc, &mut addroff, &mut stdout);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 20);
         assert_eq!(addroff, 0);

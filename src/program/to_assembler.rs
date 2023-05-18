@@ -29,7 +29,7 @@ impl Program {
                         _ => unreachable!()
                     }
                 },
-                POP           => "POP \n".to_string(),
+                ALOC(razlika) => format!("ALOC {}{razlika}\n", if *razlika > 0 { "+" } else { "" }),
                 POS           => "POS \n".to_string(),
                 ZERO          => "ZERO\n".to_string(),
                 LOAD(naslov)  => format!("LOAD @{naslov}\n"),

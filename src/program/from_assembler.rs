@@ -38,6 +38,7 @@ impl From<String> for Program {
                                 .unwrap() })
                     }
                 },
+                "ALOC" => ALOC(besede[2][0..].parse().unwrap()),
                 "JUMP" => JUMP(besede[2][1..].parse().unwrap()),
                 "JMPC" => JMPC(besede[2][1..].parse().unwrap()),
                 "LOAD" => LOAD(besede[2][1..].parse().unwrap()),
@@ -48,7 +49,6 @@ impl From<String> for Program {
                 "STDY" => STDY(besede[2][1..].parse().unwrap()),
                 "TOP"  => TOP(besede[2][0..].parse().unwrap()),
                 "JMPD" => JMPD,
-                "POP"  => POP,
                 "POS"  => POS,
                 "ZERO" => ZERO,
                 "LOFF" => LOFF,

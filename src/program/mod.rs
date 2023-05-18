@@ -46,7 +46,7 @@ enum UkazPodatek
     JMPD,
     JMPC(i32),
     PUSH(Podatek),
-    POP,
+    ALOC(i32),
     POS,
     ZERO,
     LOAD(i32), // load normal
@@ -158,7 +158,7 @@ mod test {
                 PUSH(Podatek { i: 42 }),
                 PUSH(Podatek { c: 'c' }),
                 PUSH(Podatek { c: '\n' }),
-                POP,
+                ALOC(-12),
                 POS,
                 ZERO,
                 LOAD(13),
