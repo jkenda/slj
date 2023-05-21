@@ -101,6 +101,11 @@ impl<'a> Parser<'a> {
             .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?
             .clone();
 
+        if izraz.tip() != spremenljivka.tip() {
+            return Err(Napake::from_zaporedje(&[*ime], E3,
+                    &format!("Nemogoča operacija: {} = {}", spremenljivka.tip(), izraz.tip())));
+        }
+
         Ok(Prirejanje { spremenljivka, izraz }.rc())
     }
 

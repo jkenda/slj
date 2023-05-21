@@ -4,7 +4,7 @@ funkcija je_deljivo(deljenec: celo, delitelj: celo) -> bool {
 
 funkcija je_praštevilo(kandidat: celo, praštevila: @[celo]) -> bool {
     za i = 0, praštevila[i]**2 < kandidat, i += 1 {
-        če kandidat % praštevila[i] == 0 {
+        če je_deljivo(kandidat, praštevila[i]) {
             vrni laž
         }
     }
@@ -24,6 +24,7 @@ naj praštevila: [celo; 1_000_000]
 praštevila[0] = 2
 praštevila[1] = 3
 naj praštevil = 2
+
 
 poišči_praštevila(5, praštevila.dolžina, @praštevila, @praštevil)
 

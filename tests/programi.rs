@@ -184,7 +184,7 @@ fn multi_funkcija() {
 #[test]
 fn referenca() {
     let mut izhod: Vec<u8> = Vec::new();
-    let mut program = r#"
+    let program = r#"
         funkcija naloži(ref: @real) {
             natisni!(ref@, " ")
         }
@@ -202,8 +202,8 @@ fn referenca() {
     program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "13 3.14 42 3.14 13");
 
-    izhod.clear();
-    program = r#"
+    let mut izhod: Vec<u8> = Vec::new();
+    let program = r#"
         funkcija spremeni(ref: @celo, val: celo) {
             ref@ = val;
         }

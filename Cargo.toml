@@ -1,6 +1,6 @@
 [package]
 name = "slj"
-version = "0.6.1"
+version = "0.6.2"
 authors = ["Jakob Kenda <kenda.jakob@gmail.com>"]
 edition = "2021"
 default-run = "slj"
@@ -9,3 +9,4 @@ default-run = "slj"
 regex = "1"
 rand = "0.5"
 console = "0.15.6"
+no-panic = "0.1.22"
