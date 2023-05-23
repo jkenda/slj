@@ -11,19 +11,19 @@ Spodaj je primer uporabe jezika, v katerem je prisotna večina konstruktov jezik
 
 	funkcija je_praštevilo(kandidat: celo, praštevila: @[celo]) -> bool {
 	    za i = 0, praštevila[i]**2 < kandidat, i += 1 {
-	        če je_deljivo(kandidat, praštevilo) {
-	            vrni laž
-	        }
+		če je_deljivo(kandidat, praštevila[i]) {
+		    vrni laž
+		}
 	    }
 	    vrni resnica
 	}
 
 	funkcija poišči_praštevila(od: celo, do: celo, praštevila: @[celo], praštevil: @celo) {
 	    za kandidat = od, kandidat <= do, kandidat += 2 {
-	        če je_praštevilo(kandidat, praštevila) {
-	            praštevila[praštevil@] = kandidat
-	            praštevil@ += 1
-	        }
+		če je_praštevilo(kandidat, praštevila) {
+		    praštevila[praštevil@] = kandidat
+		    praštevil@ += 1
+		}
 	    }
 	}
 
@@ -31,6 +31,7 @@ Spodaj je primer uporabe jezika, v katerem je prisotna večina konstruktov jezik
 	praštevila[0] = 2
 	praštevila[1] = 3
 	naj praštevil = 2
+
 
 	poišči_praštevila(5, praštevila.dolžina, @praštevila, @praštevil)
 
