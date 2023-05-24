@@ -1,75 +1,90 @@
+use console::Term;
 use slj::{parser::{tokenizer::{Tokenize, Token::*, L}, Parse}, program::ToProgram};
+use std::{fs::{self, File}, io::{Read, Write}, thread};
+
+const VHOD: &str = ".test_vhod";
+const IZHOD: &str = ".test_izhod";
+
+fn test(program: &str, vhod_str: &str) -> String {
+    let vhod_ime = format!("{VHOD}_{:?}", thread::current().id());
+    let izhod_ime = format!("{IZHOD}_{:?}", thread::current().id());
+
+    {
+        let mut vhod = File::create(vhod_ime.as_str()).unwrap();
+        vhod.write_all(vhod_str.as_bytes()).unwrap();
+        vhod.flush().unwrap();
+    }
+    {
+        let vhod = File::open(vhod_ime.as_str()).unwrap();
+        let izhod = File::create(izhod_ime.as_str()).unwrap();
+        let mut term = Term::read_write_pair(vhod, izhod);
+
+        program.tokenize().parse().unwrap().to_program().zaženi_z_io(&mut term);
+    }
+
+    let mut izhod = Vec::new();
+    File::open(izhod_ime.as_str()).unwrap()
+        .read_to_end(&mut izhod)
+        .unwrap();
+
+    let _ = fs::remove_file(vhod_ime);
+    let _ = fs::remove_file(izhod_ime);
+
+    return String::from_utf8(izhod).unwrap();
+}
 
 #[test]
 fn natisni_znak() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         natisni('z')
         natisni('v')
         natisni('e')
         natisni('r')
         "#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "zver");
+
+    assert_eq!(test(program, ""), "zver");
 }
 
 #[test]
 fn natisni_niz() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni("zver")"#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "zver");
+    assert_eq!(test(program, ""), "zver");
 }
 
 #[test]
 fn natisni_število() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(42)"#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(program.tokenize(), [Ime("natisni", 1, 1), Ločilo("(", 1, 8), Literal(L::Celo("42", 1, 9)), Ločilo(")", 1, 11)]);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "42");
+    assert_eq!(test(program, ""), "42");
 
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(0)"#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
     assert_eq!(program.tokenize(), [Ime("natisni", 1, 1), Ločilo("(", 1, 8), Literal(L::Celo("0", 1, 9)), Ločilo(")", 1, 10)]);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "0");
+    assert_eq!(test(program, ""), "0");
 
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(0.02)"#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "0.02");
+    assert_eq!(test(program, ""), "0.02");
 
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(0.5)"#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "0.5");
+    assert_eq!(test(program, ""), "0.5");
 
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(3.141592653589793)"#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "3.141592");
+    assert_eq!(test(program, ""), "3.141592");
 }
 
 #[test]
 fn natisni_izraz() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"natisni(3+2*4**2)"#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "35");
+    assert_eq!(test(program, ""), "35");
 }
 
 #[test]
 fn one_liner() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"naj x=1;če x-1==0{natisni("x=1")}else{natisni("x!=1")}"#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "x=1");
+    assert_eq!(test(program, ""), "x=1");
 }
 
 #[test]
 fn preveč_vrstic() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         naj x = 1
         ;
@@ -91,13 +106,11 @@ fn preveč_vrstic() {
             )
         }
     "#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "x=1");
+    assert_eq!(test(program, ""), "x=1");
 }
 
 #[test]
 fn praštevil_do_1000() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         naj MEJA = 1000
         naj praštevil = 2 # [2, 3]
@@ -121,13 +134,11 @@ fn praštevil_do_1000() {
 
         natisni!("praštevil do ", MEJA, ": ", praštevil, "\n")
     "#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "praštevil do 1000: 168\n");
+    assert_eq!(test(program, ""), "praštevil do 1000: 168\n");
 }
 
 #[test]
 fn rekurzija() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         funkcija faktoriela(a: celo) -> celo {
             če a <= 1 {
@@ -137,13 +148,11 @@ fn rekurzija() {
         }
         natisni!("7! = ", faktoriela(7), "\n")
     "#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "7! = 5040\n");
+    assert_eq!(test(program, ""), "7! = 5040\n");
 }
 
 #[test]
 fn spr_pred_funkcijo() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         funkcija init() -> celo {
             vrni 0
@@ -158,13 +167,11 @@ fn spr_pred_funkcijo() {
         }
         natisni(spr)
     "#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "3");
+    assert_eq!(test(program, ""), "3");
 }
 
 #[test]
 fn multi_funkcija() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         naj a = 0; naj b = 0.0
         funkcija prištej(x: celo) -> brez {
@@ -177,13 +184,11 @@ fn multi_funkcija() {
         prištej!(42, 3.14)
         natisni!(a, ", ", b)
     "#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "42, 3.14");
+    assert_eq!(test(program, ""), "42, 3.14");
 }
 
 #[test]
 fn referenca() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         funkcija naloži(ref: @real) {
             natisni!(ref@, " ")
@@ -199,10 +204,8 @@ fn referenca() {
         naloži(@42)
         natisni(b@)
         "#;
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "13 3.14 42 3.14 13");
+    assert_eq!(test(program, ""), "13 3.14 42 3.14 13");
 
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         funkcija spremeni(ref: @celo, val: celo) {
             ref@ = val;
@@ -218,17 +221,11 @@ fn referenca() {
         povečaj(@a, 4)
         natisni(a)
         "#;
-    let parsed = program.tokenize().parse().unwrap();
-    let program = parsed.to_program();
-    println!("{}", parsed.to_string());
-    println!("{}", program.to_assembler());
-    program.zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod.clone()).unwrap(), "7 13 17");
+    assert_eq!(test(program, ""), "7 13 17");
 }
 
 #[test]
 fn indeksiranje() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         naj seznam: [real; 3]
         naj ref = @seznam
@@ -255,14 +252,11 @@ fn indeksiranje() {
             i += 1
         }
     "#;
-    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "1 2 3\n3 2 1 ");
+    assert_eq!(test(program, ""), "1 2 3\n3 2 1 ");
 }
 
 #[test]
 fn fake_natisni() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         funkcija _natisni(niz: @[znak]) {
             naj dolžina = niz.dolžina
@@ -274,36 +268,27 @@ fn fake_natisni() {
 
         _natisni(@"žibje")
     "#;
-    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "žibje");
+    assert_eq!(test(program, ""), "žibje");
 }
 
 #[test]
 fn zanke() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         naj i = 1; dokler i <= 3 {
             natisni(i)
             i += 1
         }
     "#;
-    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "123");
+    assert_eq!(test(program, ""), "123");
 
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         za i = 1, i <= 3, i += 1 {
             natisni(i)
         }
         naj i = 123
     "#;
-    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "123");
+    assert_eq!(test(program, ""), "123");
 
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         naj i = 1
         za , i <= 3, i += 1 {
@@ -315,19 +300,25 @@ fn zanke() {
             i += 1
         }
     "#;
-    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "123123");
+    assert_eq!(test(program, ""), "123123");
 }
 
 #[test]
 fn pretvorbe() {
-    let mut izhod: Vec<u8> = Vec::new();
     let program = r#"
         natisni(v_celo("1312"))
     "#;
-    println!("{}", program.tokenize().parse().unwrap().to_program().to_assembler());
-    program.tokenize().parse().unwrap().to_program().zaženi_z_izhodom(&mut izhod);
-    assert_eq!(String::from_utf8(izhod).unwrap(), "1312");
+    assert_eq!(test(program, ""), "1312");
+}
+
+#[test]
+fn vhod() {
+    let program = r#"
+        natisni(preberi())
+        natisni(preberi())
+        natisni(preberi())
+        natisni(preberi())
+    "#;
+    assert_eq!(test(program, "zver"), "zver");
 }
 

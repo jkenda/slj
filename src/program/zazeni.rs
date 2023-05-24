@@ -7,7 +7,7 @@ use super::*;
 
 impl Program {
     pub fn zaženi(&self) {
-        self.zaženi_z_izhodom(&mut io::stdout())
+        self.zaženi_z_io(&mut Term::buffered_stdout());
     }
 
     pub fn zaženi_debug(&self) {
@@ -27,22 +27,23 @@ impl Program {
             }
             println!("{stack:?}");
         }
-        assert!(stack.len() == 0);
+        assert!(stack.len() == 0, "Neprazen stack ob izhodu pomeni nepravilno izvajanje.");
     }
 
-    pub fn zaženi_z_izhodom(&self, izhod: &mut impl io::Write) {
+    pub fn zaženi_z_io(&self, term: &mut Term) {
         let mut pc: i32 = 0;
         let mut addroff: i32 = 0;
         let mut stack: Vec<Podatek> = Vec::with_capacity(32_768);
 
         while (pc as usize) < self.ukazi.len() {
-            Program::korak(&self.ukazi[pc as usize], &mut stack, &mut pc, &mut addroff, izhod);
+            Program::korak(&self.ukazi[pc as usize], &mut stack, &mut pc, &mut addroff, term);
         }
-        assert!(stack.len() == 0);
+        assert!(stack.len() == 0, "Neprazen stack ob izhodu pomeni nepravilno izvajanje.");
+        let _ = term.flush();
     }
 
     #[inline]
-    fn korak(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut i32, addroff: &mut i32, izhod: &mut impl io::Write) {
+    fn korak(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut i32, addroff: &mut i32, term: &mut Term) {
         *pc = unsafe {
             match ukaz_podatek {
                 NOOP => *pc + 1,
@@ -69,20 +70,27 @@ impl Program {
                 STOF(naslov) => { *stack.get_mut(*addroff as usize + *naslov as usize).unsafe_unwrap() = stack.pop().unsafe_unwrap(); *pc + 1 },
                 STDY(naslov) => {
                     let dynaddr = stack.pop().unsafe_unwrap().i;
-                    *stack.get_mut(*naslov as usize + dynaddr as usize).unsafe_unwrap() = stack.pop().unsafe_unwrap();
+                    *stack.get_mut((*naslov + dynaddr) as usize).unsafe_unwrap() = stack.pop().unsafe_unwrap();
                     *pc + 1
                 }
 
-                TOP (naslov) => { *addroff = stack.len() as i32 + naslov; *pc + 1 },
+                TOP(naslov) => { *addroff = stack.len() as i32 + naslov; *pc + 1 },
 
-                SOFF => { *addroff = stack.pop().unsafe_unwrap().i;   *pc + 1 },
+                SOFF => { *addroff = stack.pop().unsafe_unwrap().i; *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff }); *pc + 1 },
 
-                PRTC => { write!(izhod, "{}", stack.pop().unsafe_unwrap().c).unsafe_unwrap(); *pc + 1 },
-                GETC => {
-                    let mut term = Term::stdout();
-                    let c = term.read_char().unsafe_unwrap();
+                PRTC => { 
+                    let c = stack.pop().unsafe_unwrap().c;
                     let _ = term.write_all(c.to_string().as_bytes());
+                    if c == '\n' {
+                        let _ = term.flush();
+                    }
+                    *pc + 1
+                },
+                GETC => {
+                    let c = term.read_char().unwrap();
+                    let _ = term.write_all(c.to_string().as_bytes());
+                    let _ = term.flush();
                     stack.push(Podatek { c });
                     *pc + 1
                 }
@@ -203,186 +211,186 @@ mod testi {
         assert_eq!(pc, 0);
         assert_eq!(addroff, 0);
 
-        let mut stdout = Box::new(Vec::new());
+        let mut term = Term::stdout();
 
         // x (@0)
-        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }]);
         assert_eq!(pc, 1);
         assert_eq!(addroff, 0);
 
         // y (@1)
-        Program::korak(&PUSH(Podatek { f: 3.14 }), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&PUSH(Podatek { f: 3.14 }), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 2);
         assert_eq!(addroff, 0);
 
         // LOAD y
-        Program::korak(&LOAD(1), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&LOAD(1), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 3);
         assert_eq!(addroff, 0);
 
         // LOAD x
-        Program::korak(&LOAD(0), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&LOAD(0), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }]);
         assert_eq!(pc, 4);
         assert_eq!(addroff, 0);
 
         // y - x
-        Program::korak(&SUBF, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&SUBF, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 2.14 }]);
         assert_eq!(pc, 5);
         assert_eq!(addroff, 0);
 
         // y > x (y - x > 0 <=> y > x)
-        Program::korak(&POS, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&POS, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 6);
         assert_eq!(addroff, 0);
 
         // NOOP
-        Program::korak(&NOOP, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&NOOP, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 7);
         assert_eq!(addroff, 0);
 
         // JMPC #0
-        Program::korak(&JMPC(0), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&JMPC(0), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 0);
         assert_eq!(addroff, 0);
 
         // PUSH #8
-        Program::korak(&PUSH(Podatek { i: 8 }), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&PUSH(Podatek { i: 8 }), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 8 }]);
         assert_eq!(pc, 1);
         assert_eq!(addroff, 0);
 
         // JMPD
-        Program::korak(&JMPD, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&JMPD, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 8);
         assert_eq!(addroff, 0);
 
         // JUMP #13
-        Program::korak(&JUMP(13), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&JUMP(13), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 13);
         assert_eq!(addroff, 0);
 
         // PUSH #0.0
-        Program::korak(&PUSH(Podatek { f: 0.0 }), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&PUSH(Podatek { f: 0.0 }), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 0.0 }]);
         assert_eq!(pc, 14);
         assert_eq!(addroff, 0);
 
         // ZERO (0.0 == 0.0)
-        Program::korak(&ZERO, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&ZERO, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 15);
         assert_eq!(addroff, 0);
 
         // PUSH 'c'
-        Program::korak(&PUSH(Podatek { c: '\n' }), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&PUSH(Podatek { c: '\n' }), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }, Podatek { c: '\n' }]);
         assert_eq!(pc, 16);
         assert_eq!(addroff, 0);
 
         // PUSH '\n'
-        Program::korak(&PUSH(Podatek { c: 'c' }), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&PUSH(Podatek { c: 'c' }), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }, Podatek { c: '\n' }, Podatek { c: 'c' }]);
         assert_eq!(pc, 17);
         assert_eq!(addroff, 0);
 
         // PRTC
         // PRTC
-        Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff, &mut stdout);
-        Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 19);
         assert_eq!(addroff, 0);
 
         // POP
-        Program::korak(&ALOC(-1), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&ALOC(-1), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 20);
         assert_eq!(addroff, 0);
 
         // PUSH #1.0
-        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }]);
         assert_eq!(pc, 21);
         assert_eq!(addroff, 0);
 
         // PUSH #0.0
-        Program::korak(&PUSH(Podatek { f: 0.0 }), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&PUSH(Podatek { f: 0.0 }), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }, Podatek { f: 0.0 }]);
         assert_eq!(pc, 22);
         assert_eq!(addroff, 0);
 
         // MUL (0.0 * 1.0) = 0.0
-        Program::korak(&MULF, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&MULF, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 0.0 }]);
         assert_eq!(pc, 23);
         assert_eq!(addroff, 0);
 
         // STOR @0 (x = 0.0)
-        Program::korak(&STOR(0), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&STOR(0), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 24);
         assert_eq!(addroff, 0);
 
         // LOFF
-        Program::korak(&LOFF, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&LOFF, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }]);
         assert_eq!(pc, 25);
         assert_eq!(addroff, 0);
 
         // PUSH #3.01
-        Program::korak(&PUSH(Podatek { f: 3.01 }), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&PUSH(Podatek { f: 3.01 }), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 }]);
         assert_eq!(pc, 26);
         assert_eq!(addroff, 0);
 
         // TOP -3
-        Program::korak(&TOP(-3), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&TOP(-3), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 }]);
         assert_eq!(pc, 27);
         assert_eq!(addroff, 1);
 
         // LDOF @0
-        Program::korak(&LDOF(0), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&LDOF(0), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 28);
         assert_eq!(addroff, 1);
 
         // ADD
-        Program::korak(&ADDF, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&ADDF, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 + 3.14 }]);
         assert_eq!(pc, 29);
         assert_eq!(addroff, 1);
 
         // PUSH 1.0
-        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 + 3.14 }, Podatek { f: 1.0 }]);
         assert_eq!(pc, 30);
         assert_eq!(addroff, 1);
 
         // DIV
-        Program::korak(&DIVF, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&DIVF, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: (3.01 + 3.14) / 1.0 }]);
         assert_eq!(pc, 31);
         assert_eq!(addroff, 1);
 
         // STOF @0
-        Program::korak(&STOF(0), &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&STOF(0), &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.01 + 3.14 }, Podatek { i: 0 }]);
         assert_eq!(pc, 32);
         assert_eq!(addroff, 1);
 
         // SOFF
-        Program::korak(&SOFF, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&SOFF, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.01 + 3.14 }]);
         assert_eq!(pc, 33);
         assert_eq!(addroff, 0);
@@ -391,7 +399,7 @@ mod testi {
         stack[1].f = 3.0;
 
         // MOD
-        Program::korak(&MODF, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&MODF, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 2.0 }]);
         assert_eq!(pc, 34);
         assert_eq!(addroff, 0);
@@ -399,7 +407,7 @@ mod testi {
         stack.push(Podatek { f: 5.0 });
 
         // POW
-        Program::korak(&POWF, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&POWF, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { f: 32.0 }]);
         assert_eq!(pc, 35);
         assert_eq!(addroff, 0);
@@ -407,7 +415,7 @@ mod testi {
         stack = vec![Podatek { i: 1234 }, Podatek { i: 5678 }];
 
         // BAND
-        Program::korak(&BAND, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&BAND, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { i: 1234 & 5678 }]);
         assert_eq!(pc, 36);
         assert_eq!(addroff, 0);
@@ -415,7 +423,7 @@ mod testi {
         stack = vec![Podatek { i: 1234 }, Podatek { i: 5678 }];
 
         // BXOR
-        Program::korak(&BXOR, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&BXOR, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { i: 1234 ^ 5678 }]);
         assert_eq!(pc, 37);
         assert_eq!(addroff, 0);
@@ -423,7 +431,7 @@ mod testi {
         stack = vec![Podatek { i: 1234 }, Podatek { i: 5678 }];
 
         // BOR
-        Program::korak(&BOR, &mut stack, &mut pc, &mut addroff, &mut stdout);
+        Program::korak(&BOR, &mut stack, &mut pc, &mut addroff, &mut term);
         assert_eq!(stack, [Podatek { i: 1234 | 5678 }]);
         assert_eq!(pc, 38);
         assert_eq!(addroff, 0);
