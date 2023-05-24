@@ -1,6 +1,7 @@
 use std::io::Write;
 
 use console::Term;
+use unsafe_unwrap::UnsafeUnwrap;
 
 use super::*;
 
@@ -40,78 +41,80 @@ impl Program {
         assert!(stack.len() == 0);
     }
 
+    #[inline]
     fn korak(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut i32, addroff: &mut i32, izhod: &mut impl io::Write) {
         *pc = unsafe {
             match ukaz_podatek {
                 NOOP => *pc + 1,
 
                 JUMP(naslov) => *naslov,
-                JMPD => stack.pop().unwrap().i,
-                JMPC(naslov) => if stack.pop().unwrap() != LAŽ { *naslov } else { *pc + 1 },
+                JMPD => stack.pop().unsafe_unwrap().i,
+                JMPC(naslov) => if stack.pop().unsafe_unwrap() != LAŽ { *naslov } else { *pc + 1 },
 
                 PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
-                ALOC(razlika) => { stack.resize((stack.len() as i32 + razlika) as usize, LAŽ); *pc + 1 }
+                ALOC(razlika) => { stack.resize((stack.len() as i32 + razlika) as usize, NIČ); *pc + 1 }
 
-                POS  => { *stack.last_mut().unwrap() = if stack.last().unwrap().f  > 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
-                ZERO => { *stack.last_mut().unwrap() = if stack.last().unwrap().f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
+                POS  => { *stack.last_mut().unsafe_unwrap() = if stack.last().unsafe_unwrap().f  > 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
+                ZERO => { *stack.last_mut().unsafe_unwrap() = if stack.last().unsafe_unwrap().f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
 
-                LOAD(naslov) => { stack.push(*stack.get(*naslov as usize).unwrap()); *pc + 1 },
-                LDOF(naslov) => { stack.push(*stack.get((*addroff + *naslov) as usize).unwrap()); *pc + 1 },
+                LOAD(naslov) => { stack.push(*stack.get(*naslov as usize).unsafe_unwrap()); *pc + 1 },
+                LDOF(naslov) => { stack.push(*stack.get((*addroff + *naslov) as usize).unsafe_unwrap()); *pc + 1 },
                 LDDY(naslov) => {
-                    let dynaddr = stack.pop().unwrap().i;
-                    stack.push(*stack.get((*naslov + dynaddr) as usize).unwrap());
+                    let dynaddr = stack.pop().unsafe_unwrap().i;
+                    stack.push(*stack.get((*naslov + dynaddr) as usize).unsafe_unwrap());
                     *pc + 1
                 },
 
-                STOR(naslov) => { *stack.get_mut(*naslov as usize).unwrap() = stack.pop().unwrap(); *pc + 1 },
-                STOF(naslov) => { *stack.get_mut(*addroff as usize + *naslov as usize).unwrap() = stack.pop().unwrap(); *pc + 1 },
+                STOR(naslov) => { *stack.get_mut(*naslov as usize).unsafe_unwrap() = stack.pop().unsafe_unwrap(); *pc + 1 },
+                STOF(naslov) => { *stack.get_mut(*addroff as usize + *naslov as usize).unsafe_unwrap() = stack.pop().unsafe_unwrap(); *pc + 1 },
                 STDY(naslov) => {
-                    let dynaddr = stack.pop().unwrap().i;
-                    *stack.get_mut(*naslov as usize + dynaddr as usize).unwrap() = stack.pop().unwrap();
+                    let dynaddr = stack.pop().unsafe_unwrap().i;
+                    *stack.get_mut(*naslov as usize + dynaddr as usize).unsafe_unwrap() = stack.pop().unsafe_unwrap();
                     *pc + 1
                 }
 
                 TOP (naslov) => { *addroff = stack.len() as i32 + naslov; *pc + 1 },
 
-                SOFF => { *addroff = stack.pop().unwrap().i;   *pc + 1 },
+                SOFF => { *addroff = stack.pop().unsafe_unwrap().i;   *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff }); *pc + 1 },
 
-                PRTC => { write!(izhod, "{}", stack.pop().unwrap().c).unwrap(); *pc + 1 },
+                PRTC => { write!(izhod, "{}", stack.pop().unsafe_unwrap().c).unsafe_unwrap(); *pc + 1 },
                 GETC => {
                     let mut term = Term::stdout();
-                    let c = term.read_char().unwrap();
+                    let c = term.read_char().unsafe_unwrap();
                     let _ = term.write_all(c.to_string().as_bytes());
                     stack.push(Podatek { c });
                     *pc + 1
                 }
 
-                ADDF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    + stack.pop().unwrap().f;  *pc + 1 },
-                SUBF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    - stack.pop().unwrap().f;  *pc + 1 },
-                MULF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    * stack.pop().unwrap().f;  *pc + 1 },
-                DIVF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    / stack.pop().unwrap().f;  *pc + 1 },
-                MODF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f    % stack.pop().unwrap().f;  *pc + 1 },
-                POWF => { stack.last_mut().unwrap().f = stack.get(stack.len() - 2).unwrap().f.powf(stack.pop().unwrap().f); *pc + 1 },
+                ADDF => { stack.last_mut().unsafe_unwrap().f = stack.get(stack.len() - 2).unsafe_unwrap().f    + stack.pop().unsafe_unwrap().f;  *pc + 1 },
+                SUBF => { stack.last_mut().unsafe_unwrap().f = stack.get(stack.len() - 2).unsafe_unwrap().f    - stack.pop().unsafe_unwrap().f;  *pc + 1 },
+                MULF => { stack.last_mut().unsafe_unwrap().f = stack.get(stack.len() - 2).unsafe_unwrap().f    * stack.pop().unsafe_unwrap().f;  *pc + 1 },
+                DIVF => { stack.last_mut().unsafe_unwrap().f = stack.get(stack.len() - 2).unsafe_unwrap().f    / stack.pop().unsafe_unwrap().f;  *pc + 1 },
+                MODF => { stack.last_mut().unsafe_unwrap().f = stack.get(stack.len() - 2).unsafe_unwrap().f    % stack.pop().unsafe_unwrap().f;  *pc + 1 },
+                POWF => { stack.last_mut().unsafe_unwrap().f = stack.get(stack.len() - 2).unsafe_unwrap().f.powf(stack.pop().unsafe_unwrap().f); *pc + 1 },
 
-                ADDI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_add(stack.pop().unwrap().i);        *pc + 1 },
-                SUBI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_sub(stack.pop().unwrap().i);        *pc + 1 },
-                MULI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_mul(stack.pop().unwrap().i);        *pc + 1 },
-                DIVI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_div(stack.pop().unwrap().i);        *pc + 1 },
-                MODI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_rem(stack.pop().unwrap().i);        *pc + 1 },
-                POWI => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i.wrapping_pow(stack.pop().unwrap().i as u32); *pc + 1 },
+                ADDI => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i.wrapping_add(stack.pop().unsafe_unwrap().i);        *pc + 1 },
+                SUBI => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i.wrapping_sub(stack.pop().unsafe_unwrap().i);        *pc + 1 },
+                MULI => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i.wrapping_mul(stack.pop().unsafe_unwrap().i);        *pc + 1 },
+                DIVI => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i.wrapping_div(stack.pop().unsafe_unwrap().i);        *pc + 1 },
+                MODI => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i.wrapping_rem(stack.pop().unsafe_unwrap().i);        *pc + 1 },
+                POWI => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i.wrapping_pow(stack.pop().unsafe_unwrap().i as u32); *pc + 1 },
 
-                BOR  => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i | stack.pop().unwrap().i;  *pc + 1 },
-                BXOR => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i ^ stack.pop().unwrap().i;  *pc + 1 },
-                BAND => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i & stack.pop().unwrap().i;  *pc + 1 },
+                BOR  => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i | stack.pop().unsafe_unwrap().i;  *pc + 1 },
+                BXOR => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i ^ stack.pop().unsafe_unwrap().i;  *pc + 1 },
+                BAND => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i & stack.pop().unsafe_unwrap().i;  *pc + 1 },
 
-                BSLL => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i << stack.pop().unwrap().i;  *pc + 1 },
-                BSLD => { stack.last_mut().unwrap().i = stack.get(stack.len() - 2).unwrap().i >> stack.pop().unwrap().i;  *pc + 1 },
+                BSLL => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i << stack.pop().unsafe_unwrap().i;  *pc + 1 },
+                BSLD => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i >> stack.pop().unsafe_unwrap().i;  *pc + 1 },
 
-                FTOI => { stack.last_mut().unwrap().i = stack.last().unwrap().f as i32; *pc + 1 },
-                ITOF => { stack.last_mut().unwrap().f = stack.last().unwrap().i as f32; *pc + 1 },
+                FTOI => { stack.last_mut().unsafe_unwrap().i = stack.last().unsafe_unwrap().f as i32; *pc + 1 },
+                ITOF => { stack.last_mut().unsafe_unwrap().f = stack.last().unsafe_unwrap().i as f32; *pc + 1 },
             }
         };
     }
 
+    #[inline]
     fn korak_debug(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut i32, addroff: &mut i32, izhod: &mut impl io::Write) -> Option<()> {
         *pc = unsafe {
             match ukaz_podatek {

@@ -115,6 +115,7 @@ impl ToProgram for Drevo {
 
 const RESNICA: Podatek = Podatek { i: 1 };
 const LAŽ    : Podatek = Podatek { i: 0 };
+const NIČ    : Podatek = Podatek { i: 0 };
 
 
 impl From<&Drevo> for Program {
