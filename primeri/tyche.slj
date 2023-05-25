@@ -1,0 +1,37 @@
+funkcija TYCHE_ROT(a: celo, b: celo) -> celo {
+    vrni (a << b) | (a >> (32 - b))
+}
+
+naj tyche_a = 0
+naj tyche_b = 0
+naj tyche_c = 0
+naj tyche_d = 0
+
+funkcija naključno() -> celo {
+    tyche_a += tyche_b
+    tyche_d = TYCHE_ROT(tyche_d ^ tyche_a, 16)
+	tyche_c += tyche_d
+	tyche_b = TYCHE_ROT(tyche_b ^ tyche_c, 12)
+	tyche_a += tyche_b
+	tyche_d = TYCHE_ROT(tyche_d ^ tyche_a, 8)
+	tyche_c += tyche_d
+	tyche_b = TYCHE_ROT(tyche_b ^ tyche_c, 7)
+    vrni tyche_a
+}
+
+funkcija seme(seed0: celo, seed1: celo) {
+	tyche_a = seed0
+	tyche_b = seed1
+	tyche_c = -1640531527
+	tyche_d = 1367130551
+
+    za i = 0, i < 20, i += 1 {
+		naključno()
+	}
+}
+
+seme(123, 1806567039)
+
+za i = 0, i < 13, i += 1 {
+    natisni!(naključno(), "\n")
+}
