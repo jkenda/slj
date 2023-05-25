@@ -60,8 +60,8 @@ Spodaj je primer uporabe jezika, v katerem je prisotna večina konstruktov jezik
 
 ## Reference
 	naj a = 13
-	naj ra = @a  # referenca na a
-	natisni(a)   # 13
+	naj ra = @a
+	natisni(a)
 	natisni(ra)  # Napaka E2: Funkcija 'natisni(@celo)' ne obstaja (5, 1)
 	
 	# dereferenciranje
@@ -98,32 +98,32 @@ Tako lahko implementiramo eno funkcijo za sezname vseh dolžin.
 
 ## Operacije
 	# aritmetične in bitne operacije
-	naj x = 16 - 3 # 13
-	x = x + 2      # 15
-	x += 1         # 16
-	x = 2**3       # 8
-	x = 1 << 3     # 8
-	x = x % 5      # 3
-	x >>= 1 | 3    # 1
+	naj x = 16 - 3
+	x = x + 2
+	x += 1
+	x = 2**3
+	x = 1 << 3
+	x = x % 5
+	x >>= 1 | 3
 	
 	# Boolove operacije
 	naj b = laž
-	b = !laž      # resnica
-	b = b && laž  # laž
-	b ||= resnica # laž
-	b  ^= laž     # resnica
+	b = !laž
+	b = b && laž
+	b ||= resnica
+	b  ^= laž
 	
 	# pretvorbe med tipi
-	naj a = 13.0          # 13.0
-	a += 29 kot real      # 42.0
-	naj nič = 48 kot znak # '0'
+	naj a = 13.0
+	a += 29 kot real
+	naj nič = 48 kot znak
 	nič += 11 kot znak # Napaka E3: Nemogoča operacija: znak += znak (4, 5)
-	nič = (nič kot celo + 11) kot znak # ';' (na znakih ne moremo izvajati aritmetičnih operacij)
+	nič = (nič kot celo + 11) kot znak
 
 	# primerjalne operacije
 	naj enako = 13 == 11 + 2.0 # Napaka E5: Nemogoča operacija: celo + real (1, 22)
-	naj večje = 13 > 14  # laž
-	naj me    = 14 <= 14 # resnica
+	naj večje = 13 > 14
+	naj me    = 14 <= 14
 	# ...
 	
 ## Zanke
@@ -172,7 +172,7 @@ Zanka `za`:
 	}
 
 ## Multifunkcijski klic
-Če obstaja več funkcij z enakim imenom, ki sprejemajo vsaka po en argument, lahko uporabimo multifunkcijski klic. Izgleda podobno kot navaden klic funkcije, le da za ime njeno dodamo `!`.
+Če obstaja več funkcij z enakim imenom, ki sprejemajo vsaka po en argument, lahko uporabimo multifunkcijski klic. Izgleda podobno kot navaden klic funkcije, le da za ime njeno dodamo `!`. Najboljši primer uporabe multifunkcijskih klicev je tiskanje.
 
 	funkcija natisni(niz: @[znak]) {
 	    naj dolžina = niz.dolžina
