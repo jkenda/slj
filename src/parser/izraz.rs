@@ -316,7 +316,6 @@ mod testi {
                                 }.rc()).rc()
                 ]).rc(),
                 prostor: 0,
-                št_klicev: 0,
             }.rc());
         assert_eq!(parser.osnovni([ Ime("fun", 1, 1), Ločilo("(", 1, 4), Ločilo(")", 1, 5)].as_slice()).unwrap(), FunkcijskiKlic { 
             funkcija: parser.funkcije["fun()"].clone(),

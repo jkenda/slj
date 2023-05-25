@@ -1,4 +1,4 @@
-use std::{rc::Rc, fmt::Display, mem::{discriminant, self}, cell::RefCell};
+use std::{rc::Rc, fmt::Display, mem::{discriminant, self}, cell::RefCell, collections::HashMap};
 use super::tip::Tip;
 
 #[allow(dead_code)]
@@ -19,11 +19,12 @@ impl ToString for OdmikIme {
 
 pub struct Drevo {
     pub root: Rc<Vozlišče>,
+    pub št_klicev: HashMap<String, usize>,
 }
 
 impl Drevo {
-    pub fn new(root: Rc<Vozlišče>) -> Drevo {
-        Drevo { root }
+    pub fn new(root: Rc<Vozlišče>, št_klicev: HashMap<String, usize>) -> Drevo {
+        Drevo { root, št_klicev }
     }
 }
 
@@ -112,7 +113,7 @@ pub enum Vozlišče {
     Zaporedje(Vec<Rc<Vozlišče>>),
     Okvir{ zaporedje: Rc<Vozlišče>, št_spr: i32 },
 
-    Funkcija{ tip: Tip, ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>, prostor: i32, št_klicev: usize },
+    Funkcija{ tip: Tip, ime: String, parametri: Vec<Rc<Vozlišče>>, telo: Rc<Vozlišče>, prostor: i32 },
     FunkcijskiKlic{ funkcija: Rc<Vozlišče>, spremenljivke: Rc<Vozlišče>, argumenti: Rc<Vozlišče> },
 
     Natisni(Rc<Vozlišče>),
@@ -530,14 +531,10 @@ impl Vozlišče {
     }
 
     pub fn lahko_vrinemo(&self) -> bool {
-        const MEJA: usize = 7;
+        //const MEJA: usize = 7;
 
         match self {
-            Funkcija { tip: _, ime: _, parametri: _, telo, prostor: _, št_klicev } => {
-                if *št_klicev > MEJA {
-                    return false
-                }
-
+            Funkcija { telo, .. } => {
                 // rekurzivne funkcije ne moremo vriniti
                 !telo.vsebuje(self)
             },

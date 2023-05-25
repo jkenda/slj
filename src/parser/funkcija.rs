@@ -75,6 +75,7 @@ impl<'a> Parser<'a> {
             reference_stack: self.reference_stack.clone(),
             spremenljivke: self.spremenljivke.clone(),
             funkcije: self.funkcije.clone(),
+            št_klicev: self.št_klicev.clone(),
             reference: self.reference.clone(),
             znotraj_funkcije: true,
         };
@@ -87,7 +88,6 @@ impl<'a> Parser<'a> {
             parametri: parametri.clone(),
             telo: Prazno.rc(),
             prostor: 0,
-            št_klicev: 0,
         }.rc());
 
         let telo = okolje_funkcije.zaporedje(telo)?;
@@ -97,7 +97,14 @@ impl<'a> Parser<'a> {
             - spr_funkcije["0_PC"].sprememba_stacka()
             - parametri.iter().map(|p| p.sprememba_stacka()).sum::<i32>()
             - spr_funkcije["0_OF"].sprememba_stacka();
-        let fun = Funkcija { tip, ime: podpis_funkcije.clone(), parametri, telo, prostor, št_klicev: 0 }.rc();
+        let fun = Funkcija { tip, ime: podpis_funkcije.clone(), parametri, telo, prostor }.rc();
+
+        for (podpis, št_klicev) in okolje_funkcije.št_klicev {
+            match self.št_klicev.get_mut(&podpis) {
+                Some(št) => *št += št_klicev,
+                None => { self.št_klicev.insert(podpis, št_klicev); }
+            }
+        }
 
         self.funkcije_stack.last_mut().unwrap().insert(podpis_funkcije.clone(), fun.clone());
         self.funkcije.insert(podpis_funkcije, fun.clone());
@@ -122,14 +129,9 @@ impl<'a> Parser<'a> {
             .ok_or(Napake::from_zaporedje(&[*ime], E2, &format!("Funkcija '{podpis_funkcije}' ne obstaja")))?
             .clone();
 
-        if let Funkcija { tip, ime, parametri, telo, prostor, št_klicev } = &*funkcija {
-            self.funkcije.insert(podpis_funkcije, Funkcija {
-                tip: tip.clone(),
-                ime: ime.clone(),
-                parametri: parametri.clone(),
-                telo: telo.clone(),
-                prostor: *prostor,
-                št_klicev: št_klicev + 1 }.rc());
+        match self.št_klicev.get_mut(&podpis_funkcije) {
+            Some(št_klicev) => *št_klicev += 1,
+            None => { self.št_klicev.insert(podpis_funkcije, 1); },
         }
 
         Ok(FunkcijskiKlic { funkcija, spremenljivke: Zaporedje(spremenljivke).rc(), argumenti: Zaporedje(argumenti).rc() }.rc())
@@ -145,12 +147,18 @@ impl<'a> Parser<'a> {
             let funkcija = self.funkcije.get(&podpis_funkcije);
 
             match funkcija {
-                Some(funkcija) => 
+                Some(funkcija) => {
                     funkcijski_klici.push(FunkcijskiKlic {
                         funkcija: funkcija.clone(),
                         spremenljivke: Zaporedje(vec![spremenljivka.rc()]).rc(),
                         argumenti: Zaporedje(vec![argument.rc()]).rc(),
-                    }.rc()),
+                    }.rc());
+
+                    match self.št_klicev.get_mut(&podpis_funkcije) {
+                        Some(št_klicev) => *št_klicev += 1,
+                        None => { self.št_klicev.insert(podpis_funkcije, 1); },
+                    }
+                },
                 None => {
                     napake.add_napaka(Napaka::from_zaporedje(&[*ime], E2,
                         &format!("Funkcija '{podpis_funkcije}' ne obstaja")));
