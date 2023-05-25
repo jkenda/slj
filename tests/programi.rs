@@ -1,35 +1,10 @@
-use console::Term;
 use slj::{parser::{tokenizer::{Tokenize, Token::*, L}, Parse}, program::ToProgram};
-use std::{fs::{self, File}, io::{Read, Write}, thread};
+use std::io::Cursor;
 
-const VHOD: &str = ".test_vhod";
-const IZHOD: &str = ".test_izhod";
+fn test(program: &str, vhod: &str) -> String {
+    let mut izhod = Vec::<u8>::new();
 
-fn test(program: &str, vhod_str: &str) -> String {
-    let vhod_ime = format!("{VHOD}_{:?}", thread::current().id());
-    let izhod_ime = format!("{IZHOD}_{:?}", thread::current().id());
-
-    {
-        let mut vhod = File::create(vhod_ime.as_str()).unwrap();
-        vhod.write_all(vhod_str.as_bytes()).unwrap();
-        vhod.flush().unwrap();
-    }
-    {
-        let vhod = File::open(vhod_ime.as_str()).unwrap();
-        let izhod = File::create(izhod_ime.as_str()).unwrap();
-        let mut term = Term::read_write_pair(vhod, izhod);
-
-        program.tokenize().parse().unwrap().to_program().zaženi_z_io(&mut term);
-    }
-
-    let mut izhod = Vec::new();
-    File::open(izhod_ime.as_str()).unwrap()
-        .read_to_end(&mut izhod)
-        .unwrap();
-
-    let _ = fs::remove_file(vhod_ime);
-    let _ = fs::remove_file(izhod_ime);
-
+    program.tokenize().parse().unwrap().to_program().zaženi_z_io(&mut Cursor::new(vhod), &mut izhod);
     return String::from_utf8(izhod).unwrap();
 }
 

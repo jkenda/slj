@@ -1,13 +1,12 @@
-use std::io::Write;
+use std::str;
 
-use console::Term;
 use unsafe_unwrap::UnsafeUnwrap;
 
 use super::*;
 
 impl Program {
     pub fn zaženi(&self) {
-        self.zaženi_z_io(&mut Term::buffered_stdout());
+        self.zaženi_z_io(&mut io::stdin(), &mut io::stdout());
     }
 
     pub fn zaženi_debug(&self) {
@@ -15,13 +14,11 @@ impl Program {
         let mut addroff: i32 = 0;
         let mut stack: Vec<Podatek> = Vec::with_capacity(32_768);
 
-        let mut stdout = io::stdout();
-
         while (pc as usize) < self.ukazi.len() {
             let ukaz = &self.ukazi[pc as usize];
 
             print!("{addroff}, {pc}, {ukaz:?}: ");
-            match Program::korak_debug(ukaz, &mut stack, &mut pc, &mut addroff, &mut stdout) {
+            match Program::korak_debug(ukaz, &mut stack, &mut pc, &mut addroff, &mut io::stdin(), &mut io::stdout()) {
                 Some(_) => (),
                 None => panic!("Napaka v ukazu #{pc}: {:?}", ukaz),
             }
@@ -30,20 +27,20 @@ impl Program {
         assert!(stack.len() == 0, "Neprazen stack ob izhodu pomeni nepravilno izvajanje.");
     }
 
-    pub fn zaženi_z_io(&self, term: &mut Term) {
+    pub fn zaženi_z_io(&self, vhod: &mut impl io::Read, izhod: &mut impl io::Write) {
         let mut pc: i32 = 0;
         let mut addroff: i32 = 0;
         let mut stack: Vec<Podatek> = Vec::with_capacity(32_768);
 
         while (pc as usize) < self.ukazi.len() {
-            Program::korak(&self.ukazi[pc as usize], &mut stack, &mut pc, &mut addroff, term);
+            Program::korak(&self.ukazi[pc as usize], &mut stack, &mut pc, &mut addroff, vhod, izhod);
         }
         assert!(stack.len() == 0, "Neprazen stack ob izhodu pomeni nepravilno izvajanje.");
-        let _ = term.flush();
+        let _ = izhod.flush();
     }
 
     #[inline]
-    fn korak(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut i32, addroff: &mut i32, term: &mut Term) {
+    fn korak(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut i32, addroff: &mut i32, vhod: &mut impl io::Read, izhod: &mut impl io::Write) {
         *pc = unsafe {
             match ukaz_podatek {
                 NOOP => *pc + 1,
@@ -81,16 +78,28 @@ impl Program {
 
                 PRTC => { 
                     let c = stack.pop().unsafe_unwrap().c;
-                    let _ = term.write_all(c.to_string().as_bytes());
-                    if c == '\n' {
-                        let _ = term.flush();
-                    }
+                    write!(izhod, "{c}").unwrap();
                     *pc + 1
                 },
                 GETC => {
-                    let c = term.read_char().unwrap();
-                    let _ = term.write_all(c.to_string().as_bytes());
-                    let _ = term.flush();
+                    let mut buf: [u8; 4] = [0, 0, 0, 0];
+                    let _ = vhod.read(&mut buf[..1]).unwrap();
+
+                    if buf[0] & 0b11100000u8 == 0b11000000u8 {
+                        // a two byte unicode character
+                        vhod.read(&mut buf[1..2]).unwrap();
+                    }
+                    else if buf[0] & 0b11110000u8 == 0b11100000u8 {
+                        // a three byte unicode character
+                        vhod.read(&mut buf[1..3]).unwrap();
+                    }
+                    else if buf[0] & 0b11111000u8 == 0b11110000u8 {
+                        // a four byte unicode character
+                        vhod.read(&mut buf[1..4]).unwrap();
+                    }
+
+                    let c = str::from_utf8(&buf).unwrap().chars().next().unwrap();
+
                     stack.push(Podatek { c });
                     *pc + 1
                 }
@@ -123,7 +132,7 @@ impl Program {
     }
 
     #[inline]
-    fn korak_debug(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut i32, addroff: &mut i32, izhod: &mut impl io::Write) -> Option<()> {
+    fn korak_debug(ukaz_podatek: &UkazPodatek, stack: &mut Vec<Podatek>, pc: &mut i32, addroff: &mut i32, vhod: &mut impl io::Read, izhod: &mut impl io::Write) -> Option<()> {
         *pc = unsafe {
             match ukaz_podatek {
                 NOOP => *pc + 1,
@@ -161,9 +170,24 @@ impl Program {
 
                 PRTC => { write!(izhod, "{}", stack.pop()?.c).ok()?; *pc + 1 },
                 GETC => {
-                    let mut term = Term::stdout();
-                    let c = term.read_char().ok()?;
-                    let _ = term.write_all(c.to_string().as_bytes());
+                    let mut buf: [u8; 4] = [0, 0, 0, 0];
+                    let _ = vhod.read(&mut buf[..1]).ok()?;
+
+                    if buf[0] & 0b11100000u8 == 0b11000000u8 {
+                        // a two byte unicode character
+                        vhod.read(&mut buf[1..2]).ok()?;
+                    }
+                    else if buf[0] & 0b11110000u8 == 0b11100000u8 {
+                        // a three byte unicode character
+                        vhod.read(&mut buf[1..3]).ok()?;
+                    }
+                    else if buf[0] & 0b11111000u8 == 0b11110000u8 {
+                        // a four byte unicode character
+                        vhod.read(&mut buf[1..4]).ok()?;
+                    }
+
+                    let c = str::from_utf8(&buf).ok()?.chars().next()?;
+
                     stack.push(Podatek { c });
                     *pc + 1
                 }
@@ -199,6 +223,8 @@ impl Program {
 
 #[cfg(test)]
 mod testi {
+    use std::io::Cursor;
+
     use super::*;
 
     #[test]
@@ -211,186 +237,187 @@ mod testi {
         assert_eq!(pc, 0);
         assert_eq!(addroff, 0);
 
-        let mut term = Term::stdout();
+        let mut vhod = Cursor::new(Vec::<u8>::new());
+        let mut izhod = Vec::<u8>::new();
 
         // x (@0)
-        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }]);
         assert_eq!(pc, 1);
         assert_eq!(addroff, 0);
 
         // y (@1)
-        Program::korak(&PUSH(Podatek { f: 3.14 }), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PUSH(Podatek { f: 3.14 }), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 2);
         assert_eq!(addroff, 0);
 
         // LOAD y
-        Program::korak(&LOAD(1), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&LOAD(1), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 3);
         assert_eq!(addroff, 0);
 
         // LOAD x
-        Program::korak(&LOAD(0), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&LOAD(0), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }]);
         assert_eq!(pc, 4);
         assert_eq!(addroff, 0);
 
         // y - x
-        Program::korak(&SUBF, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&SUBF, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 2.14 }]);
         assert_eq!(pc, 5);
         assert_eq!(addroff, 0);
 
         // y > x (y - x > 0 <=> y > x)
-        Program::korak(&POS, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&POS, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 6);
         assert_eq!(addroff, 0);
 
         // NOOP
-        Program::korak(&NOOP, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&NOOP, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 7);
         assert_eq!(addroff, 0);
 
         // JMPC #0
-        Program::korak(&JMPC(0), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&JMPC(0), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 0);
         assert_eq!(addroff, 0);
 
         // PUSH #8
-        Program::korak(&PUSH(Podatek { i: 8 }), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PUSH(Podatek { i: 8 }), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 8 }]);
         assert_eq!(pc, 1);
         assert_eq!(addroff, 0);
 
         // JMPD
-        Program::korak(&JMPD, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&JMPD, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 8);
         assert_eq!(addroff, 0);
 
         // JUMP #13
-        Program::korak(&JUMP(13), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&JUMP(13), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 13);
         assert_eq!(addroff, 0);
 
         // PUSH #0.0
-        Program::korak(&PUSH(Podatek { f: 0.0 }), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PUSH(Podatek { f: 0.0 }), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 0.0 }]);
         assert_eq!(pc, 14);
         assert_eq!(addroff, 0);
 
         // ZERO (0.0 == 0.0)
-        Program::korak(&ZERO, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&ZERO, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 15);
         assert_eq!(addroff, 0);
 
         // PUSH 'c'
-        Program::korak(&PUSH(Podatek { c: '\n' }), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PUSH(Podatek { c: '\n' }), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }, Podatek { c: '\n' }]);
         assert_eq!(pc, 16);
         assert_eq!(addroff, 0);
 
         // PUSH '\n'
-        Program::korak(&PUSH(Podatek { c: 'c' }), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PUSH(Podatek { c: 'c' }), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }, Podatek { c: '\n' }, Podatek { c: 'c' }]);
         assert_eq!(pc, 17);
         assert_eq!(addroff, 0);
 
         // PRTC
         // PRTC
-        Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff, &mut term);
-        Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
+        Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 19);
         assert_eq!(addroff, 0);
 
         // POP
-        Program::korak(&ALOC(-1), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&ALOC(-1), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 20);
         assert_eq!(addroff, 0);
 
         // PUSH #1.0
-        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }]);
         assert_eq!(pc, 21);
         assert_eq!(addroff, 0);
 
         // PUSH #0.0
-        Program::korak(&PUSH(Podatek { f: 0.0 }), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PUSH(Podatek { f: 0.0 }), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 1.0 }, Podatek { f: 0.0 }]);
         assert_eq!(pc, 22);
         assert_eq!(addroff, 0);
 
         // MUL (0.0 * 1.0) = 0.0
-        Program::korak(&MULF, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&MULF, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { f: 0.0 }]);
         assert_eq!(pc, 23);
         assert_eq!(addroff, 0);
 
         // STOR @0 (x = 0.0)
-        Program::korak(&STOR(0), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&STOR(0), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 24);
         assert_eq!(addroff, 0);
 
         // LOFF
-        Program::korak(&LOFF, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&LOFF, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }]);
         assert_eq!(pc, 25);
         assert_eq!(addroff, 0);
 
         // PUSH #3.01
-        Program::korak(&PUSH(Podatek { f: 3.01 }), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PUSH(Podatek { f: 3.01 }), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 }]);
         assert_eq!(pc, 26);
         assert_eq!(addroff, 0);
 
         // TOP -3
-        Program::korak(&TOP(-3), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&TOP(-3), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 }]);
         assert_eq!(pc, 27);
         assert_eq!(addroff, 1);
 
         // LDOF @0
-        Program::korak(&LDOF(0), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&LDOF(0), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 }, Podatek { f: 3.14 }]);
         assert_eq!(pc, 28);
         assert_eq!(addroff, 1);
 
         // ADD
-        Program::korak(&ADDF, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&ADDF, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 + 3.14 }]);
         assert_eq!(pc, 29);
         assert_eq!(addroff, 1);
 
         // PUSH 1.0
-        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&PUSH(Podatek { f: 1.0 }), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: 3.01 + 3.14 }, Podatek { f: 1.0 }]);
         assert_eq!(pc, 30);
         assert_eq!(addroff, 1);
 
         // DIV
-        Program::korak(&DIVF, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&DIVF, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.14 }, Podatek { i: 0 }, Podatek { f: (3.01 + 3.14) / 1.0 }]);
         assert_eq!(pc, 31);
         assert_eq!(addroff, 1);
 
         // STOF @0
-        Program::korak(&STOF(0), &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&STOF(0), &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.01 + 3.14 }, Podatek { i: 0 }]);
         assert_eq!(pc, 32);
         assert_eq!(addroff, 1);
 
         // SOFF
-        Program::korak(&SOFF, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&SOFF, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 0.0 }, Podatek { f: 3.01 + 3.14 }]);
         assert_eq!(pc, 33);
         assert_eq!(addroff, 0);
@@ -399,7 +426,7 @@ mod testi {
         stack[1].f = 3.0;
 
         // MOD
-        Program::korak(&MODF, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&MODF, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 2.0 }]);
         assert_eq!(pc, 34);
         assert_eq!(addroff, 0);
@@ -407,7 +434,7 @@ mod testi {
         stack.push(Podatek { f: 5.0 });
 
         // POW
-        Program::korak(&POWF, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&POWF, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 32.0 }]);
         assert_eq!(pc, 35);
         assert_eq!(addroff, 0);
@@ -415,7 +442,7 @@ mod testi {
         stack = vec![Podatek { i: 1234 }, Podatek { i: 5678 }];
 
         // BAND
-        Program::korak(&BAND, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&BAND, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { i: 1234 & 5678 }]);
         assert_eq!(pc, 36);
         assert_eq!(addroff, 0);
@@ -423,7 +450,7 @@ mod testi {
         stack = vec![Podatek { i: 1234 }, Podatek { i: 5678 }];
 
         // BXOR
-        Program::korak(&BXOR, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&BXOR, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { i: 1234 ^ 5678 }]);
         assert_eq!(pc, 37);
         assert_eq!(addroff, 0);
@@ -431,7 +458,7 @@ mod testi {
         stack = vec![Podatek { i: 1234 }, Podatek { i: 5678 }];
 
         // BOR
-        Program::korak(&BOR, &mut stack, &mut pc, &mut addroff, &mut term);
+        Program::korak(&BOR, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { i: 1234 | 5678 }]);
         assert_eq!(pc, 38);
         assert_eq!(addroff, 0);
