@@ -338,7 +338,7 @@ impl Prevedi for Vozlišče {
             Natisni(znak) => {
                 [
                     znak.prevedi().as_slice(),
-                    [Osnovni(PRTC)].as_slice(),
+                    [Osnovni(PUTC)].as_slice(),
                 ].concat()
             },
             Preberi => vec![Osnovni(GETC)],
@@ -491,10 +491,10 @@ mod test {
             PUSHI(1),
             JMPCRelative(4),
             PUSHC('l'),
-            Osnovni(PRTC),
+            Osnovni(PUTC),
             JUMPRelative(OdmikIme::Odmik(3)),
             PUSHC('r'),
-            Osnovni(PRTC),
+            Osnovni(PUTC),
         ]);
 
         assert_eq!(Zanka {

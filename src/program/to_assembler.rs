@@ -41,7 +41,7 @@ impl Program {
                 TOP(odmik)    => format!("TOP  {}{odmik}\n", if *odmik > 0 { "+" } else { "" }),
                 SOFF          => "SOFF\n".to_string(),
                 LOFF          => "LOFF\n".to_string(),
-                PRTC          => "PRTC\n".to_string(),
+                PUTC          => "PUTC\n".to_string(),
                 GETC          => "GETC\n".to_string(),
                 ADDF          => "ADDF\n".to_string(),
                 SUBF          => "SUBF\n".to_string(),

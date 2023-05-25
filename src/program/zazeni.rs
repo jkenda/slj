@@ -76,7 +76,7 @@ impl Program {
                 SOFF => { *addroff = stack.pop().unsafe_unwrap().i; *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff }); *pc + 1 },
 
-                PRTC => { 
+                PUTC => { 
                     let c = stack.pop().unsafe_unwrap().c;
                     write!(izhod, "{c}").unwrap();
                     *pc + 1
@@ -98,7 +98,7 @@ impl Program {
                         vhod.read(&mut buf[1..4]).unwrap();
                     }
 
-                    let c = str::from_utf8(&buf).unwrap().chars().next().unwrap();
+                    let c = str::from_utf8(&buf).unwrap().chars().next().unsafe_unwrap();
 
                     stack.push(Podatek { c });
                     *pc + 1
@@ -168,7 +168,7 @@ impl Program {
                 SOFF => { *addroff = stack.pop()?.i;   *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff as i32 }); *pc + 1 },
 
-                PRTC => { write!(izhod, "{}", stack.pop()?.c).ok()?; *pc + 1 },
+                PUTC => { write!(izhod, "{}", stack.pop()?.c).ok()?; *pc + 1 },
                 GETC => {
                     let mut buf: [u8; 4] = [0, 0, 0, 0];
                     let _ = vhod.read(&mut buf[..1]).ok()?;
@@ -332,8 +332,8 @@ mod testi {
 
         // PRTC
         // PRTC
-        Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
-        Program::korak(&PRTC, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
+        Program::korak(&PUTC, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
+        Program::korak(&PUTC, &mut stack, &mut pc, &mut addroff, &mut vhod, &mut izhod);
         assert_eq!(stack, [Podatek { f: 1.0 }, Podatek { f: 3.14 }, Podatek { i: 1 }]);
         assert_eq!(pc, 19);
         assert_eq!(addroff, 0);

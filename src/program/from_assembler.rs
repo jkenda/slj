@@ -53,7 +53,7 @@ impl From<String> for Program {
                 "ZERO" => ZERO,
                 "LOFF" => LOFF,
                 "SOFF" => SOFF,
-                "PRTC" => PRTC,
+                "PUTC" => PUTC,
                 "GETC" => GETC,
                 "ADDF" => ADDF,
                 "SUBF" => SUBF,
