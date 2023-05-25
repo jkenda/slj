@@ -295,5 +295,12 @@ fn vhod() {
         natisni(preberi())
     "#;
     assert_eq!(test(program, "zver"), "zver");
+
+    let program = r#"
+        naj medp: [znak; 128]
+        naj dolžina = preberi(@medp)
+        natisni(@medp, dolžina)
+    "#;
+    assert_eq!(test(program, "🥝Hard liquor mixed with a bit of intellect🥝\n"), "🥝Hard liquor mixed with a bit of intellect🥝\n");
 }
 
