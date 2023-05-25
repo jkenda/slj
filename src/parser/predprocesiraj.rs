@@ -31,7 +31,7 @@ impl<'a> Parser<'a> {
                 [ Ločilo("\n", ..), Ločilo("=", ..), ..  ] => { predproc.remove(i+0); 0 },
                 [ Ločilo("=", ..),  Ločilo("\n", ..), .. ] => { predproc.remove(i+1); 0 },
 
-                [ Ločilo("\n", ..), Rezerviranka("čene", ..) , .. ] => { predproc.remove(i+1); 0 },
+                [ Ločilo("\n", ..), Rezerviranka("čene", ..) , .. ] => { predproc.remove(i+0); 0 },
                 [ Rezerviranka(..), Ločilo("\n", ..), .. ] => { predproc.remove(i+1); 0 },
 
                 [ Ločilo("\n", ..), Ločilo("\n", ..), .. ] => { predproc.remove(i+0); 0 }

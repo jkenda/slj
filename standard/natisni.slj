@@ -98,7 +98,8 @@ funkcija natisni(št: real) {
 funkcija natisni(a: bool) {
     če a {
         natisni("resnica")
-    } čene {
+    }
+    čene {
         natisni("laž")
     }
 }

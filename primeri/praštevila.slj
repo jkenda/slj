@@ -3,7 +3,7 @@ funkcija je_deljivo(deljenec: celo, delitelj: celo) -> bool {
 }
 
 funkcija je_praštevilo(kandidat: celo, praštevila: @[celo]) -> bool {
-    za i = 0, praštevila[i]**2 < kandidat, i += 1 {
+    za i = 0, praštevila[i]**2 <= kandidat, i += 1 {
         če je_deljivo(kandidat, praštevila[i]) {
             vrni laž
         }

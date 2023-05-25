@@ -21,6 +21,15 @@ fn natisni_znak() {
 }
 
 #[test]
+fn natisni_bool() {
+    let program = r#"natisni(resnica)"#;
+    assert_eq!(test(program, ""), "resnica");
+
+    let program = r#"natisni(laž)"#;
+    assert_eq!(test(program, ""), "laž");
+}
+
+#[test]
 fn natisni_niz() {
     let program = r#"natisni("zver")"#;
     assert_eq!(test(program, ""), "zver");
@@ -87,27 +96,27 @@ fn preveč_vrstic() {
 #[test]
 fn praštevil_do_1000() {
     let program = r#"
-        naj MEJA = 1000
-        naj praštevil = 2 # [2, 3]
-        naj kandidat = 5
+        naj praštevila: [celo; 1000]
+        naj praštevil = 2
+        praštevila[0] = 2
+        praštevila[1] = 3
 
-        dokler kandidat <= MEJA {
+        za kandidat = 5, kandidat <= praštevila.dolžina, kandidat += 2 {
             naj praštevilo = resnica
 
-            naj i = 2; dokler i <= kandidat / 2 && praštevilo {
-                če kandidat % i == 0 {
+            za i = 0, praštevila[i]**2 <= kandidat && praštevilo, i += 1 {
+                če kandidat % praštevila[i] == 0 {
                     praštevilo = laž
                 }
-                i += 1
             }
-            kandidat += 2
 
             če praštevilo {
+                praštevila[praštevil] = kandidat
                 praštevil += 1
             }
         }
 
-        natisni!("praštevil do ", MEJA, ": ", praštevil, "\n")
+        natisni!("praštevil do ", praštevila.dolžina, ": ", praštevil, "\n")
     "#;
     assert_eq!(test(program, ""), "praštevil do 1000: 168\n");
 }
