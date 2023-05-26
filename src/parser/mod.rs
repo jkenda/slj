@@ -71,9 +71,9 @@ impl<'a> Parser<'a> {
     }
 
     fn standard() -> Vec<Token<'static>> {
-        const MATEMATIKA: &str = include_str!("../../standard/matematika.slj");
-        const NATISNI: &str = include_str!("../../standard/natisni.slj");
-        const PREBERI: &str = include_str!("../../standard/preberi.slj");
+        const MATEMATIKA: &str = include_str!("../../jedro/matematika.slj");
+        const NATISNI: &str = include_str!("../../jedro/natisni.slj");
+        const PREBERI: &str = include_str!("../../jedro/preberi.slj");
         [
             Parser::predprocesiraj(&MATEMATIKA.tokenize()).as_slice(),
             &[Ločilo("\n", 0, 0)],
