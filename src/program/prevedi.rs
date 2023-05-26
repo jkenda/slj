@@ -394,17 +394,17 @@ mod test {
         ]);
         assert_eq!(Real(-3.14).prevedi(&HashMap::new()), [PUSHF(-3.14)]);
 
-        assert_eq!(Spremenljivka { tip: Tip::Real, ime: "šmir".to_string(), naslov: 55, z_odmikom: true  }.prevedi(&HashMap::new()), [Osnovni(LDOF(55))]);
-        assert_eq!(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false }.prevedi(&HashMap::new()), [Osnovni(LOAD(55))]);
+        assert_eq!(Spremenljivka { tip: Tip::Real, ime: "šmir".to_string(), naslov: 55, z_odmikom: true,  spremenljiva: false }.prevedi(&HashMap::new()), [Osnovni(LDOF(55))]);
+        assert_eq!(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false, spremenljiva: false }.prevedi(&HashMap::new()), [Osnovni(LOAD(55))]);
         assert_eq!(
-            Referenca(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: true }.rc()).prevedi(&HashMap::new()),
+            Referenca(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: true, spremenljiva: false }.rc()).prevedi(&HashMap::new()),
             [
                 PUSHI(55),
                 Osnovni(LOFF),
                 Osnovni(ADDI),
             ]);
         assert_eq!(
-            Referenca(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false }.rc()).prevedi(&HashMap::new()),
+            Referenca(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false, spremenljiva: false }.rc()).prevedi(&HashMap::new()),
             [
                 PUSHI(55),
             ]);
@@ -504,7 +504,7 @@ mod test {
         assert_eq!(Zanka {
             pogoj: Laž.rc(), 
             telo: Prirejanje { 
-                spremenljivka: Spremenljivka { tip: Tip::Real, ime: "x".to_string(), naslov: 25, z_odmikom: false }.rc(),
+                spremenljivka: Spremenljivka { tip: Tip::Real, ime: "x".to_string(), naslov: 25, z_odmikom: false, spremenljiva: true }.rc(),
                 izraz: Real(27.0).rc(),
             }.rc(),
         }.prevedi(&HashMap::new()), [
@@ -518,7 +518,7 @@ mod test {
         ]);
 
         assert_eq!(Prirejanje {
-            spremenljivka: Spremenljivka { tip: Tip::Real, ime: "x".to_string(), naslov: 3, z_odmikom: true }.rc(),
+            spremenljivka: Spremenljivka { tip: Tip::Real, ime: "x".to_string(), naslov: 3, z_odmikom: true, spremenljiva: false }.rc(),
             izraz: Real(-3.14).rc(),
         }.prevedi(&HashMap::new()), [
             PUSHF(-3.14),
@@ -526,7 +526,7 @@ mod test {
         ]);
 
         assert_eq!(Vrni(Prirejanje {
-            spremenljivka: Spremenljivka { tip: Tip::Real, ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
+            spremenljivka: Spremenljivka { tip: Tip::Real, ime: "vrni".to_string(), naslov: 0, z_odmikom: true, spremenljiva: true }.rc(),
             izraz: Real(2.0).rc()
         }.rc()).prevedi(&HashMap::new()), [
                    PUSHF(2.0),
@@ -549,8 +549,8 @@ mod test {
         assert_eq!(Okvir {
             zaporedje: Zaporedje(vec![
                                  Vrni(Prirejanje {
-                                     spremenljivka: Spremenljivka { tip: Tip::Celo, ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
-                                     izraz: Spremenljivka { tip: Tip::Celo, ime: "x".to_string(), naslov: 1, z_odmikom: true }.rc(),
+                                     spremenljivka: Spremenljivka { tip: Tip::Celo, ime: "vrni".to_string(), naslov: 0, z_odmikom: true, spremenljiva: true }.rc(),
+                                     izraz: Spremenljivka { tip: Tip::Celo, ime: "x".to_string(), naslov: 1, z_odmikom: true, spremenljiva: false }.rc(),
                                  }.rc()).rc(),
             ]).rc(),
             št_spr: 2
@@ -566,11 +566,11 @@ mod test {
             tip: Tip::Real,
             ime: "ena(real)".to_string(),
             parametri: vec![
-                Spremenljivka { tip: Tip::Celo, ime: "x".to_string(), naslov: 2, z_odmikom: true }.rc(),
-                Spremenljivka { tip: Tip::Celo, ime: "y".to_string(), naslov: 3, z_odmikom: true }.rc(),
+                Spremenljivka { tip: Tip::Celo, ime: "x".to_string(), naslov: 2, z_odmikom: true, spremenljiva: true }.rc(),
+                Spremenljivka { tip: Tip::Celo, ime: "y".to_string(), naslov: 3, z_odmikom: true, spremenljiva: false }.rc(),
             ],
             telo: Vrni(Prirejanje {
-                spremenljivka: Spremenljivka { tip: Tip::Real, ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
+                spremenljivka: Spremenljivka { tip: Tip::Real, ime: "vrni".to_string(), naslov: 0, z_odmikom: true, spremenljiva: true }.rc(),
                 izraz: Real(1.0).rc()
             }.rc()).rc(),
             prostor: 0,

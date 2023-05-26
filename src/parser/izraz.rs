@@ -306,7 +306,7 @@ mod testi {
                 parametri: vec![],
                 telo: Zaporedje(vec![
                                 Vrni(Prirejanje {
-                                    spremenljivka: Spremenljivka { tip: Tip::Real, ime: "vrni".to_string(), naslov: 0, z_odmikom: true }.rc(),
+                                    spremenljivka: Spremenljivka { tip: Tip::Real, ime: "vrni".to_string(), naslov: 0, z_odmikom: true, spremenljiva: true }.rc(),
                                     izraz: Real(1.0).rc(),
                                 }.rc()).rc()
                 ]).rc(),
@@ -318,7 +318,7 @@ mod testi {
             argumenti: Zaporedje([].to_vec()).rc(),
         }.rc());
 
-        parser.spremenljivke.insert("a".to_string(), Rc::new(Spremenljivka { tip: Tip::Celo, ime: "a".to_string(), naslov: 0, z_odmikom: false }));
+        parser.spremenljivke.insert("a".to_string(), Rc::new(Spremenljivka { tip: Tip::Celo, ime: "a".to_string(), naslov: 0, z_odmikom: false, spremenljiva: false }));
         assert_eq!(parser.osnovni([ Ime("a", 1, 1)].as_slice()).unwrap(), parser.spremenljivke["a"].clone());
     }
 

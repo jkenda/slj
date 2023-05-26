@@ -24,8 +24,8 @@ impl<'a> Parser<'a> {
             return Err(Napake::from_zaporedje(prazno, E3, "Izraz funkcije se mora zaključiti z '}'"));
         }
         
-        let vrni = Spremenljivka { tip: tip.clone(), ime: "0_vrni".to_string(), naslov: 0, z_odmikom: true }.rc();
-        let pc   = Spremenljivka { tip: Tip::Celo, ime: "0_PC".to_string(), naslov: vrni.sprememba_stacka(), z_odmikom: true }.rc();
+        let vrni = Spremenljivka { tip: tip.clone(), ime: "0_vrni".to_string(), naslov: 0, z_odmikom: true, spremenljiva: true }.rc();
+        let pc   = Spremenljivka { tip: Tip::Celo, ime: "0_PC".to_string(), naslov: vrni.sprememba_stacka(), z_odmikom: true, spremenljiva: false }.rc();
 
         let mut spr_funkcije = HashMap::from([
             ("0_vrni".to_string(), vrni.clone()),
@@ -59,7 +59,7 @@ impl<'a> Parser<'a> {
                 return Err(Napake::from_zaporedje(&[*ime], E7, "Imena parametrov morajo biti unikatna"))
             }
             else {
-                let spr = Spremenljivka { tip: tip.clone(), ime: ime.to_string(), naslov: naslov_nove, z_odmikom: true }.rc();
+                let spr = Spremenljivka { tip: tip.clone(), ime: ime.to_string(), naslov: naslov_nove, z_odmikom: true, spremenljiva: false }.rc();
                 spr_funkcije.insert(ime.to_string(), spr.clone());
                 parametri.push(spr);
                 naslov_nove += tip.sprememba_stacka();
@@ -67,7 +67,7 @@ impl<'a> Parser<'a> {
         }
 
         let podpis_funkcije = Self::podpis_funkcije(ime, parametri.iter().map(|p| p.tip()).collect::<Vec<Tip>>().as_slice());
-        spr_funkcije.insert("0_OF".to_string(), Spremenljivka { tip: Tip::Celo, ime: "0_OF".to_string(), naslov: naslov_nove, z_odmikom: true }.rc());
+        spr_funkcije.insert("0_OF".to_string(), Spremenljivka { tip: Tip::Celo, ime: "0_OF".to_string(), naslov: naslov_nove, z_odmikom: true, spremenljiva: false }.rc());
 
         let mut okolje_funkcije = Parser {
             spremenljivke_stack: self.spremenljivke_stack.clone(),

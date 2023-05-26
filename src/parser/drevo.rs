@@ -58,7 +58,7 @@ pub enum Vozlišče {
     Znak(char),
     Niz(String),
 
-    Spremenljivka{ tip: Tip, ime: String, naslov: i32, z_odmikom: bool },
+    Spremenljivka{ tip: Tip, ime: String, naslov: i32, z_odmikom: bool, spremenljiva: bool },
     Referenca(Rc<Vozlišče>),
     RefSeznama(Rc<Vozlišče>),
 
@@ -140,7 +140,7 @@ impl Display for Vozlišče {
             Real(število) => število.to_string(),
             Znak(znak)    => znak.to_string(),
 
-            Spremenljivka{ tip, ime, naslov, z_odmikom } => format!("{ime}: {tip} ({}{naslov})", if *z_odmikom { "+" } else { "@" }),
+            Spremenljivka{ tip, ime, naslov, z_odmikom, .. } => format!("{ime}: {tip} ({}{naslov})", if *z_odmikom { "+" } else { "@" }),
             Referenca(spremenljivka) | RefSeznama(spremenljivka) => "@".to_string() + &spremenljivka.to_string(),
 
             Dereferenciraj(spremenljivka) => spremenljivka.to_string() + &"@".to_string(),
@@ -217,8 +217,9 @@ impl PartialEq for Vozlišče {
             (Znak(l), Znak(d)) => l == d,
             (Niz(l), Niz(d)) => l == d,
 
-            (Spremenljivka{ tip: lt, ime: li, naslov: ln, z_odmikom: lz }, Spremenljivka{ tip: dt, ime: di, naslov: dn, z_odmikom: dz }) =>
-                lt == dt && li == di && ln == dn && lz == dz,
+            (Spremenljivka{ tip: lt, ime: li, naslov: ln, z_odmikom: lz, spremenljiva: ls },
+             Spremenljivka{ tip: dt, ime: di, naslov: dn, z_odmikom: dz, spremenljiva: ds }) =>
+                lt == dt && li == di && ln == dn && lz == dz && ls == ds,
             (Referenca(l), Referenca(d)) => l == d,
             (Dereferenciraj(l), Dereferenciraj(d)) => l == d,
 

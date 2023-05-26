@@ -84,12 +84,14 @@ impl<'a> Parser<'a> {
         ].concat()
     }
 
-    fn dodaj_spremenljivko(&mut self, ime: String, tip: Tip) -> Rc<Vozlišče> {
+    fn dodaj_spremenljivko(&mut self, ime: String, tip: Tip, spremenljiva: bool) -> Rc<Vozlišče> {
         let naslov = match self.znotraj_funkcije {
             true  => self.spremenljivke_stack.last().unwrap().values().map(|s| s.sprememba_stacka()).sum(),
             false => self.spremenljivke.values().map(|s| s.sprememba_stacka()).sum(),
         };
-        let spr = Spremenljivka { tip, ime: ime.clone(), naslov, z_odmikom: self.znotraj_funkcije }.rc();
+        let z_odmikom = self.znotraj_funkcije;
+        let spr = Spremenljivka { tip, ime: ime.clone(), naslov, z_odmikom, spremenljiva }.rc();
+
         self.spremenljivke_stack.last_mut().unwrap().insert(ime.clone(), spr.clone());
         self.spremenljivke.insert(ime, spr.clone());
         spr

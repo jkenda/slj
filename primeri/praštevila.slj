@@ -20,7 +20,7 @@ funkcija poišči_praštevila(od: celo, do: celo, praštevila: @[celo], praštev
     }
 }
 
-naj praštevila: [celo; 1_000_000]
+spr praštevila: [celo; 1_000_000]
 praštevila[0] = 2
 praštevila[1] = 3
 naj praštevil = 2

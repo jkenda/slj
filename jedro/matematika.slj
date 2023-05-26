@@ -19,7 +19,7 @@ funkcija je_števka(z: znak) -> bool {
 }
 
 funkcija v_celo(niz: @[znak]) -> celo {
-    naj št = 0
+    spr št = 0
     za i = 0, i < niz.dolžina && je_števka(niz[i]), i += 1 {
         št = št * 10 + (niz[i] kot celo - '0' kot celo)
     }

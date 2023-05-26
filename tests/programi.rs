@@ -96,13 +96,13 @@ fn preveč_vrstic() {
 #[test]
 fn praštevil_do_1000() {
     let program = r#"
-        naj praštevila: [celo; 1000]
-        naj praštevil = 2
+        spr praštevila: [celo; 1000]
+        spr praštevil = 2
         praštevila[0] = 2
         praštevila[1] = 3
 
         za kandidat = 5, kandidat <= praštevila.dolžina, kandidat += 2 {
-            naj praštevilo = resnica
+            spr praštevilo = resnica
 
             za i = 0, praštevila[i]**2 <= kandidat && praštevilo, i += 1 {
                 če kandidat % praštevila[i] == 0 {
@@ -141,15 +141,15 @@ fn spr_pred_funkcijo() {
         funkcija init() -> celo {
             vrni 0
         }
-        naj spr = init()
+        spr št = init()
         funkcija inkrement() -> brez {
-            spr += 1
+            št += 1
         }
         naj i = 0; dokler i < 3 {
             inkrement()
             i += 1
         }
-        natisni(spr)
+        natisni(št)
     "#;
     assert_eq!(test(program, ""), "3");
 }
@@ -211,9 +211,9 @@ fn referenca() {
 #[test]
 fn indeksiranje() {
     let program = r#"
-        naj seznam: [real; 3]
+        spr seznam: [real; 3]
         naj ref = @seznam
-        naj dolžina = 0
+        spr dolžina = 0
     
         funkcija dodaj(seznam: @[real], št: real) {
             seznam[dolžina] = št
@@ -230,10 +230,9 @@ fn indeksiranje() {
         dodaj(ref, 3.0)
 
         natisni!(seznam[0], " ", seznam[1], " ", ref[2], "\n")
-        naj i = 0; dokler i < seznam.dolžina {
+        za i = 0, i < seznam.dolžina, i += 1 {
             seznam[i] = (ref.dolžina - i) kot real
             natisni!(ref[i], " ")
-            i += 1
         }
     "#;
     assert_eq!(test(program, ""), "1 2 3\n3 2 1 ");
@@ -258,7 +257,7 @@ fn fake_natisni() {
 #[test]
 fn zanke() {
     let program = r#"
-        naj i = 1; dokler i <= 3 {
+        spr i = 1; dokler i <= 3 {
             natisni(i)
             i += 1
         }
@@ -274,7 +273,7 @@ fn zanke() {
     assert_eq!(test(program, ""), "123");
 
     let program = r#"
-        naj i = 1
+        spr i = 1
         za , i <= 3, i += 1 {
             natisni(i)
         }
@@ -306,7 +305,7 @@ fn vhod() {
     assert_eq!(test(program, "zver"), "zver");
 
     let program = r#"
-        naj medp: [znak; 128]
+        spr medp: [znak; 128]
         naj dolžina = preberi(@medp)
         natisni(@medp, dolžina)
     "#;

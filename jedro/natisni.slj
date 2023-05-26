@@ -10,8 +10,8 @@ funkcija natisni(niz: @[znak]) {
 }
 
 funkcija natisni(niz: @[znak], dolžina: celo) {
-    dolžina = min(niz.dolžina, dolžina)
-    za i = 0, i < dolžina, i += 1 {
+    naj d = min(niz.dolžina, dolžina)
+    za i = 0, i < d, i += 1 {
         natisni(niz[i])
     }
 }
@@ -45,7 +45,7 @@ funkcija _dolžina(št: celo) -> celo {
 }
 
 funkcija natisni(št: celo, dolžina: celo) {
-    naj neg = laž
+    spr neg = laž
     če št < 0 {
         neg = resnica
         št *= -1

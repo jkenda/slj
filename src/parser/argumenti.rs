@@ -27,7 +27,7 @@ impl<'a> Parser<'a> {
                     match self.drevo(&[*literal]) {
                         Ok(drevo) => {
                             let tip = drevo.tip();
-                            let spr = self.dodaj_spremenljivko(self.naključno_ime(25), tip.clone());
+                            let spr = self.dodaj_spremenljivko(self.naključno_ime(25), tip.clone(), false);
                             let prirejanje = Prirejanje { spremenljivka: spr.clone(), izraz: drevo }.rc();
 
                             let referenca = match tip {
