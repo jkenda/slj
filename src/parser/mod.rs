@@ -95,6 +95,11 @@ impl<'a> Parser<'a> {
         spr
     }
 
+    fn poišči_spr(&self, ime: &Token) -> Result<Rc<Vozlišče>, Napake> {
+        Ok(self.spremenljivke.get(ime.as_str())
+            .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone())
+    }
+
     fn naključno_ime(&self, dolžina: usize) -> String {
         let mut ime = rand::thread_rng()
             .sample_iter(&Alphanumeric)

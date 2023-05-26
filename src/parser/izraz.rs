@@ -178,7 +178,7 @@ impl<'a> Parser<'a> {
                 let drevo = self.drevo(ostanek)?;
                 match drevo.tip() {
                     Tip::Bool => Ok(Zanikaj(drevo).rc()),
-                    _ => Err(Napake::from_zaporedje(izraz, E9, "Zanikati je mogoče samo Boolove vrednosti"))
+                    _ => Err(Napake::from_zaporedje(ostanek, E5, &format!("Nemogoča operacija: !{}", drevo.tip()))),
                 }
             },
             // negacija
@@ -187,17 +187,15 @@ impl<'a> Parser<'a> {
                 match drevo.tip() {
                     Tip::Celo => Ok(Odštevanje(Tip::Celo, Celo(0).rc(), drevo).rc()),
                     Tip::Real => Ok(Odštevanje(Tip::Real, Celo(0).rc(), drevo).rc()),
-                    _ => Err(Napake::from_zaporedje(ostanek, E9, "Izraza ni mogoče negirati"))
+                    _ => Err(Napake::from_zaporedje(ostanek, E5, &format!("Nemogoča operacija: -{}", drevo.tip()))),
                 }
             },
             // spremenljivka
-            [ ime @ Ime(..) ] => Ok(self.spremenljivke.get(ime.as_str())
-                                    .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone()),
+            [ ime @ Ime(..) ] => self.poišči_spr(ime),
 
             // referenciraj
             [ Operator("@", ..), ime @ Ime(..) ] => {
-                let spremenljivka = self.spremenljivke.get(ime.as_str())
-                        .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone();
+                let spremenljivka = self.poišči_spr(ime)?;
 
                 match spremenljivka.tip() {
                     Tip::Seznam(..) => Ok(RefSeznama(spremenljivka).rc()),
@@ -207,10 +205,9 @@ impl<'a> Parser<'a> {
 
             // dereferenciraj
             deref @ [ ime @ Ime(..), Operator("@", ..) ] => {
-                let referenca = self.spremenljivke.get(ime.as_str())
-                    .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?;
+                let referenca = self.poišči_spr(ime)?;
 
-                match &**referenca {
+                match &*referenca {
                     Spremenljivka { tip, .. } => match &*tip {
                         Tip::Referenca(..) => Ok(Dereferenciraj(referenca.clone()).rc()),
                         _ => Err(Napake::from_zaporedje(deref, E2, "Dereferenciramo lahko samo referenco.")),
@@ -222,10 +219,9 @@ impl<'a> Parser<'a> {
             // indeksiraj
             [ ime @ Ime(..), Ločilo("[", ..), indeks @ .., Ločilo("]", ..) ] => {
                 let indeks = self.drevo(indeks)?.rc();
-                let spremenljivka = self.spremenljivke.get(ime.as_str())
-                    .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?;
+                let spremenljivka = self.poišči_spr(ime)?;
 
-                match &**spremenljivka {
+                match &*spremenljivka {
                     Spremenljivka { tip: Tip::Seznam(..), .. } =>
                         Ok(Indeksiraj{ seznam_ref: RefSeznama(spremenljivka.clone()).rc(), indeks }.rc()),
                     Spremenljivka { tip: Tip::RefSeznama(..), .. } =>
@@ -236,8 +232,7 @@ impl<'a> Parser<'a> {
             }
 
             [ ime @ Ime(..), Ločilo(".", ..), Ime("dolžina", ..) ] => {
-                let spremenljivka = self.spremenljivke.get(ime.as_str())
-                    .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?;
+                let spremenljivka = self.poišči_spr(ime)?;
 
                 match spremenljivka.tip() {
                     Tip::Seznam(..) => Ok(Dolžina(spremenljivka.clone()).rc()),

@@ -97,9 +97,7 @@ impl<'a> Parser<'a> {
 
     fn prirejanje(&mut self, ime: &Token<'a>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
-        let spremenljivka = self.spremenljivke.get(ime.as_str())
-            .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?
-            .clone();
+        let spremenljivka = self.poišči_spr(ime)?;
 
         if izraz.tip() != spremenljivka.tip() {
             return Err(Napake::from_zaporedje(&[*ime], E3,
@@ -111,9 +109,7 @@ impl<'a> Parser<'a> {
 
     fn prirejanje_ref(&mut self, ime: &Token<'a>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
-        let referenca = self.spremenljivke.get(ime.as_str())
-            .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?
-            .clone();
+        let referenca = self.poišči_spr(ime)?;
 
         match referenca.tip() {
             Tip::Referenca(tip) => {
@@ -135,9 +131,7 @@ impl<'a> Parser<'a> {
         let izraz = self.drevo(izraz)?;
         let indeks = Some(self.drevo(indeks)?);
         let tip_indeksa = indeks.clone().unwrap().tip();
-        let spr = self.spremenljivke.get(ime.as_str())
-            .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?
-            .clone();
+        let spr = self.poišči_spr(ime)?;
 
         if let Tip::Seznam(tip, _) | Tip::RefSeznama(tip) = spr.tip() {
             if *tip != izraz.tip() {
@@ -159,8 +153,7 @@ impl<'a> Parser<'a> {
     }
 
     fn kombinirano_prirejanje(&mut self, ime: &Token, operator: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
-        let spremenljivka = self.spremenljivke.get(ime.as_str())
-            .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone();
+        let spremenljivka = self.poišči_spr(ime)?;
         let drevo = self.drevo(izraz)?;
         let izraz = Self::prirejanje_v_kombinirano(spremenljivka.clone(), operator, drevo)?;
 
@@ -168,8 +161,7 @@ impl<'a> Parser<'a> {
     }
 
     fn kombinirano_prirejanje_ref(&mut self, ime: &Token, operator: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
-        let referenca = self.spremenljivke.get(ime.as_str())
-            .ok_or(Napake::from_zaporedje(&[*ime], E2, "Neznana spremenljivka"))?.clone();
+        let referenca = self.poišči_spr(ime)?;
         let spremenljivka = match referenca.tip() {
             Tip::Referenca(_) => Dereferenciraj(referenca.clone()).rc(),
             _ => Err(Napake::from_zaporedje(&[*ime, *operator], E3, "Dereferencirati je mogoče samo referenco."))?
@@ -214,7 +206,7 @@ impl<'a> Parser<'a> {
     fn vrni(&mut self, vrni: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let drevo = self.drevo(izraz)?;
         let spremenljivka = self.spremenljivke.get("0_vrni")
-            .ok_or(Napake::from_zaporedje(&[*vrni], E5, "nepričakovana beseda: 'vrni', uprabljena zunaj funkcije"))?.clone();
+            .ok_or(Napake::from_zaporedje(&[*vrni], E5, "nepričakovana beseda: 'vrni', uporabljena zunaj funkcije"))?.clone();
 
         if drevo.tip() != spremenljivka.tip() {
             return Err(Napake::from_zaporedje(izraz, E3, &format!("Ne morem vrniti spremenljivke tipa '{}' iz funkcije tipa '{}'", drevo.tip(), spremenljivka.tip())));

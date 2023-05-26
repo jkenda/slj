@@ -82,24 +82,7 @@ impl Program {
                     *pc + 1
                 },
                 GETC => {
-                    let mut buf: [u8; 4] = [0, 0, 0, 0];
-                    let _ = vhod.read(&mut buf[..1]).unwrap();
-
-                    if buf[0] & 0b11100000u8 == 0b11000000u8 {
-                        // a two byte unicode character
-                        vhod.read(&mut buf[1..2]).unwrap();
-                    }
-                    else if buf[0] & 0b11110000u8 == 0b11100000u8 {
-                        // a three byte unicode character
-                        vhod.read(&mut buf[1..3]).unwrap();
-                    }
-                    else if buf[0] & 0b11111000u8 == 0b11110000u8 {
-                        // a four byte unicode character
-                        vhod.read(&mut buf[1..4]).unwrap();
-                    }
-
-                    let c = str::from_utf8(&buf).unwrap().chars().next().unsafe_unwrap();
-
+                    let c = preberi_znak(vhod).unwrap_or('\0');
                     stack.push(Podatek { c });
                     *pc + 1
                 }
@@ -163,31 +146,18 @@ impl Program {
                     *pc + 1
                 }
 
-                TOP (naslov) => { *addroff = stack.len() as i32 + naslov; *pc + 1 },
+                TOP(naslov) => { *addroff = stack.len() as i32 + naslov; *pc + 1 },
 
                 SOFF => { *addroff = stack.pop()?.i;   *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff as i32 }); *pc + 1 },
 
-                PUTC => { write!(izhod, "{}", stack.pop()?.c).ok()?; *pc + 1 },
+                PUTC => {
+                    let c = stack.pop()?.c;
+                    write!(izhod, "{c}").ok()?;
+                    *pc + 1
+                },
                 GETC => {
-                    let mut buf: [u8; 4] = [0, 0, 0, 0];
-                    let _ = vhod.read(&mut buf[..1]).ok()?;
-
-                    if buf[0] & 0b11100000u8 == 0b11000000u8 {
-                        // a two byte unicode character
-                        vhod.read(&mut buf[1..2]).ok()?;
-                    }
-                    else if buf[0] & 0b11110000u8 == 0b11100000u8 {
-                        // a three byte unicode character
-                        vhod.read(&mut buf[1..3]).ok()?;
-                    }
-                    else if buf[0] & 0b11111000u8 == 0b11110000u8 {
-                        // a four byte unicode character
-                        vhod.read(&mut buf[1..4]).ok()?;
-                    }
-
-                    let c = str::from_utf8(&buf).ok()?.chars().next()?;
-
+                    let c = preberi_znak(vhod)?;
                     stack.push(Podatek { c });
                     *pc + 1
                 }
@@ -219,6 +189,26 @@ impl Program {
         };
         Some(())
     }
+}
+
+fn preberi_znak(vhod: &mut impl io::Read) -> Option<char> {
+    let mut buf: [u8; 4] = [0, 0, 0, 0];
+    let _ = vhod.read(&mut buf[..1]).unwrap();
+
+    if buf[0] & 0b11100000 == 0b11000000 {
+        // a two byte unicode character
+        vhod.read(&mut buf[1..2]).ok()?;
+    }
+    else if buf[0] & 0b11110000 == 0b11100000 {
+        // a three byte unicode character
+        vhod.read(&mut buf[1..3]).ok()?;
+    }
+    else if buf[0] & 0b11111000 == 0b11110000 {
+        // a four byte unicode character
+        vhod.read(&mut buf[1..4]).ok()?;
+    }
+
+    str::from_utf8(&buf).ok()?.chars().next()
 }
 
 #[cfg(test)]
