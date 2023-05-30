@@ -318,7 +318,7 @@ mod testi {
             argumenti: Zaporedje([].to_vec()).rc(),
         }.rc());
 
-        parser.spremenljivke.insert("a".to_string(), Rc::new(Spremenljivka { tip: Tip::Celo, ime: "a".to_string(), naslov: 0, z_odmikom: false, spremenljiva: false }));
+        parser.spremenljivke.insert("a", Rc::new(Spremenljivka { tip: Tip::Celo, ime: "a".to_string(), naslov: 0, z_odmikom: false, spremenljiva: false }));
         assert_eq!(parser.osnovni([ Ime("a", 1, 1)].as_slice()).unwrap(), parser.spremenljivke["a"].clone());
     }
 

@@ -28,8 +28,8 @@ impl<'a> Parser<'a> {
         let pc   = Spremenljivka { tip: Tip::Celo, ime: "0_PC".to_string(), naslov: vrni.sprememba_stacka(), z_odmikom: true, spremenljiva: false }.rc();
 
         let mut spr_funkcije = HashMap::from([
-            ("0_vrni".to_string(), vrni.clone()),
-            ("0_PC".to_string(), pc.clone()),
+            ("0_vrni", vrni.clone()),
+            ("0_PC", pc.clone()),
         ]);
 
         let mut naslov_nove = vrni.sprememba_stacka() + pc.sprememba_stacka();
@@ -59,26 +59,18 @@ impl<'a> Parser<'a> {
                 return Err(Napake::from_zaporedje(&[*ime], E7, "Imena parametrov morajo biti unikatna"))
             }
             else {
-                let spr = Spremenljivka { tip: tip.clone(), ime: ime.to_string(), naslov: naslov_nove, z_odmikom: true, spremenljiva: false }.rc();
-                spr_funkcije.insert(ime.to_string(), spr.clone());
+                let spr = Spremenljivka { tip: tip.clone(), ime: ime.to_string(), naslov: naslov_nove, z_odmikom: true, spremenljiva: true }.rc();
+                spr_funkcije.insert(ime.as_str(), spr.clone());
                 parametri.push(spr);
                 naslov_nove += tip.sprememba_stacka();
             }
         }
 
         let podpis_funkcije = Self::podpis_funkcije(ime, parametri.iter().map(|p| p.tip()).collect::<Vec<Tip>>().as_slice());
-        spr_funkcije.insert("0_OF".to_string(), Spremenljivka { tip: Tip::Celo, ime: "0_OF".to_string(), naslov: naslov_nove, z_odmikom: true, spremenljiva: false }.rc());
+        spr_funkcije.insert("0_OF", Spremenljivka { tip: Tip::Celo, ime: "0_OF".to_string(), naslov: naslov_nove, z_odmikom: true, spremenljiva: false }.rc());
 
-        let mut okolje_funkcije = Parser {
-            spremenljivke_stack: self.spremenljivke_stack.clone(),
-            funkcije_stack: self.funkcije_stack.clone(),
-            reference_stack: self.reference_stack.clone(),
-            spremenljivke: self.spremenljivke.clone(),
-            funkcije: self.funkcije.clone(),
-            št_klicev: self.št_klicev.clone(),
-            reference: self.reference.clone(),
-            znotraj_funkcije: true,
-        };
+        let mut okolje_funkcije = self.clone();
+        okolje_funkcije.znotraj_funkcije = true;
 
         okolje_funkcije.spremenljivke_stack.push(spr_funkcije.clone());
         okolje_funkcije.spremenljivke.extend(spr_funkcije);

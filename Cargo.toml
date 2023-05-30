@@ -9,7 +9,6 @@ default-run = "slj"
 
 [dependencies]
 regex = "1.8.2"
-rand = "0.5"
 no-panic = "0.1.22"
 unsafe_unwrap = "0.1.0"
 

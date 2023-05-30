@@ -1,5 +1,5 @@
-use std::{rc::Rc, fmt::Display, mem::{discriminant, self}, cell::RefCell, collections::HashMap};
-use super::tip::Tip;
+use std::{rc::Rc, fmt::Display, mem::{discriminant, self}, collections::HashMap};
+use super::{tip::Tip, napaka::{Napake, OznakaNapake::*}, tokenizer::Token};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
@@ -285,7 +285,6 @@ impl PartialEq for Vozlišče {
 }
 
 impl Vozlišče {
-
     pub fn drevo(&self, globina: usize) -> String {
         match self {
             Prazno => "  ".repeat(globina) + "()\n",
@@ -387,12 +386,151 @@ impl Vozlišče {
         }
     }
 
-    pub fn rc(&self) -> Rc<Self> {
-        Rc::new(self.clone())
+    pub fn eval(&self, izraz: &[Token]) -> Result<Vozlišče, Napake> {
+        match self {
+            Celo(_) | Real(_) | Znak(_) | Niz(_) | Resnica | Laž => Ok(self.clone()),
+
+            Spremenljivka{ ime, tip, .. } => Err(Napake::from_zaporedje(izraz, E2, &format!("Vrednost spremenljivke {ime}: {tip} ni znana vnaprej."))),
+            Referenca(spr) => spr.eval(izraz),
+            RefSeznama(spr) => spr.eval(izraz),
+
+            Dereferenciraj(spr) => spr.eval(izraz),
+            Indeksiraj{ seznam_ref, .. } => seznam_ref.eval(izraz),
+            Dolžina(spr) => match spr.tip() {
+                Tip::Seznam(_, dolžina) => Ok(Celo(dolžina)),
+                Tip::RefSeznama(_) => match &**spr {
+                    Spremenljivka { tip, ime, .. } => Err(Napake::from_zaporedje(izraz, E2, &format!("Dolžina seznama {ime}: {tip} ni znana vnaprej."))),
+                    _ => unreachable!(),
+                }
+                _ => unreachable!(),
+            },
+
+            Seštevanje(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                    (Celo(l), Celo(d)) => Ok(Celo(l + d)),
+                    (Real(l), Real(d)) => Ok(Real(l + d)),
+                    _ => unreachable!(),
+            },
+            Odštevanje(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                    (Celo(l), Celo(d)) => Ok(Celo(l - d)),
+                    (Real(l), Real(d)) => Ok(Real(l - d)),
+                    _ => unreachable!(),
+            },
+            Množenje(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                    (Celo(l), Celo(d)) => Ok(Celo(l * d)),
+                    (Real(l), Real(d)) => Ok(Real(l * d)),
+                    _ => unreachable!(),
+            },
+            Deljenje(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                    (Celo(l), Celo(d)) => Ok(Celo(l / d)),
+                    (Real(l), Real(d)) => Ok(Real(l / d)),
+                    _ => unreachable!(),
+            },
+            Modulo(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(Celo(l % d)),
+                (Real(l), Real(d)) => Ok(Real(l % d)),
+                _ => unreachable!(),
+            },
+            Potenca(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(Celo(l.pow(d as u32))),
+                (Real(l), Real(d)) => Ok(Real(l.powf(d))),
+                _ => unreachable!(),
+            },
+
+            CeloVReal(št) => match št.eval(izraz)? {
+                Celo(št) => Ok(Real(št as f32)),
+                _ => unreachable!(),
+            },
+            RealVCelo(št) => match št.eval(izraz)? {
+                Real(št) => Ok(Celo(št as i32)),
+                _ => unreachable!(),
+            },
+            CeloVZnak(št) => match št.eval(izraz)? {
+                Celo(št) => Ok(Znak(char::from_u32(št as u32).ok_or(Napake::from_zaporedje(izraz, E2, &format!("Ne morem pretovriti št. {št} v znak.")))?)),
+                _ => unreachable!(),
+            },
+            ZnakVCelo(št) => match št.eval(izraz)? {
+                Znak(št) => Ok(Celo(št as i32)),
+                _ => unreachable!(),
+            },
+
+            Zanikaj(bool) => match bool.eval(izraz)? {
+                Resnica => Ok(Laž),
+                Laž => Ok(Resnica),
+                _ => unreachable!(),
+            },
+            Konjunkcija(l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Laž, Laž)         => Ok(Laž),
+                (Laž, Resnica)     => Ok(Laž),
+                (Resnica, Laž)     => Ok(Laž),
+                (Resnica, Resnica) => Ok(Resnica),
+                _ => unreachable!(),
+            },
+            Disjunkcija(l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Laž, Laž)         => Ok(Laž),
+                (Laž, Resnica)     => Ok(Resnica),
+                (Resnica, Laž)     => Ok(Resnica),
+                (Resnica, Resnica) => Ok(Resnica),
+                _ => unreachable!(),
+            },
+
+            BitniAli(l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(Celo(l | d)),
+                _ => unreachable!(),
+            },
+            BitniXor(l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(Celo(l ^ d)),
+                _ => unreachable!(),
+            },
+            BitniIn(l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(Celo(l & d)),
+                _ => unreachable!(),
+            },
+            BitniPremikLevo(l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(Celo(l << d)),
+                _ => unreachable!(),
+            },
+            BitniPremikDesno(l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(Celo(l >> d)),
+                _ => unreachable!(),
+            },
+
+            Enako(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(if l == d { Resnica } else { Laž }),
+                (Real(l), Real(d)) => Ok(if l == d { Resnica } else { Laž }),
+                _ => unreachable!(),
+            },
+            NiEnako(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(if l != d { Resnica } else { Laž }),
+                (Real(l), Real(d)) => Ok(if l != d { Resnica } else { Laž }),
+                _ => unreachable!(),
+            },
+            Večje(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(if l > d { Resnica } else { Laž }),
+                (Real(l), Real(d)) => Ok(if l > d { Resnica } else { Laž }),
+                _ => unreachable!(),
+            },
+            VečjeEnako(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(if l >= d { Resnica } else { Laž }),
+                (Real(l), Real(d)) => Ok(if l >= d { Resnica } else { Laž }),
+                _ => unreachable!(),
+            },
+            Manjše(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(if l < d { Resnica } else { Laž }),
+                (Real(l), Real(d)) => Ok(if l < d { Resnica } else { Laž }),
+                _ => unreachable!(),
+            },
+            ManjšeEnako(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+                (Celo(l), Celo(d)) => Ok(if l <= d { Resnica } else { Laž }),
+                (Real(l), Real(d)) => Ok(if l <= d { Resnica } else { Laž }),
+                _ => unreachable!(),
+            },
+
+            _ => unreachable!(),
+        }
     }
 
-    pub fn cell(&self) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(self.clone()))
+    pub fn rc(&self) -> Rc<Self> {
+        Rc::new(self.clone())
     }
 
     pub fn sprememba_stacka(&self) -> i32 {
@@ -586,7 +724,8 @@ impl Vozlišče {
 
 #[cfg(test)]
 mod testi {
-    use crate::parser::{tokenizer::Tokenize, Parse, drevo::{Prazno, FunkcijskiKlic, Zaporedje}};
+    use super::*;
+    use crate::parser::{tokenizer::{Tokenize, L}, Parse, drevo::{Prazno, FunkcijskiKlic, Zaporedje}};
 
     #[test]
     fn eq() {
@@ -608,6 +747,102 @@ mod testi {
             funkcija: rekurzivna_f.clone(),
             spremenljivke: Zaporedje(vec![]).rc(),
             argumenti: Zaporedje(vec![]).rc() }), true);
+    }
+
+    #[test]
+    fn eval() {
+        assert_eq!(Seštevanje(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(13));
+        assert_eq!(Celo(42).eval(&[]).unwrap(), Celo(42));
+        assert_eq!(Real(3.14).eval(&[]).unwrap(), Real(3.14));
+        assert_eq!(Znak('ć').eval(&[]).unwrap(), Znak('ć'));
+        assert_eq!(Niz("ribič".to_string()).eval(&[]).unwrap(), Niz("ribič".to_string()));
+
+        assert_eq!(Dolžina(Spremenljivka { tip: Tip::Seznam(Box::new(Tip::Brez), 14), ime: "".to_string(), naslov: 0, z_odmikom: false, spremenljiva: true }.rc()).eval(&[]).unwrap(), Celo(14));
+
+        assert_eq!(Seštevanje(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(13));
+        assert_eq!(Seštevanje(Tip::Real, Real(13.0).rc(), Real(29.0).rc()).eval(&[]).unwrap(), Real(42.0));
+        assert_eq!(Odštevanje(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(1));
+        assert_eq!(Odštevanje(Tip::Real, Real(13.0).rc(), Real(29.0).rc()).eval(&[]).unwrap(), Real(-16.0));
+        assert_eq!(Množenje(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(42));
+        assert_eq!(Množenje(Tip::Real, Real(13.0).rc(), Real(29.0).rc()).eval(&[]).unwrap(), Real(377.0));
+        assert_eq!(Deljenje(Tip::Celo, Celo(16).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(2));
+        assert_eq!(Deljenje(Tip::Real, Real(13.0).rc(), Real(4.0).rc()).eval(&[]).unwrap(), Real(3.25));
+        assert_eq!(Modulo(Tip::Celo, Celo(16).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(4));
+        assert_eq!(Modulo(Tip::Real, Real(13.75).rc(), Real(0.5).rc()).eval(&[]).unwrap(), Real(0.25));
+        assert_eq!(Potenca(Tip::Celo, Celo(2).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(64));
+        assert_eq!(Potenca(Tip::Real, Real(4.0).rc(), Real(0.5).rc()).eval(&[]).unwrap(), Real(2.0));
+
+        assert_eq!(CeloVReal(Celo(13).rc()).eval(&[]).unwrap(), Real(13.0));
+        assert_eq!(RealVCelo(Real(13.0).rc()).eval(&[]).unwrap(), Celo(13));
+        assert_eq!(RealVCelo(Real(3.14).rc()).eval(&[]).unwrap(), Celo(3));
+        assert_eq!(CeloVZnak(Celo(32).rc()).eval(&[Token::Literal(L::Celo("32", 1, 1))]).unwrap(), Znak(' '));
+        assert_eq!(ZnakVCelo(Znak('\n').rc()).eval(&[]).unwrap(), Celo(10));
+
+        assert_eq!(Zanikaj(Resnica.rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Zanikaj(Laž.rc()).eval(&[]).unwrap(), Resnica);
+
+        assert_eq!(Konjunkcija(Laž.rc(), Laž.rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Konjunkcija(Laž.rc(), Resnica.rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Konjunkcija(Resnica.rc(), Laž.rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Konjunkcija(Resnica.rc(), Resnica.rc()).eval(&[]).unwrap(), Resnica);
+
+        assert_eq!(Disjunkcija(Laž.rc(), Laž.rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Disjunkcija(Laž.rc(), Resnica.rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(Disjunkcija(Resnica.rc(), Laž.rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(Disjunkcija(Resnica.rc(), Resnica.rc()).eval(&[]).unwrap(), Resnica);
+
+        assert_eq!(BitniAli(Celo(0b10).rc(), Celo(0b01).rc()).eval(&[]).unwrap(), Celo(0b11));
+        assert_eq!(BitniAli(Celo(0b00).rc(), Celo(0b01).rc()).eval(&[]).unwrap(), Celo(0b01));
+
+        assert_eq!(BitniIn(Celo(0b10).rc(), Celo(0b01).rc()).eval(&[]).unwrap(), Celo(0b00));
+        assert_eq!(BitniIn(Celo(0b11).rc(), Celo(0b01).rc()).eval(&[]).unwrap(), Celo(0b01));
+
+        assert_eq!(BitniXor(Celo(0b10).rc(), Celo(0b01).rc()).eval(&[]).unwrap(), Celo(0b11));
+        assert_eq!(BitniXor(Celo(0b11).rc(), Celo(0b01).rc()).eval(&[]).unwrap(), Celo(0b10));
+
+        assert_eq!(BitniPremikLevo(Celo(0b10).rc(), Celo(1).rc()).eval(&[]).unwrap(), Celo(0b100));
+        assert_eq!(BitniPremikLevo(Celo(0b11).rc(), Celo(2).rc()).eval(&[]).unwrap(), Celo(0b1100));
+
+        assert_eq!(BitniPremikDesno(Celo(0b10).rc(), Celo(1).rc()).eval(&[]).unwrap(), Celo(0b1));
+        assert_eq!(BitniPremikDesno(Celo(0b1100).rc(), Celo(2).rc()).eval(&[]).unwrap(), Celo(0b11));
+
+        assert_eq!(Enako(Tip::Celo, Celo(12).rc(), Celo(12).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(Enako(Tip::Celo, Celo(13).rc(), Celo(14).rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Enako(Tip::Real, Real(3.14).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(Enako(Tip::Real, Real(3.14).rc(), Real(3.14159268).rc()).eval(&[]).unwrap(), Laž);
+
+        assert_eq!(NiEnako(Tip::Celo, Celo(12).rc(), Celo(12).rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(NiEnako(Tip::Celo, Celo(13).rc(), Celo(14).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(NiEnako(Tip::Real, Real(3.14).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(NiEnako(Tip::Real, Real(3.14).rc(), Real(3.14159268).rc()).eval(&[]).unwrap(), Resnica);
+
+        assert_eq!(Večje(Tip::Celo, Celo(12).rc(), Celo(12).rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Večje(Tip::Celo, Celo(14).rc(), Celo(13).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(Večje(Tip::Real, Real(3.14).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Večje(Tip::Real, Real(3.14159268).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Resnica);
+
+        assert_eq!(Večje(Tip::Celo, Celo(12).rc(), Celo(12).rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Večje(Tip::Celo, Celo(14).rc(), Celo(13).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(Večje(Tip::Real, Real(3.14).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Večje(Tip::Real, Real(3.14159268).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Resnica);
+
+        assert_eq!(VečjeEnako(Tip::Celo, Celo(12).rc(), Celo(12).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(VečjeEnako(Tip::Celo, Celo(14).rc(), Celo(13).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(VečjeEnako(Tip::Real, Real(3.14).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(VečjeEnako(Tip::Real, Real(3.14159268).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(VečjeEnako(Tip::Real, Real(3.14).rc(), Real(3.14159268).rc()).eval(&[]).unwrap(), Laž);
+
+        assert_eq!(Manjše(Tip::Celo, Celo(12).rc(), Celo(12).rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Manjše(Tip::Celo, Celo(13).rc(), Celo(14).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(Manjše(Tip::Real, Real(3.14).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Manjše(Tip::Real, Real(3.14159268).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(Manjše(Tip::Real, Real(3.14).rc(), Real(3.14159268).rc()).eval(&[]).unwrap(), Resnica);
+
+        assert_eq!(ManjšeEnako(Tip::Celo, Celo(12).rc(), Celo(12).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(ManjšeEnako(Tip::Celo, Celo(13).rc(), Celo(14).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(ManjšeEnako(Tip::Real, Real(3.14).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Resnica);
+        assert_eq!(ManjšeEnako(Tip::Real, Real(3.14159268).rc(), Real(3.14).rc()).eval(&[]).unwrap(), Laž);
+        assert_eq!(ManjšeEnako(Tip::Real, Real(3.14).rc(), Real(3.14159268).rc()).eval(&[]).unwrap(), Resnica);
     }
 
 }

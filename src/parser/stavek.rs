@@ -8,9 +8,9 @@ impl<'a> Parser<'a> {
             // deklaracija
             [ Rezerviranka("spr", ..), ime @ Ime(..), Ločilo(":", ..), tip @ .. ] => self.deklaracija(ime, tip),
             // inicializacija
-            [ Rezerviranka("spr", ..), ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.inicializacija(ime, None, ostanek, true),
-            // inicializacija
-            [ Rezerviranka("naj", ..), ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.inicializacija(ime, None, ostanek, false),
+            [ Rezerviranka("spr", ..),  ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.inicializacija(ime, None, ostanek, true),
+            [ Rezerviranka("naj", ..),  ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.inicializacija(ime, None, ostanek, false),
+            [ Rezerviranka("kons", ..), ime @ Ime(..), Operator("=", ..), ostanek @ .. ] => self.konstanta(ime, None, ostanek),
             // prirejanje referenci
             [ ime @ Ime(..), Operator("@", ..), Operator("=", ..), ostanek @ .. ] => self.prirejanje_ref(ime, ostanek),
             // prirejanje
@@ -64,11 +64,11 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn deklaracija(&mut self, ime: &Token, tip: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn deklaracija(&mut self, ime: &Token<'a>, tip: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
         let tip = Tip::from(tip)?;
         let spremenljivka = match self.spremenljivke.get(ime.as_str()) {
             Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Spremenljivka že obstaja")),
-            None => Ok(self.dodaj_spremenljivko(ime.to_string(), tip.clone(), true)),
+            None => Ok(self.dodaj_spremenljivko(ime.as_str(), tip.clone(), true)),
         }?;
         
         match tip {
@@ -85,7 +85,7 @@ impl<'a> Parser<'a> {
         };
         let spremenljivka = match self.spremenljivke.get(ime.as_str()) {
             Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Spremenljivka že obstaja")),
-            None => Ok(self.dodaj_spremenljivko(ime.to_string(), tip_spr.clone(), spremenljiva))
+            None => Ok(self.dodaj_spremenljivko(ime.as_str(), tip_spr.clone(), spremenljiva))
         }?;
 
         if tip_spr == izraz.tip() {
@@ -94,6 +94,26 @@ impl<'a> Parser<'a> {
         else {
             Err(Napake::from_zaporedje(tip_izraza.unwrap(), E3,
                     &format!("Izraza tipa '{}' ni mogoče prirediti spremenljivki tipa '{}'", izraz.tip(), tip_spr)))
+        }
+    }
+
+    fn konstanta(&mut self, ime: &Token<'a>, tip_izraza: Option<&[Token]>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+        let drevo = self.drevo(izraz)?;
+        let tip_kons = match tip_izraza {
+            Some(tip) => Tip::from(tip)?,
+            None => drevo.tip(),
+        };
+        match self.konstante.get(ime.as_str()) {
+            Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Konstanta že obstaja")),
+            None => Ok(self.dodaj_konstanto(ime.to_string(), drevo.eval(izraz)?.rc()))
+        }?;
+
+        if tip_kons == drevo.tip() {
+            Ok(Prazno.rc())
+        }
+        else {
+            Err(Napake::from_zaporedje(tip_izraza.unwrap(), E3,
+                    &format!("Izraza tipa '{}' ni mogoče prirediti konstanti tipa '{}'", drevo.tip(), tip_kons)))
         }
     }
 
@@ -163,6 +183,14 @@ impl<'a> Parser<'a> {
 
     fn kombinirano_prirejanje(&mut self, ime: &Token, operator: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let spremenljivka = self.poišči_spr(ime)?;
+
+        if let Spremenljivka { spremenljiva, .. } = &*spremenljivka {
+            if !spremenljiva {
+                return Err(Napake::from_zaporedje(&[*ime], E3,
+                        &format!("Ne morem prirediti {}: ni spremenljiva vrednost", ime.as_str())));
+            }
+        }
+
         let drevo = self.drevo(izraz)?;
         let izraz = Self::prirejanje_v_kombinirano(spremenljivka.clone(), operator, drevo)?;
 

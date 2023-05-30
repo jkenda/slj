@@ -23,6 +23,7 @@ fn natisni_znak() {
 #[test]
 fn natisni_bool() {
     let program = r#"natisni(resnica)"#;
+    println!("{}", program.tokenize().parse().unwrap().to_string());
     assert_eq!(test(program, ""), "resnica");
 
     let program = r#"natisni(laž)"#;
@@ -145,7 +146,7 @@ fn spr_pred_funkcijo() {
         funkcija inkrement() -> brez {
             št += 1
         }
-        naj i = 0; dokler i < 3 {
+        spr i = 0; dokler i < 3 {
             inkrement()
             i += 1
         }
@@ -157,7 +158,7 @@ fn spr_pred_funkcijo() {
 #[test]
 fn multi_funkcija() {
     let program = r#"
-        naj a = 0; naj b = 0.0
+        spr a = 0; spr b = 0.0
         funkcija prištej(x: celo) -> brez {
             a += x
         }
@@ -243,7 +244,7 @@ fn fake_natisni() {
     let program = r#"
         funkcija _natisni(niz: @[znak]) {
             naj dolžina = niz.dolžina
-            naj i = 0; dokler i < dolžina {
+            spr i = 0; dokler i < dolžina {
                 natisni(niz[i])
                 i += 1
             }
@@ -303,6 +304,24 @@ fn vhod() {
         natisni(preberi())
     "#;
     assert_eq!(test(program, "zver"), "zver");
+
+    let program = r#"
+        spr medp: [znak; 128]
+        naj dolžina = preberi(@medp)
+        natisni(@medp, dolžina)
+    "#;
+    assert_eq!(test(program, "🥝Hard liquor mixed with a bit of intellect🥝\n"), "🥝Hard liquor mixed with a bit of intellect🥝\n");
+}
+
+#[test]
+fn konstante() {
+    let program = r#"
+        kons PI = 3.125
+        kons R = 13
+        kons OBSEG = 2.0 * PI * R kot real
+        natisni(OBSEG)
+    "#;
+    assert_eq!(test(program, ""), "81.25");
 
     let program = r#"
         spr medp: [znak; 128]

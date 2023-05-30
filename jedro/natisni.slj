@@ -36,7 +36,7 @@ funkcija _dolžina(št: celo) -> celo {
         vrni 1
     }
 
-    naj dolžina = 1
+    spr dolžina = 1
     dokler št > 9 {
         št /= 10
         dolžina += 1
@@ -85,12 +85,14 @@ funkcija natisni(št: real) {
         vrni
     }
 
-    naj decimalke = (za_vejico * 10.0**NATANČNOST_REAL kot real) kot celo;
-    naj natančnost = NATANČNOST_REAL
+    spr decimalke = (za_vejico * 10.0**NATANČNOST_REAL kot real) kot celo;
+    spr natančnost = NATANČNOST_REAL 
+
     dokler decimalke % 10 == 0 {
         decimalke /= 10
         natančnost -= 1
     }
+
     natisni('.')
     _natisni_dol(decimalke, natančnost)
 }

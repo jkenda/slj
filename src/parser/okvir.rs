@@ -34,7 +34,7 @@ impl<'a> Parser<'a> {
         if !self.znotraj_funkcije {
             self.spremenljivke_stack.push(HashMap::new());
             self.funkcije_stack.push(HashMap::new());
-            self.reference_stack.push(HashMap::new());
+            self.konstante_stack.push(HashMap::new());
         }
     }
 
@@ -56,8 +56,8 @@ impl<'a> Parser<'a> {
             for (ime, _) in self.funkcije_stack.pop().unwrap() {
                 self.funkcije.remove(&ime);
             }
-            for (ime, _) in self.reference_stack.pop().unwrap() {
-                self.reference.remove(&ime);
+            for (ime, _) in self.konstante_stack.pop().unwrap() {
+                self.konstante.remove(&ime);
             }
         }
 
