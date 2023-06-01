@@ -3,10 +3,10 @@ use std::fmt::Display;
 use Tip::*;
 
 use crate::parser::napaka::OznakaNapake::*;
-use crate::parser::tokenizer::L;
+use crate::parser::lekser::L;
 
 use super::napaka::{Napake, Napaka};
-use super::tokenizer::Token;
+use super::lekser::Žeton;
 use super::loci::*;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -23,15 +23,15 @@ pub enum Tip {
 }
 
 impl Tip {
-    pub fn from(izraz: &[Token]) -> Result<Self, Napake> {
-        use Token::{Ločilo, Operator};
+    pub fn from(izraz: &[Žeton]) -> Result<Self, Napake> {
+        use Žeton::{Ločilo, Operator};
         match izraz {
-            [ Token::Tip("brez", ..) ] => Ok(Tip::Brez),
-            [ Token::Tip("bool", ..) ] => Ok(Tip::Bool),
-            [ Token::Tip("celo", ..) ] => Ok(Tip::Celo),
-            [ Token::Tip("real", ..) ] => Ok(Tip::Real),
-            [ Token::Tip("znak", ..) ] => Ok(Tip::Znak),
-            [ Ločilo("[", ..), tip @ .., Ločilo(";", ..), len @ Token::Literal(L::Celo(..)), Ločilo("]", ..) ] => 
+            [ Žeton::Tip("brez", ..) ] => Ok(Tip::Brez),
+            [ Žeton::Tip("bool", ..) ] => Ok(Tip::Bool),
+            [ Žeton::Tip("celo", ..) ] => Ok(Tip::Celo),
+            [ Žeton::Tip("real", ..) ] => Ok(Tip::Real),
+            [ Žeton::Tip("znak", ..) ] => Ok(Tip::Znak),
+            [ Ločilo("[", ..), tip @ .., Ločilo(";", ..), len @ Žeton::Literal(L::Celo(..)), Ločilo("]", ..) ] => 
                 Ok(Tip::Seznam(Box::new(Tip::from(tip)?), 
                         match len.as_str().replace("_", "").parse() {
                             Ok(len) => Ok(len),
@@ -96,7 +96,7 @@ impl Display for Tip {
     }
 }
 
-fn zgradi_tip_strukta<'a: 'b, 'b>(mut izraz: &'b [Token<'a>]) -> Result<BTreeMap<String, Box<Tip>>, Napake> {
+fn zgradi_tip_strukta<'a: 'b, 'b>(mut izraz: &'b [Žeton<'a>]) -> Result<BTreeMap<String, Box<Tip>>, Napake> {
     let mut polja = BTreeMap::new();
     let mut napake = Napake::new();
 
@@ -105,7 +105,7 @@ fn zgradi_tip_strukta<'a: 'b, 'b>(mut izraz: &'b [Token<'a>]) -> Result<BTreeMap
         let (polje, _, ostanek) = ločeno.unwrap()?;
 
         match polje {
-            [ ime @ Token::Ime(..), Token::Ločilo(":", ..), tip @ .. ] => {
+            [ ime @ Žeton::Ime(..), Žeton::Ločilo(":", ..), tip @ .. ] => {
                 match Tip::from(tip) {
                     Ok(tip) => match polja.insert(ime.to_string(), Box::new(tip)) {
                         Some(..) => _ = napake.add_napaka(Napaka::from_zaporedje(&[*ime], E1, "Polje s tem imenom že obstaja")),
@@ -122,7 +122,7 @@ fn zgradi_tip_strukta<'a: 'b, 'b>(mut izraz: &'b [Token<'a>]) -> Result<BTreeMap
     }
     if izraz != &[] {
         match izraz {
-            [ ime @ Token::Ime(..), Token::Ločilo(":", ..), tip @ .. ] => {
+            [ ime @ Žeton::Ime(..), Žeton::Ločilo(":", ..), tip @ .. ] => {
                 match Tip::from(tip) {
                     Ok(tip) => match polja.insert(ime.to_string(), Box::new(tip)) {
                         Some(..) => _ = napake.add_napaka(Napaka::from_zaporedje(&[*ime], E1, "Polje s tem imenom že obstaja")),

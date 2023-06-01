@@ -61,8 +61,6 @@ funkcija natisni(št: celo, dolžina: celo) {
     _natisni(št)
 }
 
-naj NATANČNOST_REAL = 6
-
 funkcija _natisni_dol(št: celo, dolžina: celo) {
     če dolžina == 0 {
         vrni
@@ -72,6 +70,8 @@ funkcija _natisni_dol(št: celo, dolžina: celo) {
 }
 
 funkcija natisni(št: real) {
+    kons NATANČNOST = 6
+
     če št < 0.0 {
         natisni('-')
         št *= -1.0
@@ -85,8 +85,8 @@ funkcija natisni(št: real) {
         vrni
     }
 
-    spr decimalke = (za_vejico * 10.0**NATANČNOST_REAL kot real) kot celo;
-    spr natančnost = NATANČNOST_REAL 
+    spr decimalke = (za_vejico * 10.0**NATANČNOST kot real) kot celo
+    spr natančnost = NATANČNOST
 
     dokler decimalke % 10 == 0 {
         decimalke /= 10

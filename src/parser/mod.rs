@@ -1,5 +1,5 @@
 pub mod drevo;
-pub mod tokenizer;
+pub mod lekser;
 pub mod tip;
 pub mod napaka;
 
@@ -16,7 +16,7 @@ use std::{collections::HashMap, rc::Rc, iter};
 
 use drevo::{Drevo, Vozlišče::{*, self}, VozliščeOption::*};
 use tip::Tip;
-use tokenizer::{Token::{*, self}, L, Tokenize};
+use lekser::{Žeton::{*, self}, L, Razčleni};
 use loci::*;
 
 use self::napaka::{Napake, OznakaNapake::*, Napaka};
@@ -35,11 +35,11 @@ struct Parser<'a> {
 }
 
 pub trait Parse {
-    fn parse(&self) -> Result<Drevo, Napake>;
+    fn analiziraj(&self) -> Result<Drevo, Napake>;
 }
 
-impl Parse for Vec<Token<'_>> {
-    fn parse(&self) -> Result<Drevo, Napake> {
+impl Parse for Vec<Žeton<'_>> {
+    fn analiziraj(&self) -> Result<Drevo, Napake> {
         Parser::new().parse(self)
     }
 }
@@ -59,7 +59,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse(&mut self, izraz: &[Token<'a>]) -> Result<Drevo, Napake> {
+    fn parse(&mut self, izraz: &[Žeton<'a>]) -> Result<Drevo, Napake> {
         let izraz = [
             Self::standard().as_slice(),
             &[Ločilo("\n", 0, 0)],
@@ -69,16 +69,16 @@ impl<'a> Parser<'a> {
         Ok(Drevo::new(okvir, self.št_klicev.clone()))
     }
 
-    fn standard() -> Vec<Token<'static>> {
+    fn standard() -> Vec<Žeton<'static>> {
         const MATEMATIKA: &str = include_str!("../../jedro/matematika.slj");
         const NATISNI: &str = include_str!("../../jedro/natisni.slj");
         const PREBERI: &str = include_str!("../../jedro/preberi.slj");
         [
-            Parser::predprocesiraj(&MATEMATIKA.tokenize()).as_slice(),
+            Parser::predprocesiraj(&MATEMATIKA.razčleni()).as_slice(),
             &[Ločilo("\n", 0, 0)],
-            Parser::predprocesiraj(&NATISNI.tokenize()).as_slice(),
+            Parser::predprocesiraj(&NATISNI.razčleni()).as_slice(),
             &[Ločilo("\n", 0, 0)],
-            &Parser::predprocesiraj(&PREBERI.tokenize()),
+            &Parser::predprocesiraj(&PREBERI.razčleni()),
             &[Ločilo("\n", 0, 0)],
         ].concat()
     }
@@ -102,7 +102,7 @@ impl<'a> Parser<'a> {
         vrednost
     }
 
-    fn poišči_spr(&self, ime: &Token) -> Result<Rc<Vozlišče>, Napake> {
+    fn poišči_spr(&self, ime: &Žeton) -> Result<Rc<Vozlišče>, Napake> {
         match self.konstante.get(ime.as_str()) {
             Some(spr) => Ok(spr.clone()),
             None => match self.spremenljivke.get(ime.as_str()) {

@@ -20,7 +20,7 @@ const ŠTEVILKE: &[&str] = &[
 ];
 
 impl<'a> Parser<'a> {
-    pub fn argumenti<'b>(&mut self, izraz: &'b[Token<'a>]) -> Result<Argumenti, Napake> where 'a: 'b {
+    pub fn argumenti<'b>(&mut self, izraz: &'b[Žeton<'a>]) -> Result<Argumenti, Napake> where 'a: 'b {
         let mut napake = Napake::new();
 
         let mut tipi = Vec::new();

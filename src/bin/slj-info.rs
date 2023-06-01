@@ -1,6 +1,6 @@
 use std::{env, fs};
 
-use slj::parser::{tokenizer::Tokenize, Parse};
+use slj::parser::{lekser::Razčleni, Parse};
 use slj::program::ToProgram;
 
 fn main() {
@@ -13,11 +13,14 @@ fn main() {
     let datoteka = fs::read_to_string(&args[1])
         .expect("Napaka: ne morem odpreti datoteke");
 
-    let vrstice: Vec<&str> = datoteka.split('\n').collect();
+    let vrstice: Vec<&str> = datoteka
+        .split('\n')
+        .collect();
+
     let drevo = datoteka
         .as_str()
-        .tokenize()
-        .parse();
+        .razčleni()
+        .analiziraj();
 
 
     match drevo {
@@ -35,6 +38,6 @@ fn main() {
 }
 
 fn pomoč(ukaz: &String) {
-        println!("Ukaz: {ukaz} <pot>");
+    println!("Ukaz: {ukaz} <pot>");
 }
 

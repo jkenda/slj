@@ -1,7 +1,7 @@
-use super::{tokenizer::Token, napaka::{Napake, OznakaNapake}};
+use super::{lekser::Žeton, napaka::{Napake, OznakaNapake}};
 
-pub fn loči_spredaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &'b[&'static str]) ->
-    Option<Result<(&'b[Token<'a>], &'b Token<'a>, &'b[Token<'a>]), Napake>>
+pub fn loči_spredaj<'a, 'b>(izraz: &'b[Žeton<'a>], nizi: &'b[&'static str]) ->
+    Option<Result<(&'b[Žeton<'a>], &'b Žeton<'a>, &'b[Žeton<'a>]), Napake>>
     where 'a: 'b
 {
     let mut navadnih: isize = 0;
@@ -41,7 +41,7 @@ pub fn loči_spredaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &'b[&'static str]) ->
     None
 }
 
-pub fn loči_zadaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &[&'static str]) -> Option<Result<(&'b[Token<'a>], &'b Token<'a>, &'b[Token<'a>]), Napake>>
+pub fn loči_zadaj<'a, 'b>(izraz: &'b[Žeton<'a>], nizi: &[&'static str]) -> Option<Result<(&'b[Žeton<'a>], &'b Žeton<'a>, &'b[Žeton<'a>]), Napake>>
     where 'a: 'b
 {
     let mut navadnih: isize = 0;
@@ -83,7 +83,7 @@ pub fn loči_zadaj<'a, 'b>(izraz: &'b[Token<'a>], nizi: &[&'static str]) -> Opti
     None
 }
 
-pub fn razdeli<'a, 'b>(izraz: &'b[Token<'a>], nizi: &'b[&'static str]) -> Result<Vec<&'b[Token<'a>]>, Napake> where 'a: 'b {
+pub fn razdeli<'a, 'b>(izraz: &'b[Žeton<'a>], nizi: &'b[&'static str]) -> Result<Vec<&'b[Žeton<'a>]>, Napake> where 'a: 'b {
     match loči_spredaj(izraz, nizi) {
         Some(Ok((prvi_stavek, _, ostanek))) => {
             let mut razdeljeno = vec![prvi_stavek];
@@ -108,7 +108,7 @@ pub fn interpoliraj_niz(niz: &str) -> String {
 #[cfg(test)]
 mod testi {
     use super::*;
-    use crate::parser::{Token::*, tokenizer::Tokenize};
+    use crate::parser::{Žeton::*, tokenizer::Tokenize};
 
     #[test]
     fn poišči() {

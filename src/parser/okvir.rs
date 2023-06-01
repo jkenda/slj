@@ -1,7 +1,7 @@
 use super::*;
 
 impl<'a> Parser<'a> {
-    pub fn okvir(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    pub fn okvir(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         self.v_okvir();
         let zaporedje = self.zaporedje(izraz)?;
         let št_spr = self.iz_okvirja();
@@ -10,7 +10,7 @@ impl<'a> Parser<'a> {
     }
 
     // zaporedje izrazov, ločeno z ";" in "\n"
-    pub fn zaporedje(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    pub fn zaporedje(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let zaporedje = razdeli(izraz, &[";", "\n"])?;
         let mut izrazi: Vec<Rc<Vozlišče>> = Vec::new();
         let mut napake = Napake::new();

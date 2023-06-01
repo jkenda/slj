@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use super::tokenizer::Token;
+use super::lekser::Žeton;
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,7 +30,7 @@ pub enum OznakaNapake {
 }
 
 impl Napaka {
-    pub fn from_zaporedje(zaporedje: &[Token], oznaka: OznakaNapake, sporočilo: &str) -> Napaka {
+    pub fn from_zaporedje(zaporedje: &[Žeton], oznaka: OznakaNapake, sporočilo: &str) -> Napaka {
         let začetek = zaporedje[0].lokacija();
         let konec = {
             let žeton = zaporedje.last().unwrap();
@@ -46,7 +46,7 @@ impl Napake {
         Napake { napake: Vec::new() }
     }
 
-    pub fn from_zaporedje(zaporedje: &[Token], oznaka: OznakaNapake, sporočilo: &str) -> Napake {
+    pub fn from_zaporedje(zaporedje: &[Žeton], oznaka: OznakaNapake, sporočilo: &str) -> Napake {
         Self::new().add_napaka(Napaka::from_zaporedje(zaporedje, oznaka, sporočilo))
     }
 

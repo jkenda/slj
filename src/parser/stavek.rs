@@ -1,7 +1,7 @@
 use super::{*, argumenti::Argumenti};
 
 impl<'a> Parser<'a> {
-    pub fn stavek<'b>(&mut self, izraz: &'b[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
+    pub fn stavek<'b>(&mut self, izraz: &'b[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
         match izraz {
             // multifunkcijski klic
             [ ime @ Ime(..), Operator("!", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.multi_klic(ime, argumenti),
@@ -64,7 +64,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn deklaracija(&mut self, ime: &Token<'a>, tip: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    fn deklaracija(&mut self, ime: &Žeton<'a>, tip: &[Žeton]) -> Result<Rc<Vozlišče>, Napake> {
         let tip = Tip::from(tip)?;
         let spremenljivka = match self.spremenljivke.get(ime.as_str()) {
             Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Spremenljivka že obstaja")),
@@ -77,7 +77,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn inicializacija(&mut self, ime: &Token<'a>, tip_izraza: Option<&[Token]>, izraz: &[Token<'a>], spremenljiva: bool) -> Result<Rc<Vozlišče>, Napake> {
+    fn inicializacija(&mut self, ime: &Žeton<'a>, tip_izraza: Option<&[Žeton]>, izraz: &[Žeton<'a>], spremenljiva: bool) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
         let tip_spr = match tip_izraza {
             Some(tip) => Tip::from(tip)?,
@@ -97,7 +97,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn konstanta(&mut self, ime: &Token<'a>, tip_izraza: Option<&[Token]>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn konstanta(&mut self, ime: &Žeton<'a>, tip_izraza: Option<&[Žeton]>, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let drevo = self.drevo(izraz)?;
         let tip_kons = match tip_izraza {
             Some(tip) => Tip::from(tip)?,
@@ -117,7 +117,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn prirejanje(&mut self, ime: &Token<'a>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn prirejanje(&mut self, ime: &Žeton<'a>, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
         let spremenljivka = self.poišči_spr(ime)?;
 
@@ -136,7 +136,7 @@ impl<'a> Parser<'a> {
         Ok(Prirejanje { spremenljivka, izraz }.rc())
     }
 
-    fn prirejanje_ref(&mut self, ime: &Token<'a>, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn prirejanje_ref(&mut self, ime: &Žeton<'a>, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
         let referenca = self.poišči_spr(ime)?;
 
@@ -156,7 +156,7 @@ impl<'a> Parser<'a> {
 
     }
 
-    fn prirejanje_seznamu(&mut self, ime: &Token<'a>, indeks: &[Token<'a>], izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn prirejanje_seznamu(&mut self, ime: &Žeton<'a>, indeks: &[Žeton<'a>], izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
         let indeks = Some(self.drevo(indeks)?);
         let tip_indeksa = indeks.clone().unwrap().tip();
@@ -181,7 +181,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn kombinirano_prirejanje(&mut self, ime: &Token, operator: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn kombinirano_prirejanje(&mut self, ime: &Žeton, operator: &Žeton, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let spremenljivka = self.poišči_spr(ime)?;
 
         if let Spremenljivka { spremenljiva, .. } = &*spremenljivka {
@@ -197,7 +197,7 @@ impl<'a> Parser<'a> {
         Ok(Prirejanje { spremenljivka, izraz }.rc())
     }
 
-    fn kombinirano_prirejanje_ref(&mut self, ime: &Token, operator: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn kombinirano_prirejanje_ref(&mut self, ime: &Žeton, operator: &Žeton, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let referenca = self.poišči_spr(ime)?;
         let spremenljivka = match referenca.tip() {
             Tip::Referenca(_) => Dereferenciraj(referenca.clone()).rc(),
@@ -209,7 +209,7 @@ impl<'a> Parser<'a> {
         Ok(PrirejanjeRef { referenca, izraz, indeks: None }.rc())
     }
 
-    fn prirejanje_v_kombinirano(spremenljivka: Rc<Vozlišče>, operator: &Token, drevo: Rc<Vozlišče>) -> Result<Rc<Vozlišče>, Napake> {
+    fn prirejanje_v_kombinirano(spremenljivka: Rc<Vozlišče>, operator: &Žeton, drevo: Rc<Vozlišče>) -> Result<Rc<Vozlišče>, Napake> {
         match prireditveni_op(operator.as_str()) {
             Aritmetični(op) => match (spremenljivka.tip(), drevo.tip()) {
                 (Tip::Celo, Tip::Celo) => Ok(op(Tip::Celo, spremenljivka, drevo).rc()),
@@ -231,7 +231,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn natisni(&mut self, ime: &Token, argumenti_izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn natisni(&mut self, ime: &Žeton, argumenti_izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let Argumenti { tipi, argumenti, .. } = self.argumenti(argumenti_izraz)?;
 
         match tipi.as_slice() {
@@ -240,7 +240,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn vrni(&mut self, vrni: &Token, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn vrni(&mut self, vrni: &Žeton, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let drevo = self.drevo(izraz)?;
         let spremenljivka = self.spremenljivke.get("0_vrni")
             .ok_or(Napake::from_zaporedje(&[*vrni], E5, "nepričakovana beseda: 'vrni', uporabljena zunaj funkcije"))?.clone();
@@ -252,7 +252,7 @@ impl<'a> Parser<'a> {
         Ok(Vrni(Prirejanje { spremenljivka, izraz: drevo }.rc()).rc())
     }
 
-    fn pogojni_stavek(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn pogojni_stavek(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let (pogoj, _, izraz) = loči_spredaj(izraz, &["{"])
             .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '{'"))??;
 
@@ -280,7 +280,7 @@ impl<'a> Parser<'a> {
         }.rc())
     }
 
-    fn zanka_dokler(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn zanka_dokler(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let (pogoj_izraz, _, izraz) = loči_spredaj(izraz, &["{"])
             .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '{'"))??;
 
@@ -300,7 +300,7 @@ impl<'a> Parser<'a> {
         Ok(Okvir { zaporedje: Zanka { pogoj, telo }.rc(), št_spr }.rc())
     }
 
-    fn zanka_za(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn zanka_za(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let (prirejanje_izraz, _, izraz) = loči_spredaj(izraz, &[","])
             .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan ','"))??;
 

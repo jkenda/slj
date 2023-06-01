@@ -316,9 +316,9 @@ fn vhod() {
 #[test]
 fn konstante() {
     let program = r#"
-        kons PI = 3.125
+        kons FPI = 3.125
         kons R = 13
-        kons OBSEG = 2.0 * PI * R kot real
+        kons OBSEG = 2.0 * FPI * R kot real
         natisni(OBSEG)
     "#;
     assert_eq!(test(program, ""), "81.25");

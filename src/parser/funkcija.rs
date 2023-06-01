@@ -2,7 +2,7 @@ use super::*;
 use argumenti::*;
 
 impl<'a> Parser<'a> {
-    pub fn funkcija(&mut self, ime: &Token, izraz: &[Token]) -> Result<Rc<Vozlišče>, Napake> {
+    pub fn funkcija(&mut self, ime: &Žeton, izraz: &[Žeton]) -> Result<Rc<Vozlišče>, Napake> {
         let (_, _, izraz) = loči_spredaj(izraz, &["("])
             .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '('"))??;
         let (parametri_izraz, _, izraz) = loči_spredaj(izraz, &[")"])
@@ -103,7 +103,7 @@ impl<'a> Parser<'a> {
         Ok(fun)
     }
 
-    pub fn funkcijski_klic_zavrzi_izhod(&mut self, ime: &Token, argumenti: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    pub fn funkcijski_klic_zavrzi_izhod(&mut self, ime: &Žeton, argumenti: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let klic = self.funkcijski_klic(ime, argumenti)?;
         let velikost = klic.tip().sprememba_stacka();
 
@@ -113,7 +113,7 @@ impl<'a> Parser<'a> {
         ]).rc())
     }
 
-    pub fn funkcijski_klic<'b>(&mut self, ime: &Token, argumenti: &'b[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    pub fn funkcijski_klic<'b>(&mut self, ime: &Žeton, argumenti: &'b[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let Argumenti { tipi, spremenljivke, argumenti } = self.argumenti(argumenti)?;
         let podpis_funkcije = Self::podpis_funkcije(ime, tipi.as_slice());
 
@@ -129,7 +129,7 @@ impl<'a> Parser<'a> {
         Ok(FunkcijskiKlic { funkcija, spremenljivke: Zaporedje(spremenljivke).rc(), argumenti: Zaporedje(argumenti).rc() }.rc())
     }
 
-    pub fn multi_klic<'b>(&mut self, ime: &'b Token<'a>, argumenti_izraz: &'b [Token<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
+    pub fn multi_klic<'b>(&mut self, ime: &'b Žeton<'a>, argumenti_izraz: &'b [Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
         let Argumenti { tipi, spremenljivke, argumenti } = self.argumenti(argumenti_izraz)?;
         let mut funkcijski_klici: Vec<Rc<Vozlišče>> = Vec::new();
         let mut napake = Napake::new();
@@ -166,7 +166,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn podpis_funkcije(ime: &Token, tipi: &[Tip]) -> String {
+    fn podpis_funkcije(ime: &Žeton, tipi: &[Tip]) -> String {
         format!("{}({})", ime.as_str(), tipi.iter()
             .map(|t| t.to_string())
             .collect::<Vec<String>>()

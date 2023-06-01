@@ -1,6 +1,6 @@
 use std::{env, fs};
 
-use slj::parser::{tokenizer::Tokenize, Parse};
+use slj::parser::{lekser::Razčleni, Parse};
 use slj::program::ToProgram;
 
 fn main() {
@@ -23,8 +23,8 @@ fn main() {
     let vrstice: Vec<&str> = datoteka.split('\n').collect();
     let drevo = datoteka
         .as_str()
-        .tokenize()
-        .parse();
+        .razčleni()
+        .analiziraj();
 
     match drevo {
         Ok(drevo) => {

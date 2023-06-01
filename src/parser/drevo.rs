@@ -1,5 +1,5 @@
 use std::{rc::Rc, fmt::Display, mem::{discriminant, self}, collections::HashMap};
-use super::{tip::Tip, napaka::{Napake, OznakaNapake::*}, tokenizer::Token};
+use super::{tip::Tip, napaka::{Napake, OznakaNapake::*}, lekser::Žeton};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
@@ -386,7 +386,7 @@ impl Vozlišče {
         }
     }
 
-    pub fn eval(&self, izraz: &[Token]) -> Result<Vozlišče, Napake> {
+    pub fn eval(&self, izraz: &[Žeton]) -> Result<Vozlišče, Napake> {
         match self {
             Celo(_) | Real(_) | Znak(_) | Niz(_) | Resnica | Laž => Ok(self.clone()),
 
@@ -775,7 +775,7 @@ mod testi {
         assert_eq!(CeloVReal(Celo(13).rc()).eval(&[]).unwrap(), Real(13.0));
         assert_eq!(RealVCelo(Real(13.0).rc()).eval(&[]).unwrap(), Celo(13));
         assert_eq!(RealVCelo(Real(3.14).rc()).eval(&[]).unwrap(), Celo(3));
-        assert_eq!(CeloVZnak(Celo(32).rc()).eval(&[Token::Literal(L::Celo("32", 1, 1))]).unwrap(), Znak(' '));
+        assert_eq!(CeloVZnak(Celo(32).rc()).eval(&[Žeton::Literal(L::Celo("32", 1, 1))]).unwrap(), Znak(' '));
         assert_eq!(ZnakVCelo(Znak('\n').rc()).eval(&[]).unwrap(), Celo(10));
 
         assert_eq!(Zanikaj(Resnica.rc()).eval(&[]).unwrap(), Laž);

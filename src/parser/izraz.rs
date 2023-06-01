@@ -1,12 +1,12 @@
 use super::*;
 
 impl<'a> Parser<'a> {
-    pub fn drevo(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    pub fn drevo(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         self.logični(izraz)
     }
 
     // logični izrazi (razen negacije, ki je pri osnovnih)
-    fn logični(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn logični(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match loči_zadaj(izraz, &["||"]) {
             Some(Ok((l_izraz, op, d_izraz))) => {
                 let l = self.logični(l_izraz)?;
@@ -33,7 +33,7 @@ impl<'a> Parser<'a> {
     }
 
     // izrazi bitne manipulacije
-    fn bitni(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn bitni(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match loči_zadaj(izraz, &["|"]) {
             Some(Ok((l_izraz, op, d_izraz))) => {
                 let l = self.bitni(l_izraz)?;
@@ -82,7 +82,7 @@ impl<'a> Parser<'a> {
     }
 
     // primerjalni izrazi
-    pub fn primerjalni(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    pub fn primerjalni(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match loči_zadaj(izraz, PRIMERJALNI_OP.as_slice()) {
             Some(Ok((l_izraz, op, d_izraz))) => {
                 let l = self.primerjalni(l_izraz)?;
@@ -101,7 +101,7 @@ impl<'a> Parser<'a> {
 
     // aritmetični izrazi
 
-    fn aditivni(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn aditivni(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match loči_zadaj(izraz, &["+", "-"]) {
             // "-" kot unarni operator
             Some(Ok(([], Operator("-", ..), ..))) => self.aritmetični(izraz),
@@ -123,7 +123,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn aritmetični(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn aritmetični(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match loči_zadaj(izraz, &["*", "/", "%"]) {
             Some(Ok((l_izraz, op, d_izraz))) => {
                 let l = self.aritmetični(l_izraz)?;
@@ -151,7 +151,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn osnovni(&mut self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    pub fn osnovni(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         match izraz {
             // bool
             [ Literal(L::Bool("resnica", ..)) ] => Ok(Resnica.rc()),
@@ -249,7 +249,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn pretvorba(&mut self, izraz: &[Token<'a>], tip_ven_izraz: &Token) -> Result<Rc<Vozlišče>, Napake> {
+    fn pretvorba(&mut self, izraz: &[Žeton<'a>], tip_ven_izraz: &Žeton) -> Result<Rc<Vozlišče>, Napake> {
         let drevo = self.drevo(izraz)?.rc();
         let tip_noter = drevo.tip();
         let tip_ven = Tip::from(&[*tip_ven_izraz])?;
@@ -265,7 +265,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn asm(&self, izraz: &[Token<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    fn asm(&self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let niz = match izraz {
             [ Literal(L::Niz(niz, ..)) ] => &niz[1..niz.len()-1],
             _ => Err(Napake::from_zaporedje(izraz, E5, "Funkcija 'asm' sprejema samo nize"))?,
@@ -349,12 +349,12 @@ mod testi {
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("**", 1, 2), Literal(L::Celo("2", 1, 4)) ].as_slice()).unwrap(),
             Potenca(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
 
-        assert_eq!(parser.drevo("-(3-4)".tokenize().as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Odštevanje(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc());
-        assert_eq!(parser.drevo("-3".tokenize().as_slice()).unwrap(), Celo(-3).rc());
-        assert_eq!(parser.drevo("-3 * 2".tokenize().as_slice()).unwrap(), Množenje(Tip::Celo, Celo(-3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.drevo("3 * -2".tokenize().as_slice()).unwrap(), Množenje(Tip::Celo, Celo(3).rc(), Celo(-2).rc()).rc());
-        assert_eq!(parser.drevo("--1".tokenize().as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Celo(-1).rc()).rc());
-        assert_eq!(parser.drevo("2 + -1".tokenize().as_slice()).unwrap(), Seštevanje(Tip::Celo, Celo(2).rc(), Celo(-1).rc()).rc());
+        assert_eq!(parser.drevo("-(3-4)".razčleni().as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Odštevanje(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc());
+        assert_eq!(parser.drevo("-3".razčleni().as_slice()).unwrap(), Celo(-3).rc());
+        assert_eq!(parser.drevo("-3 * 2".razčleni().as_slice()).unwrap(), Množenje(Tip::Celo, Celo(-3).rc(), Celo(2).rc()).rc());
+        assert_eq!(parser.drevo("3 * -2".razčleni().as_slice()).unwrap(), Množenje(Tip::Celo, Celo(3).rc(), Celo(-2).rc()).rc());
+        assert_eq!(parser.drevo("--1".razčleni().as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Celo(-1).rc()).rc());
+        assert_eq!(parser.drevo("2 + -1".razčleni().as_slice()).unwrap(), Seštevanje(Tip::Celo, Celo(2).rc(), Celo(-1).rc()).rc());
     }
 
     #[test]
