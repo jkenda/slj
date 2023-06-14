@@ -1,17 +1,29 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, collections::HashMap, fs::read_to_string, sync::{Mutex, OnceLock}};
 
 use super::lekser::Žeton;
 
+unsafe fn datoteke() -> &'static mut Mutex<HashMap<String, Vec<String>>> {
+    static mut DATOTEKE: OnceLock<Mutex<HashMap<String, Vec<String>>>> = OnceLock::new();
+    match DATOTEKE.get_mut() {
+        Some(d) => d,
+        None => {
+            let _ = DATOTEKE.set(Mutex::new(HashMap::new()));
+            DATOTEKE.get_mut().unwrap()
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Napake {
-    napake: Vec<Napaka>
+    napake: Vec<Napaka>,
+    datoteke: HashMap<String, Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Napaka {
     pub oznaka: OznakaNapake,
     pub sporočilo: String,
+    pub datoteka: String,
     pub začetek: (usize, usize),
     pub konec: (usize, usize),
 }
@@ -31,19 +43,36 @@ pub enum OznakaNapake {
 
 impl Napaka {
     pub fn from_zaporedje(zaporedje: &[Žeton], oznaka: OznakaNapake, sporočilo: &str) -> Napaka {
-        let začetek = zaporedje[0].lokacija();
+        let začetek = zaporedje.first().unwrap().lokacija();
+        let datoteka = zaporedje.first().unwrap().datoteka();
+        let sporočilo = sporočilo.to_string();
         let konec = {
             let žeton = zaporedje.last().unwrap();
             let (vrstica, znak) = žeton.lokacija();
             (vrstica, znak + žeton.as_str().chars().count())
         };
-        Napaka { oznaka, sporočilo: sporočilo.to_string(), začetek, konec }
+        Napaka { oznaka, datoteka, sporočilo, začetek, konec }
+    }
+
+    fn vrstice(&self) -> &[String] {
+        let datoteke = unsafe { datoteke().get_mut().unwrap() };
+
+        if !datoteke.contains_key(&self.datoteka) {
+            datoteke.insert(self.datoteka.clone(),
+                read_to_string(&self.datoteka)
+                .unwrap()
+                .lines()
+                .map(String::from)
+                .collect());
+        }
+
+        datoteke.get(&self.datoteka).unwrap()
     }
 }
 
 impl Napake {
     pub fn new() -> Napake {
-        Napake { napake: Vec::new() }
+        Napake { napake: Vec::new(), datoteke: HashMap::new() }
     }
 
     pub fn from_zaporedje(zaporedje: &[Žeton], oznaka: OznakaNapake, sporočilo: &str) -> Napake {
@@ -63,28 +92,42 @@ impl Napake {
         self.napake.extend(other.napake)
     }
     
-    pub fn izpiši(&self, vrstice: &Vec<&str>) {
+    pub fn izpiši(&self) {
         for napaka in &self.napake {
-            let (prva_vrstica, prvi_znak) = napaka.začetek;
-            let (zadnja_vrstica, zadnji_znak) = napaka.konec;
+            let Napaka {
+                oznaka,
+                sporočilo,
+                datoteka,
+                začetek: (prva_vrstica, prvi_znak),
+                konec: (zadnja_vrstica, zadnji_znak)
+            } = napaka;
 
-            println!("Napaka {:?}: {} ({prva_vrstica}, {prvi_znak})", napaka.oznaka, napaka.sporočilo);
-            if prva_vrstica > 1 {
-                println!("{:zamik$} | {}", prva_vrstica-1, vrstice[prva_vrstica-2], zamik=log10(zadnja_vrstica+2));
+            let vrstice = &napaka.vrstice()[..*zadnja_vrstica + 1];
+
+            println!("Napaka {oznaka:?}: {sporočilo} | {datoteka}:{prva_vrstica}:{prvi_znak}");
+
+            let zamik = log10(zadnja_vrstica+2);
+
+            if *prva_vrstica > 1 {
+                let št_vrstice = prva_vrstica - 1;
+                let vrstica = &vrstice[prva_vrstica-2];
+                println!("{št_vrstice:zamik$} | {vrstica}");
             }
 
-            for i in prva_vrstica-1..zadnja_vrstica {
-                println!("{:zamik$} | {}", i+1, vrstice[i], zamik=log10(zadnja_vrstica+2));
+            for i in prva_vrstica-1..*zadnja_vrstica {
+                let št_vrstice = i+1;
+                let vrstica = &vrstice[i];
+                println!("{št_vrstice:zamik$} | {vrstica}");
             }
 
-            println!("{:zamik$} | {}{}", 
-                "", 
-                " ".repeat(usize::min(prvi_znak, zadnji_znak) - 1), 
-                "^".repeat(usize::abs_diff(prvi_znak, zadnji_znak)), zamik=log10(zadnja_vrstica+2));
+            let razlika = usize::min(*prvi_znak, *zadnji_znak) - 1;
+            let podčrtaj = "^".repeat(usize::abs_diff(*prvi_znak, *zadnji_znak));
+            const PRAZNO: &str = "";
+            println!("{PRAZNO:zamik$} | {PRAZNO:razlika$}{podčrtaj}");
 
-            println!("{:zamik$} | {}\n", 
-                zadnja_vrstica+1, 
-                if zadnja_vrstica != vrstice.len()-1  { vrstice[zadnja_vrstica] } else { "" }, zamik=log10(zadnja_vrstica+2));
+            let št_vrstice = zadnja_vrstica + 1;
+            let vrstica = vrstice.last().unwrap();
+            println!("{št_vrstice:zamik$} | {vrstica}\n");
         }
 
         let št_napak = self.napake.len().to_string();

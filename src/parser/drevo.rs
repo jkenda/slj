@@ -725,7 +725,7 @@ impl Vozlišče {
 #[cfg(test)]
 mod testi {
     use super::*;
-    use crate::parser::{tokenizer::{Tokenize, L}, Parse, drevo::{Prazno, FunkcijskiKlic, Zaporedje}};
+    use crate::parser::{lekser::{Razčleni, L}, Parse, drevo::{Prazno, FunkcijskiKlic, Zaporedje}};
 
     #[test]
     fn eq() {
@@ -736,7 +736,7 @@ mod testi {
     fn vsebuje() {
         let rekurzivna_f = if let Zaporedje(stavki) = &*r#"funkcija f() {
             f()
-        }"#.tokenize().parse().unwrap().root.clone() {
+        }"#.razčleni("[test]").analiziraj().unwrap().root.clone() {
             stavki[0].clone()
         }
         else {
@@ -775,7 +775,7 @@ mod testi {
         assert_eq!(CeloVReal(Celo(13).rc()).eval(&[]).unwrap(), Real(13.0));
         assert_eq!(RealVCelo(Real(13.0).rc()).eval(&[]).unwrap(), Celo(13));
         assert_eq!(RealVCelo(Real(3.14).rc()).eval(&[]).unwrap(), Celo(3));
-        assert_eq!(CeloVZnak(Celo(32).rc()).eval(&[Žeton::Literal(L::Celo("32", 1, 1))]).unwrap(), Znak(' '));
+        assert_eq!(CeloVZnak(Celo(32).rc()).eval(&[Žeton::Literal(L::Celo("32", 1, 1, "[test]"))]).unwrap(), Znak(' '));
         assert_eq!(ZnakVCelo(Znak('\n').rc()).eval(&[]).unwrap(), Celo(10));
 
         assert_eq!(Zanikaj(Resnica.rc()).eval(&[]).unwrap(), Laž);

@@ -1,7 +1,7 @@
 use super::*;
 
 impl<'a> Parser<'a> {
-    pub fn predprocesiraj(izraz: &[Žeton<'a>]) -> Vec<Žeton<'a>> {
+    pub fn predprocesiraj(izraz: Vec<Žeton<'a>>) -> Vec<Žeton<'a>> {
         let mut predproc = Vec::new();
         let mut znotraj_komentarja = false;
 

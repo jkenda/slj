@@ -315,7 +315,7 @@ impl<'a> Parser<'a> {
 
         let telo_izraz = [
             telo_izraz,
-            [Ločilo(";", 1, 1)].as_slice(),
+            [Ločilo(";", 1, 1, "")].as_slice(),
             za_izraz,
         ].concat();
 

@@ -145,25 +145,25 @@ fn zgradi_tip_strukta<'a: 'b, 'b>(mut izraz: &'b [Žeton<'a>]) -> Result<BTreeMa
 
 #[cfg(test)]
 mod testi {
-    use crate::parser::tokenizer::Tokenize;
+    use crate::parser::lekser::Razčleni;
 
     use super::*;
 
     #[test]
     fn from_string_to_string() {
-        assert_eq!(Tip::from("brez".tokenize().as_slice()).unwrap().to_string(), "brez");
-        assert_eq!(Tip::from("bool".tokenize().as_slice()).unwrap().to_string(), "bool");
-        assert_eq!(Tip::from("celo".tokenize().as_slice()).unwrap().to_string(), "celo");
-        assert_eq!(Tip::from("real".tokenize().as_slice()).unwrap().to_string(), "real");
-        assert_eq!(Tip::from("znak".tokenize().as_slice()).unwrap().to_string(), "znak");
+        assert_eq!(Tip::from("brez".razčleni("[test]").as_slice()).unwrap().to_string(), "brez");
+        assert_eq!(Tip::from("bool".razčleni("[test]").as_slice()).unwrap().to_string(), "bool");
+        assert_eq!(Tip::from("celo".razčleni("[test]").as_slice()).unwrap().to_string(), "celo");
+        assert_eq!(Tip::from("real".razčleni("[test]").as_slice()).unwrap().to_string(), "real");
+        assert_eq!(Tip::from("znak".razčleni("[test]").as_slice()).unwrap().to_string(), "znak");
 
-        assert_eq!(Tip::from("[celo; 6]".tokenize().as_slice()).unwrap().to_string(), "[celo; 6]");
-        assert_eq!(Tip::from("[[celo; 3]; 6]".tokenize().as_slice()).unwrap().to_string(), "[[celo; 3]; 6]");
+        assert_eq!(Tip::from("[celo; 6]".razčleni("[test]").as_slice()).unwrap().to_string(), "[celo; 6]");
+        assert_eq!(Tip::from("[[celo; 3]; 6]".razčleni("[test]").as_slice()).unwrap().to_string(), "[[celo; 3]; 6]");
 
-        assert_eq!(Tip::from("{ x: real, y: real }".tokenize().as_slice()).unwrap().to_string(), "{\nx: real,\ny: real,\n}");
-        assert_eq!(Tip::from("{ _arr: [celo; 128], len: celo }".tokenize().as_slice()).unwrap().to_string(), "{\n_arr: [celo; 128],\nlen: celo,\n}");
+        assert_eq!(Tip::from("{ x: real, y: real }".razčleni("[test]").as_slice()).unwrap().to_string(), "{\nx: real,\ny: real,\n}");
+        assert_eq!(Tip::from("{ _arr: [celo; 128], len: celo }".razčleni("[test]").as_slice()).unwrap().to_string(), "{\n_arr: [celo; 128],\nlen: celo,\n}");
 
-        assert_eq!(Tip::from("@celo".tokenize().as_slice()).unwrap().to_string(), "@celo");
-        assert_eq!(Tip::from("@[real]".tokenize().as_slice()).unwrap().to_string(), "@[real]");
+        assert_eq!(Tip::from("@celo".razčleni("[test]").as_slice()).unwrap().to_string(), "@celo");
+        assert_eq!(Tip::from("@[real]".razčleni("[test]").as_slice()).unwrap().to_string(), "@[real]");
     }
 }

@@ -106,7 +106,7 @@ impl<'a> Parser<'a> {
             // "-" kot unarni operator
             Some(Ok(([], Operator("-", ..), ..))) => self.aritmetični(izraz),
             Some(Ok((pred @ [.., Operator(..)], minus @ Operator("-", ..), za @ [..]))) =>
-                self.aditivni([pred, [Ločilo("(", 0, 0), *minus].as_slice(), za, [Ločilo(")", 0, 0)].as_slice()].concat().as_slice()),
+                self.aditivni([pred, [Ločilo("(", 0, 0, "[builtin]"), *minus].as_slice(), za, [Ločilo(")", 0, 0, "[builtin]")].as_slice()].concat().as_slice()),
 
             // "-" kot binarni operator
             Some(Ok((l_izraz, op, d_izraz))) => {
@@ -283,22 +283,22 @@ impl<'a> Parser<'a> {
 mod testi {
     use std::rc::Rc;
 
-    use crate::parser::tokenizer::Tokenize;
+    use crate::parser::lekser::Razčleni;
 
     use super::*;
 
     #[test]
     fn osnovni() {
         let mut parser = Parser::new();
-        assert_eq!(parser.osnovni([ Literal(L::Bool("resnica", 1, 1))].as_slice()).unwrap(), Resnica.rc());
-        assert_eq!(parser.osnovni([ Literal(L::Bool("laž", 1, 1))].as_slice()).unwrap(), Laž.rc());
-        assert_eq!(parser.osnovni([ Operator("!", 1, 1), Literal(L::Bool("laž", 1, 2))].as_slice()).unwrap(), Zanikaj(Laž.rc()).rc());
-        assert_eq!(parser.osnovni([ Ločilo("(", 1, 1), Literal(L::Bool("laž", 1, 2)), Ločilo(")", 1, 5)].as_slice()).unwrap(), Laž.rc());
-        assert_eq!(parser.osnovni([ Literal(L::Celo("3", 1, 1))].as_slice()).unwrap(), Celo(3).rc());
-        assert_eq!(parser.osnovni([ Literal(L::Real("3.125", 1, 1))].as_slice()).unwrap(), Real(3.125).rc());
-        assert_eq!(parser.osnovni([ Literal(L::Celo("1_000", 1, 1))].as_slice()).unwrap(), Celo(1000).rc());
-        assert_eq!(parser.osnovni([ Literal(L::Znak("'đ'", 1, 1))].as_slice()).unwrap(), Znak('đ').rc());
-        assert_eq!(parser.osnovni([ Literal(L::Niz("\"angleščina\\n\"", 1, 1))].as_slice()).unwrap(), Niz("angleščina\n".to_string()).rc());
+        assert_eq!(parser.osnovni([ Literal(L::Bool("resnica", 1, 1, "[test]"))].as_slice()).unwrap(), Resnica.rc());
+        assert_eq!(parser.osnovni([ Literal(L::Bool("laž", 1, 1, "[test]"))].as_slice()).unwrap(), Laž.rc());
+        assert_eq!(parser.osnovni([ Operator("!", 1, 1, "[test]"), Literal(L::Bool("laž", 1, 2, "[test]"))].as_slice()).unwrap(), Zanikaj(Laž.rc()).rc());
+        assert_eq!(parser.osnovni([ Ločilo("(", 1, 1, "[test]"), Literal(L::Bool("laž", 1, 2, "[test]")), Ločilo(")", 1, 5, "[test]")].as_slice()).unwrap(), Laž.rc());
+        assert_eq!(parser.osnovni([ Literal(L::Celo("3", 1, 1, "[test]"))].as_slice()).unwrap(), Celo(3).rc());
+        assert_eq!(parser.osnovni([ Literal(L::Real("3.125", 1, 1, "[test]"))].as_slice()).unwrap(), Real(3.125).rc());
+        assert_eq!(parser.osnovni([ Literal(L::Celo("1_000", 1, 1, "[test]"))].as_slice()).unwrap(), Celo(1000).rc());
+        assert_eq!(parser.osnovni([ Literal(L::Znak("'đ'", 1, 1, "[test]"))].as_slice()).unwrap(), Znak('đ').rc());
+        assert_eq!(parser.osnovni([ Literal(L::Niz("\"angleščina\\n\"", 1, 1, "[test]"))].as_slice()).unwrap(), Niz("angleščina\n".to_string()).rc());
 
         parser.funkcije.insert("fun()".to_string(), Funkcija {
                 tip: Tip::Real,
@@ -312,65 +312,65 @@ mod testi {
                 ]).rc(),
                 prostor: 0,
             }.rc());
-        assert_eq!(parser.osnovni([ Ime("fun", 1, 1), Ločilo("(", 1, 4), Ločilo(")", 1, 5)].as_slice()).unwrap(), FunkcijskiKlic { 
+        assert_eq!(parser.osnovni([ Ime("fun", 1, 1, "[test]"), Ločilo("(", 1, 4, "[test]"), Ločilo(")", 1, 5, "[test]")].as_slice()).unwrap(), FunkcijskiKlic { 
             funkcija: parser.funkcije["fun()"].clone(),
             spremenljivke: Zaporedje(vec![]).rc(),
             argumenti: Zaporedje([].to_vec()).rc(),
         }.rc());
 
         parser.spremenljivke.insert("a", Rc::new(Spremenljivka { tip: Tip::Celo, ime: "a".to_string(), naslov: 0, z_odmikom: false, spremenljiva: false }));
-        assert_eq!(parser.osnovni([ Ime("a", 1, 1)].as_slice()).unwrap(), parser.spremenljivke["a"].clone());
+        assert_eq!(parser.osnovni([ Ime("a", 1, 1, "[test]")].as_slice()).unwrap(), parser.spremenljivke["a"].clone());
     }
 
     #[test]
     fn pretvorba() {
         let mut parser = Parser::new();
-        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("kot", 1, 3), Tip("real", 1, 7) ].as_slice()).unwrap(),
+        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("kot", 1, 3, "[test]"), Tip("real", 1, 7, "[test]") ].as_slice()).unwrap(),
             CeloVReal(Celo(3).rc()).rc());
-        assert_eq!(parser.drevo([ Literal(L::Real("3.0", 1, 1)), Operator("kot", 1, 3), Tip("celo", 1, 7) ].as_slice()).unwrap(),
+        assert_eq!(parser.drevo([ Literal(L::Real("3.0", 1, 1, "[test]")), Operator("kot", 1, 3, "[test]"), Tip("celo", 1, 7, "[test]") ].as_slice()).unwrap(),
             RealVCelo(Real(3.0).rc()).rc());
-        assert_eq!(parser.drevo([ Literal(L::Real("3.0", 1, 1)), Operator("kot", 1, 3), Tip("real", 1, 7) ].as_slice()).unwrap(),
+        assert_eq!(parser.drevo([ Literal(L::Real("3.0", 1, 1, "[test]")), Operator("kot", 1, 3, "[test]"), Tip("real", 1, 7, "[test]") ].as_slice()).unwrap(),
             Real(3.0).rc());
     }
 
     #[test]
     fn aritmetični() {
         let mut parser = Parser::new();
-        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("+", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
+        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[]")), Operator("+", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
             Seštevanje(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("-", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
+        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("-", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
             Odštevanje(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("*", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
+        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("*", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
             Množenje(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("/", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
+        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("/", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
             Deljenje(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("%", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
+        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("%", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
             Modulo(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1)), Operator("**", 1, 2), Literal(L::Celo("2", 1, 4)) ].as_slice()).unwrap(),
+        assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("**", 1, 2, "[test]"), Literal(L::Celo("2", 1, 4, "[test]")) ].as_slice()).unwrap(),
             Potenca(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
 
-        assert_eq!(parser.drevo("-(3-4)".razčleni().as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Odštevanje(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc());
-        assert_eq!(parser.drevo("-3".razčleni().as_slice()).unwrap(), Celo(-3).rc());
-        assert_eq!(parser.drevo("-3 * 2".razčleni().as_slice()).unwrap(), Množenje(Tip::Celo, Celo(-3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.drevo("3 * -2".razčleni().as_slice()).unwrap(), Množenje(Tip::Celo, Celo(3).rc(), Celo(-2).rc()).rc());
-        assert_eq!(parser.drevo("--1".razčleni().as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Celo(-1).rc()).rc());
-        assert_eq!(parser.drevo("2 + -1".razčleni().as_slice()).unwrap(), Seštevanje(Tip::Celo, Celo(2).rc(), Celo(-1).rc()).rc());
+        assert_eq!(parser.drevo("-(3-4)".razčleni("[test]").as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Odštevanje(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc());
+        assert_eq!(parser.drevo("-3".razčleni("[test]").as_slice()).unwrap(), Celo(-3).rc());
+        assert_eq!(parser.drevo("-3 * 2".razčleni("[test]").as_slice()).unwrap(), Množenje(Tip::Celo, Celo(-3).rc(), Celo(2).rc()).rc());
+        assert_eq!(parser.drevo("3 * -2".razčleni("[test]").as_slice()).unwrap(), Množenje(Tip::Celo, Celo(3).rc(), Celo(-2).rc()).rc());
+        assert_eq!(parser.drevo("--1".razčleni("[test]").as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Celo(-1).rc()).rc());
+        assert_eq!(parser.drevo("2 + -1".razčleni("[test]").as_slice()).unwrap(), Seštevanje(Tip::Celo, Celo(2).rc(), Celo(-1).rc()).rc());
     }
 
     #[test]
     fn primerjalni() {
         let mut parser = Parser::new();
-        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1)), Operator("==", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
+        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("==", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
             Enako(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1)), Operator("!=", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
+        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("!=", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
             NiEnako(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1)), Operator("<=", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
+        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("<=", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
             ManjšeEnako(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1)), Operator(">=", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
+        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1, "[test]")), Operator(">=", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
             VečjeEnako(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1)), Operator("<", 1, 2), Literal(L::Celo("2", 1, 3)) ].as_slice()).unwrap(),
+        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("<", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
             Manjše(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1)), Operator(">", 1, 2), Literal(L::Celo("2", 1, 4)) ].as_slice()).unwrap(),
+        assert_eq!(parser.primerjalni([ Literal(L::Celo("3", 1, 1, "[test]")), Operator(">", 1, 2, "[test]"), Literal(L::Celo("2", 1, 4, "[test]")) ].as_slice()).unwrap(),
             Večje(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
     }
 }

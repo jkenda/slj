@@ -17,13 +17,14 @@ fn main() {
         return;
     }
 
-    let datoteka = fs::read_to_string(&args[1])
+    let ime = &args[1];
+
+    let datoteka = fs::read_to_string(ime)
         .expect("Napaka: ne morem odpreti datoteke");
 
-    let vrstice: Vec<&str> = datoteka.split('\n').collect();
     let drevo = datoteka
         .as_str()
-        .razčleni()
+        .razčleni(ime)
         .analiziraj();
 
     match drevo {
@@ -36,7 +37,7 @@ fn main() {
             }
         },
         Err(napake) => {
-            napake.izpiši(&vrstice);
+            napake.izpiši();
         }
     }
 

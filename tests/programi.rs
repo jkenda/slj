@@ -1,10 +1,10 @@
-use slj::{parser::{tokenizer::{Tokenize, Token::*, L}, Parse}, program::ToProgram};
+use slj::{parser::{Parse, lekser::{Razčleni, Žeton::*, L}}, program::ToProgram};
 use std::io::Cursor;
 
 fn test(program: &str, vhod: &str) -> String {
     let mut izhod = Vec::<u8>::new();
 
-    program.tokenize().parse().unwrap().to_program().zaženi_z_io(&mut Cursor::new(vhod), &mut izhod);
+    program.razčleni("[test]").analiziraj().unwrap().to_program().zaženi_z_io(&mut Cursor::new(vhod), &mut izhod);
     return String::from_utf8(izhod).unwrap();
 }
 
@@ -23,7 +23,7 @@ fn natisni_znak() {
 #[test]
 fn natisni_bool() {
     let program = r#"natisni(resnica)"#;
-    println!("{}", program.tokenize().parse().unwrap().to_string());
+    println!("{}", program.razčleni("[test]").analiziraj().unwrap().to_string());
     assert_eq!(test(program, ""), "resnica");
 
     let program = r#"natisni(laž)"#;
@@ -39,11 +39,11 @@ fn natisni_niz() {
 #[test]
 fn natisni_število() {
     let program = r#"natisni(42)"#;
-    assert_eq!(program.tokenize(), [Ime("natisni", 1, 1), Ločilo("(", 1, 8), Literal(L::Celo("42", 1, 9)), Ločilo(")", 1, 11)]);
+    assert_eq!(program.razčleni("[test]"), [Ime("natisni", 1, 1, "[test]"), Ločilo("(", 1, 8, "[test]"), Literal(L::Celo("42", 1, 9, "[test]")), Ločilo(")", 1, 11, "[test]")]);
     assert_eq!(test(program, ""), "42");
 
     let program = r#"natisni(0)"#;
-    assert_eq!(program.tokenize(), [Ime("natisni", 1, 1), Ločilo("(", 1, 8), Literal(L::Celo("0", 1, 9)), Ločilo(")", 1, 10)]);
+    assert_eq!(program.razčleni("[test]"), [Ime("natisni", 1, 1, "[test]"), Ločilo("(", 1, 8, "[test]"), Literal(L::Celo("0", 1, 9, "[test]")), Ločilo(")", 1, 10, "[test]")]);
     assert_eq!(test(program, ""), "0");
 
     let program = r#"natisni(0.02)"#;

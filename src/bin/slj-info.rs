@@ -10,16 +10,14 @@ fn main() {
         return;
     }
 
-    let datoteka = fs::read_to_string(&args[1])
-        .expect("Napaka: ne morem odpreti datoteke");
+    let ime = &args[1];
 
-    let vrstice: Vec<&str> = datoteka
-        .split('\n')
-        .collect();
+    let datoteka = fs::read_to_string(ime)
+        .expect("Napaka: ne morem odpreti datoteke");
 
     let drevo = datoteka
         .as_str()
-        .razčleni()
+        .razčleni(ime)
         .analiziraj();
 
 
@@ -32,7 +30,7 @@ fn main() {
                 .to_assembler());
         },
         Err(napake) => {
-            napake.izpiši(&vrstice);
+            napake.izpiši();
         }
     }
 }

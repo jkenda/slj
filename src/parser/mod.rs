@@ -12,12 +12,14 @@ mod funkcija;
 mod izraz;
 mod argumenti;
 
-use std::{collections::HashMap, rc::Rc, iter};
+use std::{collections::HashMap, rc::Rc, iter, io};
 
 use drevo::{Drevo, Vozlišče::{*, self}, VozliščeOption::*};
 use tip::Tip;
-use lekser::{Žeton::{*, self}, L, Razčleni};
+use lekser::{Žeton::{*, self}, L};
 use loci::*;
+
+use crate::parser::lekser::Lekser;
 
 use self::napaka::{Napake, OznakaNapake::*, Napaka};
 use self::operatorji::*;
@@ -35,11 +37,11 @@ struct Parser<'a> {
 }
 
 pub trait Parse {
-    fn analiziraj(&self) -> Result<Drevo, Napake>;
+    fn analiziraj(self) -> Result<Drevo, Napake>;
 }
 
 impl Parse for Vec<Žeton<'_>> {
-    fn analiziraj(&self) -> Result<Drevo, Napake> {
+    fn analiziraj(self) -> Result<Drevo, Napake> {
         Parser::new().parse(self)
     }
 }
@@ -59,28 +61,33 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse(&mut self, izraz: &[Žeton<'a>]) -> Result<Drevo, Napake> {
+    fn parse(&mut self, izraz: Vec<Žeton<'a>>) -> Result<Drevo, Napake> {
         let izraz = [
-            Self::standard().as_slice(),
-            &[Ločilo("\n", 0, 0)],
+            Self::standard().unwrap().as_slice(),
+            &[Ločilo("\n", 0, 0, "[builtin]")],
             &Parser::predprocesiraj(izraz),
         ].concat();
         let okvir = self.okvir(izraz.as_slice())?;
         Ok(Drevo::new(okvir, self.št_klicev.clone()))
     }
 
-    fn standard() -> Vec<Žeton<'static>> {
+    fn standard() -> Result<Vec<Žeton<'static>>, io::Error> {
         const MATEMATIKA: &str = include_str!("../../jedro/matematika.slj");
         const NATISNI: &str = include_str!("../../jedro/natisni.slj");
         const PREBERI: &str = include_str!("../../jedro/preberi.slj");
-        [
-            Parser::predprocesiraj(&MATEMATIKA.razčleni()).as_slice(),
-            &[Ločilo("\n", 0, 0)],
-            Parser::predprocesiraj(&NATISNI.razčleni()).as_slice(),
-            &[Ločilo("\n", 0, 0)],
-            &Parser::predprocesiraj(&PREBERI.razčleni()),
-            &[Ločilo("\n", 0, 0)],
-        ].concat()
+
+        const LEKSER_MAT: Lekser     = Lekser::new("../../jedro/matematika.slj", MATEMATIKA);
+        const LEKSER_NATISNI: Lekser = Lekser::new("../../jedro/natisni.slj", NATISNI);
+        const LEKSER_PREBERI: Lekser = Lekser::new("../../jedro/preberi.slj", PREBERI);
+
+        Ok([
+            Parser::predprocesiraj(LEKSER_MAT.razčleni()).as_slice(),
+            &[Ločilo("\n", 0, 0, "[vgrajeno]")],
+            Parser::predprocesiraj(LEKSER_NATISNI.razčleni()).as_slice(),
+            &[Ločilo("\n", 0, 0, "[vgrajeno]")],
+            &Parser::predprocesiraj(LEKSER_PREBERI.razčleni()),
+            &[Ločilo("\n", 0, 0, "[vgrajeno]")],
+        ].concat())
     }
 
     fn dodaj_spremenljivko(&mut self, ime: &'a str, tip: Tip, spremenljiva: bool) -> Rc<Vozlišče> {

@@ -120,7 +120,9 @@ const NIČ    : Podatek = Podatek { i: 0 };
 
 impl From<&Drevo> for Program {
     fn from(drevo: &Drevo) -> Self {
-        let (ukazi, push_tipi) = drevo.prevedi().postprocesiraj();
+        let (ukazi, push_tipi) = drevo
+            .prevedi()
+            .postprocesiraj();
 
         Program { 
             push_tipi,

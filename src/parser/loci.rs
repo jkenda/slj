@@ -108,11 +108,11 @@ pub fn interpoliraj_niz(niz: &str) -> String {
 #[cfg(test)]
 mod testi {
     use super::*;
-    use crate::parser::{Žeton::*, tokenizer::Tokenize};
+    use crate::parser::{Žeton::*, lekser::Razčleni};
 
     #[test]
     fn poišči() {
-        assert_eq!(loči_spredaj("{}".tokenize().as_slice(), &["{"]), Some(Ok(([].as_slice(), &Ločilo("{", 1, 1), [Ločilo("}", 1, 2)].as_slice()))));
+        assert_eq!(loči_spredaj("{}".razčleni("[test]").as_slice(), &["{"]), Some(Ok(([].as_slice(), &Ločilo("{", 1, 1, "[test]"), [Ločilo("}", 1, 2, "[test]")].as_slice()))));
     }
 
 }
