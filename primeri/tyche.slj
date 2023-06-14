@@ -2,10 +2,10 @@ funkcija TYCHE_ROT(a: celo, b: celo) -> celo {
     vrni (a << b) | (a >> (32 - b))
 }
 
-naj tyche_a = 0
-naj tyche_b = 0
-naj tyche_c = 0
-naj tyche_d = 0
+spr tyche_a: celo
+spr tyche_b: celo
+spr tyche_c: celo
+spr tyche_d: celo
 
 funkcija naključno() -> celo {
     tyche_a += tyche_b

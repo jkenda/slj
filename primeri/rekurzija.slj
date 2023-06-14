@@ -6,4 +6,9 @@ funkcija faktoriela(a: celo) -> celo {
     vrni a * faktoriela(a - 1)
 }
 
-natisni!("7! = ", faktoriela(7), "\n")
+spr buf: [znak; 256]
+natisni("število:\n")
+naj dolžina = preberi(@buf)
+naj število = v_celo(@buf)
+
+natisni!(število, "! = ", faktoriela(število), "\n")
