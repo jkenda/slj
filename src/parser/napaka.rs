@@ -130,25 +130,56 @@ impl Napake {
             println!("{št_vrstice:zamik$} | {vrstica}\n");
         }
 
-        let št_napak = self.napake.len().to_string();
-        let zadnji_znak = št_napak.chars().last().unwrap();
-
-        println!("{} {}, ne morem nadaljevati", št_napak,
-                 if zadnji_znak == '1' {
-                     "napaka"
-                 }
-                 else if zadnji_znak == '2' {
-                     "napaki"
-                 }
-                 else if zadnji_znak == '3' || zadnji_znak == '4' {
-                     "napake"
-                 }
-                 else {
-                     "napak"
-                 });
+        let št_napak = &self.napake.len().to_string();
+        println!("{} {}, ne morem nadaljevati", št_napak, spregaj_napake(št_napak));
     }
 }
 
 fn log10(x: usize) -> usize {
     (x as f64).log10().ceil() as usize
+}
+
+fn spregaj_napake(št_napak: &str) -> &'static str {
+    let mut rev = št_napak.bytes().rev();
+    let zadnji_znak = rev.next().unwrap();
+    let predzanji_znak = rev.next();
+
+    match (predzanji_znak, zadnji_znak) {
+        (None | Some(b'0'), b'1')        => "napaka",
+        (None | Some(b'0'), b'2')        => "napaki",
+        (None | Some(b'0'), b'3' | b'4') => "napake",
+        _                                => "napak",
+    }
+}
+
+#[cfg(test)]
+mod testi {
+    use super::*;
+
+    #[test]
+    fn test_napake_slovnica() {
+        assert_eq!(spregaj_napake("1"), "napaka");
+        assert_eq!(spregaj_napake("2"), "napaki");
+        assert_eq!(spregaj_napake("3"), "napake");
+        assert_eq!(spregaj_napake("4"), "napake");
+        assert_eq!(spregaj_napake("5"), "napak");
+
+        assert_eq!(spregaj_napake("100"), "napak");
+        assert_eq!(spregaj_napake("101"), "napaka");
+        assert_eq!(spregaj_napake("102"), "napaki");
+        assert_eq!(spregaj_napake("103"), "napake");
+        assert_eq!(spregaj_napake("105"), "napak");
+
+        assert_eq!(spregaj_napake("1000"), "napak");
+        assert_eq!(spregaj_napake("1001"), "napaka");
+        assert_eq!(spregaj_napake("1002"), "napaki");
+        assert_eq!(spregaj_napake("1003"), "napake");
+        assert_eq!(spregaj_napake("1005"), "napak");
+
+        assert_eq!(spregaj_napake("1200"), "napak");
+        assert_eq!(spregaj_napake("1201"), "napaka");
+        assert_eq!(spregaj_napake("1202"), "napaki");
+        assert_eq!(spregaj_napake("1203"), "napake");
+        assert_eq!(spregaj_napake("1205"), "napak");
+    }
 }
