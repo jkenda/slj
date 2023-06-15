@@ -110,23 +110,7 @@ impl Debug for Podatek {
 
 impl ToProgram for Drevo {
     fn v_program(&self) -> Program {
-        Program::from(self)
-    }
-
-    fn v_cpp(&self) -> String {
-        self.koren.v_cpp()
-    }
-}
-
-
-const RESNICA: Podatek = Podatek { i: 1 };
-const LAŽ    : Podatek = Podatek { i: 0 };
-const NIČ    : Podatek = Podatek { i: 0 };
-
-
-impl From<&Drevo> for Program {
-    fn from(drevo: &Drevo) -> Self {
-        let (ukazi, push_tipi) = drevo
+        let (ukazi, push_tipi) = self
             .prevedi()
             .postprocesiraj();
 
@@ -135,7 +119,34 @@ impl From<&Drevo> for Program {
             ukazi,
         }
     }
+
+    fn v_cpp(&self) -> String {
+        dbg!(self.št_klicev.clone());
+
+        "#include <cwchar>\n".to_string()
+        + "#include <vector>\n\n"
+        + "union Podatek\n{\n\tint i;\n\tfloat f;\n\twchar_t c;\n};\n\n"
+        + "static const Podatek LAŽ = { .i = 0 };\n"
+        + "static const Podatek RESNICA = { .i = 1 };\n\n"
+        + "int addroff = 0;\n"
+        + "int dynaddr = 0;\n"
+        + "std::vector<Podatek> stack;\n\n"
+        + &self.funkcije.iter().fold(String::new(), |str, funkcija| {
+            str + &funkcija.v_cpp_funkcija(&self.št_klicev)
+        })
+        + "int main()\n{\n"
+        + &self.main.v_cpp_main(&self.št_klicev)
+            .lines()
+            .fold(String::new(), |str, l| str + if !l.ends_with(':') { "\t" } else { "" } + l + "\n")
+        + "}\n"
+    }
 }
+
+
+const RESNICA: Podatek = Podatek { i: 1 };
+const LAŽ    : Podatek = Podatek { i: 0 };
+const NIČ    : Podatek = Podatek { i: 0 };
+
 
 impl Program {
     pub unsafe fn to_bytes(&self) -> (*const u8, usize)  {

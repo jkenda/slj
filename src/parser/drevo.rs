@@ -18,19 +18,14 @@ impl ToString for OdmikIme {
 }
 
 pub struct Drevo {
-    pub koren: Rc<Vozlišče>,
+    pub main: Rc<Vozlišče>,
+    pub funkcije: Vec<Rc<Vozlišče>>,
     pub št_klicev: HashMap<String, usize>,
-}
-
-impl Drevo {
-    pub fn new(root: Rc<Vozlišče>, št_klicev: HashMap<String, usize>) -> Drevo {
-        Drevo { koren: root, št_klicev }
-    }
 }
 
 impl Display for Drevo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.koren.drevo(0))
+        write!(f, "{}", self.main.drevo(0))
     }
 }
 
@@ -736,7 +731,7 @@ mod testi {
     fn vsebuje() {
         let rekurzivna_f = if let Zaporedje(stavki) = &*r#"funkcija f() {
             f()
-        }"#.razčleni("[test]").analiziraj().unwrap().koren.clone() {
+        }"#.razčleni("[test]").analiziraj().unwrap().main.clone() {
             stavki[0].clone()
         }
         else {

@@ -162,9 +162,9 @@ impl<'a> Parser<'a> {
             [ Operator("-", ..), Literal(L::Celo(str, ..)) ] => Ok(Vozlišče::Celo(-str.replace("_", "").parse::<i32>().unwrap()).rc()),
             [ Operator("-", ..), Literal(L::Real(str, ..)) ] => Ok(Vozlišče::Real(-str.replace("_", "").parse::<f32>().unwrap()).rc()),
             // znak
-            [ Literal(L::Znak(str, ..)) ] => Ok(Vozlišče::Znak(interpoliraj_niz(&str[1..str.len()-1]).chars().nth(0).unwrap()).rc()),
+            [ Literal(L::Znak(str, ..)) ] => Ok(Vozlišče::Znak(odvzemi_escape(&str[1..str.len()-1]).chars().nth(0).unwrap()).rc()),
             // niz
-            [ Literal(L::Niz(niz, ..)) ] => Ok(Vozlišče::Niz(interpoliraj_niz(&niz[1..niz.len()-1])).rc()),
+            [ Literal(L::Niz(niz, ..)) ] => Ok(Vozlišče::Niz(odvzemi_escape(&niz[1..niz.len()-1])).rc()),
             // izraz v oklepaju
             [ Ločilo("(", ..), ostanek @ .., Ločilo(")", ..) ] => self.drevo(ostanek),
             // funkcija asm(str)

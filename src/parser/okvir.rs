@@ -33,7 +33,6 @@ impl<'a> Parser<'a> {
     pub fn v_okvir(&mut self) {
         if !self.znotraj_funkcije {
             self.spremenljivke_stack.push(HashMap::new());
-            self.funkcije_stack.push(HashMap::new());
             self.konstante_stack.push(HashMap::new());
         }
     }
@@ -52,9 +51,6 @@ impl<'a> Parser<'a> {
         if !self.znotraj_funkcije {
             for (ime, _) in self.spremenljivke_stack.pop().unwrap() {
                 self.spremenljivke.remove(&ime);
-            }
-            for (ime, _) in self.funkcije_stack.pop().unwrap() {
-                self.funkcije.remove(&ime);
             }
             for (ime, _) in self.konstante_stack.pop().unwrap() {
                 self.konstante.remove(&ime);

@@ -14,7 +14,7 @@ za i = 0, i < 10, i = i + 1 {
 }
 natisni("\n\n")
 
-naj i = 0; dokler i < 10 {
+spr i = 0; dokler i < 10 {
     za j = 0, j < 10, j += 1 {
         natisni(10 * i + j, 3)
     }

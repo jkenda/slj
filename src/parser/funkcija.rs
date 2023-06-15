@@ -98,8 +98,8 @@ impl<'a> Parser<'a> {
             }
         }
 
-        self.funkcije_stack.last_mut().unwrap().insert(podpis_funkcije.clone(), fun.clone());
         self.funkcije.insert(podpis_funkcije, fun.clone());
+        self.funkcije_vec.push(fun.clone());
         Ok(fun)
     }
 

@@ -30,8 +30,8 @@ struct Parser<'a> {
     spremenljivke: HashMap<&'a str, Rc<Vozlišče>>,
     konstante_stack: Vec<HashMap<String, Rc<Vozlišče>>>,
     konstante: HashMap<String, Rc<Vozlišče>>,
-    funkcije_stack: Vec<HashMap<String, Rc<Vozlišče>>>,
     funkcije: HashMap<String, Rc<Vozlišče>>,
+    funkcije_vec: Vec<Rc<Vozlišče>>,
     št_klicev: HashMap<String, usize>,
     znotraj_funkcije: bool,
 }
@@ -51,11 +51,11 @@ impl<'a> Parser<'a> {
     fn new() -> Parser<'a> {
         Parser { 
             spremenljivke_stack: vec![],
-            funkcije_stack: vec![],
             konstante_stack: vec![],
             spremenljivke: HashMap::new(),
             konstante: HashMap::new(),
             funkcije: HashMap::new(),
+            funkcije_vec: Vec::new(),
             št_klicev: HashMap::new(),
             znotraj_funkcije: false,
         }
@@ -68,7 +68,11 @@ impl<'a> Parser<'a> {
             &Parser::predprocesiraj(izraz),
         ].concat();
         let okvir = self.okvir(izraz.as_slice())?;
-        Ok(Drevo::new(okvir, self.št_klicev.clone()))
+        Ok(Drevo {
+            main: okvir,
+            funkcije: self.funkcije_vec.clone(),
+            št_klicev: self.št_klicev.clone()
+        })
     }
 
     fn standard() -> Result<Vec<Žeton<'static>>, io::Error> {

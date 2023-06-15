@@ -4,11 +4,11 @@ use std::iter;
 
 impl Prevedi for Drevo {
     fn prevedi(&self) -> Vec<UkazPodatekRelative> {
-        self.koren.prevedi(&self.št_klicev)
+        self.main.prevedi(&self.št_klicev)
     }
 
     fn len(&self) -> usize {
-        self.koren.len(&self.št_klicev)
+        self.main.len(&self.št_klicev)
     }
 }
 

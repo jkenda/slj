@@ -95,7 +95,7 @@ pub fn razdeli<'a, 'b>(izraz: &'b[Žeton<'a>], nizi: &'b[&'static str]) -> Resul
     }
 }
 
-pub fn interpoliraj_niz(niz: &str) -> String {
+pub fn odvzemi_escape(niz: &str) -> String {
     niz.to_string()
         .replace(r"\\", "\\")
         .replace(r"\n", "\n")
@@ -103,6 +103,16 @@ pub fn interpoliraj_niz(niz: &str) -> String {
         .replace(r"\r", "\r")
         .replace(r#"\"""#, "\"")
         .replace(r"\'", "\'")
+}
+
+pub fn dodaj_escape(niz: &str) -> String {
+    niz.to_string()
+        .replace("\\", r"\\")
+        .replace("\n", r"\n")
+        .replace("\t", r"\t")
+        .replace("\r", r"\r")
+        .replace("\"", r#"\""#)
+        .replace("\'", r"\'")
 }
 
 #[cfg(test)]
