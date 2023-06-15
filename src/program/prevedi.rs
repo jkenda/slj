@@ -4,11 +4,11 @@ use std::iter;
 
 impl Prevedi for Drevo {
     fn prevedi(&self) -> Vec<UkazPodatekRelative> {
-        self.root.prevedi(&self.št_klicev)
+        self.koren.prevedi(&self.št_klicev)
     }
 
     fn len(&self) -> usize {
-        self.root.len(&self.št_klicev)
+        self.koren.len(&self.št_klicev)
     }
 }
 
@@ -208,7 +208,7 @@ impl Vozlišče {
 
             ProgramskiŠtevec(odmik) => vec![PC(*odmik)],
 
-            Skok(odmik_ime) => vec![JUMPRelative(odmik_ime.clone())],
+            Skok(oznaka) => vec![JUMPRelative(oznaka.clone())],
             DinamičniSkok => vec![Osnovni(JMPD).to_owned()],
             PogojniSkok(pogoj, skok) => [
                 pogoj.prevedi(št_klicev).as_slice(),

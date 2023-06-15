@@ -26,8 +26,8 @@ fn main() {
             println!("{}", drevo
                 .to_string());
             println!("{}", drevo
-                .to_program()
-                .to_assembler());
+                .v_program()
+                .v_assembler());
         },
         Err(napake) => {
             napake.izpiši();

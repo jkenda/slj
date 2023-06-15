@@ -1,7 +1,7 @@
 use super::*;
 
 impl Program {
-    pub fn to_assembler(&self) -> String {
+    pub fn v_assembler(&self) -> String {
         let mut str = String::new();
         let mut j = 0;
 

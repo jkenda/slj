@@ -30,10 +30,10 @@ fn main() {
     match drevo {
         Ok(drevo) => {
             if možnosti.debug {
-                drevo.v_program().zaženi_debug();
+                println!("{}", drevo.v_cpp());
             }
             else {
-                drevo.v_program().zaženi();
+                println!("{}", drevo.v_cpp());
             }
         },
         Err(napake) => {

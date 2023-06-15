@@ -1,7 +1,8 @@
 mod prevedi;
 mod postprocesiraj;
 mod from_assembler;
-mod to_assembler;
+mod v_assembler;
+mod v_cpp;
 mod zazeni;
 
 use std::collections::HashMap;
@@ -13,7 +14,8 @@ use crate::parser::drevo::{OdmikIme, Vozlišče::{*, self}};
 use self::{UkazPodatek::*, UkazPodatekRelative::*};
 
 pub trait ToProgram {
-    fn to_program(&self) -> Program;
+    fn v_program(&self) -> Program;
+    fn v_cpp(&self) -> String;
 }
 
 trait Prevedi {
@@ -107,8 +109,12 @@ impl Debug for Podatek {
 }
 
 impl ToProgram for Drevo {
-    fn to_program(&self) -> Program {
+    fn v_program(&self) -> Program {
         Program::from(self)
+    }
+
+    fn v_cpp(&self) -> String {
+        self.koren.v_cpp()
     }
 }
 
@@ -194,6 +200,6 @@ mod test {
             ].to_vec(),
         };
 
-        assert_eq!(program, Program::from(program.to_assembler()));
+        assert_eq!(program, Program::from(program.v_assembler()));
     }
 }

@@ -3,7 +3,7 @@ pub mod lekser;
 pub mod tip;
 pub mod napaka;
 
-mod loci;
+pub mod loci;
 mod operatorji;
 mod predprocesiraj;
 mod okvir;
