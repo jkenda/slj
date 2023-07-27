@@ -5,58 +5,58 @@ SLJ je enostaven interpretiran programski jezik v slovenščini. Nastal je kot n
 
 Spodaj je primer uporabe jezika, v katerem je prisotna večina konstruktov jezika.
 
-	funkcija je_deljivo(deljenec: celo, delitelj: celo) -> bool {
-	    vrni deljenec % delitelj == 0
-	}
+    funkcija je_deljivo(deljenec: celo, delitelj: celo) -> bool {
+        vrni deljenec % delitelj == 0
+    }
 
-	funkcija je_praštevilo(kandidat: celo, praštevila: @[celo]) -> bool {
-	    za i = 0, praštevila[i]**2 < kandidat, i += 1 {
-		če je_deljivo(kandidat, praštevila[i]) {
-		    vrni laž
-		}
-	    }
-	    vrni resnica
-	}
+    funkcija je_praštevilo(kandidat: celo, praštevila: @[celo]) -> bool {
+        za i = 0, praštevila[i]**2 <= kandidat, i += 1 {
+            če je_deljivo(kandidat, praštevila[i]) {
+                vrni laž
+            }
+        }
+        vrni resnica
+    }
 
-	funkcija poišči_praštevila(od: celo, do: celo, praštevila: @[celo], praštevil: @celo) {
-	    za kandidat = od, kandidat <= do, kandidat += 2 {
-		če je_praštevilo(kandidat, praštevila) {
-		    praštevila[praštevil@] = kandidat
-		    praštevil@ += 1
-		}
-	    }
-	}
+    funkcija poišči_praštevila(od: celo, do: celo, praštevila: @[celo], praštevil: @celo) {
+        za kandidat = od, kandidat <= do, kandidat += 2 {
+            če je_praštevilo(kandidat, praštevila) {
+                praštevila[praštevil@] = kandidat
+                praštevil@ += 1
+            }
+        }
+    }
 
-	naj praštevila: [celo; 200]
-	praštevila[0] = 2
-	praštevila[1] = 3
-	naj praštevil = 2
+    spr praštevila: [celo; 1_000_000]
+    praštevila[0] = 2
+    praštevila[1] = 3
+    naj praštevil = 2
 
 
-	poišči_praštevila(5, praštevila.dolžina, @praštevila, @praštevil)
+    poišči_praštevila(5, praštevila.dolžina, @praštevila, @praštevil)
 
-	za i = 0, i < praštevil, i += 1 {
-	    natisni!(praštevila[i], " ")
-	}
+    za i = 0, i < praštevil, i += 1 {
+        natisni!(praštevila[i], " ")
+    }
 
-	natisni!("\npraštevil do ", praštevila.dolžina, ": ", praštevil, "\n")
+    natisni!("\npraštevil do ", praštevila.dolžina, ": ", praštevil, "\n")
 
 # Konstrukti
 ## Spremenljivke in prirejanje
-	naj x = 1
-	x = x + 3.0 # Napaka E5: Nemogoča operacija: celo + real (2, 7)
-	x = x + 3
+    spr x = 1
+    x = x + 3.0 # Napaka E5: Nemogoča operacija: celo + real | test.slj:2:7
+    x = x + 3
 
 ## Osnovni tipi
-	naj odgovor: celo # cela števila
-	naj pi: real      # realna števila
-	naj enako: bool   # boolove vrednosti
-	naj č: znak
-	odgovor = 3.14 # Napaka E3: Nemogoča operacija: celo = real (4, 1)
-	odgovor = 42
-	pi = 3.14
-	enako = laž
-	č = 'č'
+    spr odgovor: celo # cela števila
+    spr pi: real      # realna števila
+    spr enako: bool   # boolove vrednosti
+    spr č: znak
+    odgovor = 3.14 # Napaka E3: Nemogoča operacija: celo = real | test.slj:5:1
+    odgovor = 42
+    pi = 3.14
+    enako = laž
+    č = 'č'
 
 ## Reference
 	naj a = 13
@@ -69,7 +69,7 @@ Spodaj je primer uporabe jezika, v katerem je prisotna večina konstruktov jezik
 	natisni(ra@) # 7
 	
 ## Seznami
-	naj seznam: [real; 64]
+	spr seznam: [real; 64]
 	seznam[0] = 1 # Napaka E3: Nemogoča operacija: real = celo (2, 1)
 	seznam[0] = 1.0
 	seznam[1] = 2.0
@@ -88,9 +88,9 @@ Tako lahko implementiramo eno funkcijo za sezname vseh dolžin.
 	    vrni laž
 	}
 	
-	naj a: [real; 13]
-	naj b: [real; 42]
-	naj c: [celo; 15]
+	spr a: [real; 13]
+	spr b: [real; 42]
+	spr c: [celo; 15]
 
 	vsebuje(@a, 4.0)
 	vsebuje(@b, 0.0)
@@ -98,7 +98,7 @@ Tako lahko implementiramo eno funkcijo za sezname vseh dolžin.
 
 ## Operacije
 	# aritmetične in bitne operacije
-	naj x = 16 - 3
+	spr x = 16 - 3
 	x = x + 2
 	x += 1
 	x = 2**3
@@ -107,16 +107,16 @@ Tako lahko implementiramo eno funkcijo za sezname vseh dolžin.
 	x >>= 1 | 3
 	
 	# Boolove operacije
-	naj b = laž
+	spr b = laž
 	b = !laž
 	b = b && laž
 	b ||= resnica
 	b  ^= laž
 	
 	# pretvorbe med tipi
-	naj a = 13.0
+	spr a = 13.0
 	a += 29 kot real
-	naj nič = 48 kot znak
+	spr nič = 48 kot znak
 	nič += 11 kot znak # Napaka E3: Nemogoča operacija: znak += znak (4, 5)
 	nič = (nič kot celo + 11) kot znak
 
@@ -133,7 +133,7 @@ Zanka `dokler`:
 	}
 	# Napaka E6: Pogoj mora biti Boolova vrednost (1, 8)
 
-	naj i = 0
+	spr i = 0
 	dokler seznam[i] > 0 {
 		...
 		i += 1
