@@ -94,9 +94,9 @@ pub enum Vozlišče {
     ManjšeEnako(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
 
     ProgramskiŠtevec(i32),
-    Skok(OdmikIme),
+    Skok(String),
     DinamičniSkok,
-    PogojniSkok(Rc<Vozlišče>, i32),
+    PogojniSkok(Rc<Vozlišče>, String),
 
     PogojniStavek{ pogoj: Rc<Vozlišče>, resnica: Rc<Vozlišče>, laž: Rc<Vozlišče> },
     Zanka{ pogoj: Rc<Vozlišče>, telo: Rc<Vozlišče> },

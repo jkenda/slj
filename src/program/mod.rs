@@ -2,7 +2,7 @@ mod prevedi;
 mod postprocesiraj;
 mod from_assembler;
 mod v_assembler;
-mod v_cpp;
+mod v_fasm_x86;
 mod zazeni;
 
 use std::collections::HashMap;
@@ -10,12 +10,11 @@ use std::{mem::size_of, fmt::Debug};
 use std::{fmt, io};
 
 use crate::parser::{drevo::Drevo, tip::Tip};
-use crate::parser::drevo::{OdmikIme, Vozlišče::{*, self}};
+use crate::parser::drevo::Vozlišče::{*, self};
 use self::{UkazPodatek::*, UkazPodatekRelative::*};
 
 pub trait ToProgram {
     fn v_program(&self) -> Program;
-    fn v_cpp(&self) -> String;
 }
 
 trait Prevedi {
@@ -25,6 +24,10 @@ trait Prevedi {
 
 trait Postprocesiraj {
     fn postprocesiraj(&self) -> (Vec<UkazPodatek>, Vec<Tip>);
+}
+
+trait ToFasmX86 {
+    fn v_fasm_x86(&self) -> String;
 }
 
 #[derive(Clone, Copy)]
@@ -89,8 +92,8 @@ enum UkazPodatekRelative {
     PUSHI(i32),
     PUSHF(f32),
     PUSHC(char),
-    JUMPRelative(OdmikIme),
-    JMPCRelative(i32),
+    JUMPRelative(String),
+    JMPCRelative(String),
     PC(i32),
     Oznaka(String)
 }
@@ -118,27 +121,6 @@ impl ToProgram for Drevo {
             push_tipi,
             ukazi,
         }
-    }
-
-    fn v_cpp(&self) -> String {
-        dbg!(self.št_klicev.clone());
-
-        "#include <cwchar>\n".to_string()
-        + "#include <vector>\n\n"
-        + "union Podatek\n{\n\tint i;\n\tfloat f;\n\twchar_t c;\n};\n\n"
-        + "static const Podatek LAŽ = { .i = 0 };\n"
-        + "static const Podatek RESNICA = { .i = 1 };\n\n"
-        + "int addroff = 0;\n"
-        + "int dynaddr = 0;\n"
-        + "std::vector<Podatek> stack;\n\n"
-        + &self.funkcije.iter().fold(String::new(), |str, funkcija| {
-            str + &funkcija.v_cpp_funkcija(&self.št_klicev)
-        })
-        + "int main()\n{\n"
-        + &self.main.v_cpp_main(&self.št_klicev)
-            .lines()
-            .fold(String::new(), |str, l| str + if !l.ends_with(':') { "\t" } else { "" } + l + "\n")
-        + "}\n"
     }
 }
 

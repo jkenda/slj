@@ -11,4 +11,5 @@ default-run = "slj"
 regex = "1.8.2"
 no-panic = "0.1.22"
 unsafe_unwrap = "0.1.0"
+lazy_static = "1.4.0"
 

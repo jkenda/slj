@@ -17,7 +17,7 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
                     loop {
                         match &postproc1[konec] {
                             Oznaka(oznaka) => if oznaka.starts_with("konec_funkcije") {
-                                postproc1[i] = JUMPRelative(OdmikIme::Ime(oznaka.clone()));
+                                postproc1[i] = JUMPRelative(oznaka.clone());
                                 break;
                             }
                             else {
@@ -41,7 +41,7 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
                     oznake_vrstic.insert(oznaka.clone(), i as i32);
                     postproc1.remove(i);
                 },
-                JUMPRelative(OdmikIme::Odmik(1)) => {
+                JUMPRelative(oznaka) if postproc1[i + 1] == Oznaka(oznaka.clone()) => {
                     postproc1.remove(i);
                 },
                 _ => i += 1,
@@ -55,11 +55,8 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
                 PUSHI(celo) => { push_tipi.push(Tip::Celo); PUSH(Podatek { i: *celo }) },
                 PUSHF(real) => { push_tipi.push(Tip::Real); PUSH(Podatek { f: *real }) },
                 PUSHC(znak) => { push_tipi.push(Tip::Znak); PUSH(Podatek { c: *znak }) },
-                JUMPRelative(odmik_ime) => match odmik_ime {
-                    OdmikIme::Odmik(rel_skok) => JUMP(št_vrstice as i32 + rel_skok),
-                    OdmikIme::Ime(ime)        => JUMP(oznake_vrstic[ime]),
-                },
-                JMPCRelative(rel_skok) => JMPC(št_vrstice as i32 + rel_skok),
+                JUMPRelative(oznaka) => JUMP(oznake_vrstic[oznaka]),
+                JMPCRelative(oznaka) => JMPC(oznake_vrstic[oznaka]),
                 PC(odmik) => { push_tipi.push(Tip::Celo); PUSH(Podatek { i: št_vrstice as i32 + odmik }) },
                 Oznaka(_) => NOOP,
             });

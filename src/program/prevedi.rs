@@ -1,6 +1,7 @@
 use super::*;
 
 use std::iter;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 impl Prevedi for Drevo {
     fn prevedi(&self) -> Vec<UkazPodatekRelative> {
@@ -11,6 +12,8 @@ impl Prevedi for Drevo {
         self.main.len(&self.št_klicev)
     }
 }
+
+static ŠT_OZNAK: AtomicUsize = AtomicUsize::new(0);
 
 impl Vozlišče {
     fn prevedi(&self, št_klicev: &HashMap<String, usize>) -> Vec<UkazPodatekRelative> {
@@ -212,29 +215,31 @@ impl Vozlišče {
             DinamičniSkok => vec![Osnovni(JMPD).to_owned()],
             PogojniSkok(pogoj, skok) => [
                 pogoj.prevedi(št_klicev).as_slice(),
-                [JMPCRelative(*skok)].as_slice(),
+                [JMPCRelative(skok.clone())].as_slice(),
             ].concat(),
 
             PogojniStavek{ pogoj, resnica, laž } => {
-                let skok = Skok(OdmikIme::Odmik(resnica.len(&št_klicev) as i32 + 1)).rc();
-                Zaporedje(vec![
-                          PogojniSkok(pogoj.clone(), (laž.len(št_klicev) + skok.len(št_klicev) + 1) as i32).rc(),
-                          laž.clone(),
-                          skok,
-                          resnica.clone(),
-                ]).prevedi(št_klicev)
+                let oznaka = ŠT_OZNAK.fetch_add(1, Ordering::Relaxed);
+                [
+                    PogojniSkok(pogoj.clone(), format!("8resnica{oznaka}")).prevedi(št_klicev).as_slice(),
+                    laž.prevedi(št_klicev).as_slice(),
+                    &[JUMPRelative(format!("8konec{oznaka}"))],
+                    &[Oznaka(format!("8resnica{oznaka}"))],
+                    resnica.prevedi(št_klicev).as_slice(),
+                    &[Oznaka(format!("8konec{oznaka}"))],
+                ].concat()
             },
 
             Zanka { pogoj, telo } => {
+                let oznaka = ŠT_OZNAK.fetch_add(1, Ordering::Relaxed);
                 let pogoj = Zanikaj(pogoj.clone()).rc();
-                let pogoj_len = pogoj.len(št_klicev);
-                Zaporedje(vec![
-                          PogojniSkok(
-                              pogoj,
-                              (telo.len(št_klicev) + 2) as i32).rc(),
-                          telo.clone(),
-                          Skok(OdmikIme::Odmik(-(telo.len(št_klicev) as i32) - pogoj_len as i32 - 1)).rc()
-                ]).prevedi(št_klicev)
+                [
+                    [Oznaka(format!("8zanka{oznaka}"))].as_slice(),
+                    PogojniSkok(pogoj, format!("8konec{oznaka}")).prevedi(št_klicev).as_slice(),
+                    telo.prevedi(št_klicev).as_slice(),
+                    &[JUMPRelative(format!("8zanka{oznaka}"))],
+                    &[Oznaka(format!("8konec{oznaka}"))],
+                ].concat()
             },
 
             Prirejanje{ spremenljivka, izraz } => {
@@ -312,12 +317,13 @@ impl Vozlišče {
                 ]);
 
                 [
-                    Skok(OdmikIme::Odmik((1 + pred.len(št_klicev) + telo.len(št_klicev) + za.len(št_klicev)) as i32)).prevedi(št_klicev).as_slice(),
-                    [Oznaka(ime.clone())].as_slice(),
+                    [JUMPRelative(format!("preskoci_funkcijo{ime}"))].as_slice(),
+                    [Oznaka(format!("funkcija{ime}"))].as_slice(),
                     pred.prevedi(št_klicev).as_slice(),
                     telo.prevedi(št_klicev).as_slice(),
-                    [Oznaka(format!("konec_funkcije {}", ime))].as_slice(),
+                    [Oznaka(format!("konec_funkcije{ime}"))].as_slice(),
                     za.prevedi(št_klicev).as_slice(),
+                    [Oznaka(format!("preskoci_funkcijo{ime}"))].as_slice(),
                 ].concat()
             },
 
@@ -325,7 +331,7 @@ impl Vozlišče {
                 let (vrni, skok) = match &**funkcija {
                     Funkcija { tip, ime, .. } => (
                         Push(tip.sprememba_stacka()).rc(),
-                        Skok(OdmikIme::Ime(ime.clone())).rc()),
+                        Skok(format!("funkcija{ime}")).rc()),
                     _ => unreachable!("Funkcijski klic vedno kliče funkcijo"),
                 };
                 let pc = ProgramskiŠtevec((1 + argumenti.len(št_klicev) + skok.len(št_klicev)) as i32).rc();
@@ -480,11 +486,11 @@ mod test {
         ]);
 
         assert_eq!(ProgramskiŠtevec(-7).prevedi(&HashMap::new()), [PC(-7)]);
-        assert_eq!(Skok(OdmikIme::Odmik(69)).prevedi(&HashMap::new()), [JUMPRelative(OdmikIme::Odmik(69))]);
+        assert_eq!(Skok("8zanka".to_string()).prevedi(&HashMap::new()), [JUMPRelative("8zanka".to_string())]);
         assert_eq!(DinamičniSkok.prevedi(&HashMap::new()), [Osnovni(JMPD)]);
-        assert_eq!(PogojniSkok(Resnica.rc(), -33).prevedi(&HashMap::new()), [
+        assert_eq!(PogojniSkok(Resnica.rc(), "8konec".to_string()).prevedi(&HashMap::new()), [
                    PUSHI(1),
-                   JMPCRelative(-33),
+                   JMPCRelative("8konec".to_string()),
         ]);
 
         assert_eq!(PogojniStavek { 
@@ -493,10 +499,10 @@ mod test {
             laž: Natisni(Znak('l').rc()).rc(),
         }.prevedi(&HashMap::new()), [
             PUSHI(1),
-            JMPCRelative(4),
+            JMPCRelative("8laz".to_string()),
             PUSHC('l'),
             Osnovni(PUTC),
-            JUMPRelative(OdmikIme::Odmik(3)),
+            JUMPRelative("8laz".to_string()),
             PUSHC('r'),
             Osnovni(PUTC),
         ]);
@@ -511,10 +517,10 @@ mod test {
             PUSHI(1),
             PUSHI(0),
             Osnovni(SUBI),
-            JMPCRelative(4),
+            JMPCRelative("8konec".to_string()),
             PUSHF(27.0),
             Osnovni(STOR(25)),
-            JUMPRelative(OdmikIme::Odmik(-6)),
+            JUMPRelative("8zacetek".to_string()),
         ]);
 
         assert_eq!(Prirejanje {
@@ -581,7 +587,7 @@ mod test {
         ]);
 
         assert_eq!(funkcija.clone().prevedi(&št_klicev), [
-            JUMPRelative(OdmikIme::Odmik(9)),
+            JUMPRelative("8konec_funkcije".to_string()),
             Oznaka("ena(real)".to_string()),
             Osnovni(LOFF),
             Osnovni(TOP(-5)),
@@ -603,7 +609,7 @@ mod test {
             PC(4),
             PUSHF(1.0),
             PUSHF(2.0),
-            JUMPRelative(OdmikIme::Ime("ena(real)".to_string())),
+            JUMPRelative("ena(real)".to_string()),
         ]);
     }
 }
