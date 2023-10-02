@@ -1,16 +1,13 @@
-use std::collections::HashMap;
 use std::io;
+use std::env;
+use std::fs;
 use std::{fs::File, io::Write};
 use std::process::Command;
 
-use slj::parser::drevo::{Drevo, Vozlišče};
-use slj::parser::napaka::Napake;
-use slj::parser::tip::Tip;
 use slj::parser::{lekser::Razčleni, Parse};
 use slj::program::ToFasmX86;
 
 fn main() -> std::io::Result<()> {
-    /*
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         pomoč(&args[0]);
@@ -29,31 +26,10 @@ fn main() -> std::io::Result<()> {
     let datoteka = fs::read_to_string(ime)
         .expect("Napaka: ne morem odpreti datoteke");
 
-    let drevo = r#"natisni("pozdravljen svet")"#
-        .razčleni("[prazno]")
+    let drevo = datoteka
+        .as_str()
+        .razčleni(ime)
         .analiziraj();
-    */
-
-    use Vozlišče::*;
-
-    let drevo = Drevo {
-        funkcije: vec![],
-        št_klicev: HashMap::new(),
-        main: Zaporedje(vec![
-            Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(1).rc()).rc()).rc()).rc(),
-            Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(3).rc()).rc()).rc()).rc(),
-            Natisni(Znak('\n').rc()).rc(),
-            Natisni(CeloVZnak(Odštevanje(Tip::Celo, Celo(58).rc(), Celo(10).rc()).rc()).rc()).rc(),
-            Natisni(Znak('\n').rc()).rc(),
-            Natisni(CeloVZnak(Množenje(Tip::Celo, Celo(15).rc(), Celo(4).rc()).rc()).rc()).rc(),
-            Natisni(Znak('\n').rc()).rc(),
-            Natisni(CeloVZnak(Deljenje(Tip::Celo, Celo(100).rc(), Celo(2).rc()).rc()).rc()).rc(),
-            Natisni(Znak('\n').rc()).rc(),
-            Natisni(CeloVZnak(Modulo(Tip::Celo, Celo(553).rc(), Celo(100).rc()).rc()).rc()).rc(),
-            Natisni(Znak('\n').rc()).rc(),
-        ]).rc()
-    };
-    let drevo: Result<Drevo, Napake> = Ok(drevo);
 
     match drevo {
         Ok(drevo) => {

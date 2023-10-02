@@ -30,6 +30,7 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                 }
                 + "\n"
             })
+        + "exit 0\n"
     }
 }
 
@@ -42,5 +43,79 @@ fn formatiraj_oznako(oznaka: &str) -> String {
         .replace("@", "V")
         .replace(", ", "__")
         )
+}
+
+#[cfg(test)]
+mod testi {
+    use std::collections::HashMap;
+    use std::{fs::File, io::Write};
+    use std::process::Command;
+
+    use super::*;
+    use crate::parser::drevo::{Drevo, Vozlišče};
+    use crate::parser::tip::Tip;
+    use Vozlišče::*;
+
+    fn test(drevo: Drevo, expected: &str) -> Result<(), io::Error> {
+        // transform AST into native x86_64 assembly
+        let fasm = drevo
+            .v_fasm_x86();
+
+        // write assembly to file
+        File::create("fasm/_main.asm")?
+            .write_all(fasm.as_bytes())?;
+
+        // compile with FASM
+        let output = Command::new("fasm")
+            .arg("fasm/_main.asm")
+            .output()
+            .expect("Failed to execute fasm");
+
+        if !output.status.success() {
+            io::stdout().write_all(&output.stdout)?;
+            io::stderr().write_all(&output.stderr)?;
+            return Err(std::io::Error::new(std::io::ErrorKind::Other, "FASM failed"));
+        }
+
+        // run compiled binary
+        let output = Command::new("fasm/_main")
+            .output()
+            .expect("Failed to execute main");
+
+        if !output.status.success() {
+            io::stdout().write_all(&output.stdout)?;
+            io::stderr().write_all(&output.stderr)?;
+            return Err(std::io::Error::new(std::io::ErrorKind::Other, "program failed"));
+        }
+
+        let output = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(output, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn plus_minus_krat_deljeno_tiskaj() -> Result<(), io::Error> {
+        let drevo = Drevo {
+            funkcije: vec![],
+            št_klicev: HashMap::new(),
+            main: Zaporedje(vec![
+                Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(1).rc()).rc()).rc()).rc(),
+                Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(3).rc()).rc()).rc()).rc(),
+                Natisni(Znak('\n').rc()).rc(),
+                Natisni(CeloVZnak(Odštevanje(Tip::Celo, Celo(58).rc(), Celo(10).rc()).rc()).rc()).rc(),
+                Natisni(Znak('\n').rc()).rc(),
+                Natisni(CeloVZnak(Množenje(Tip::Celo, Celo(15).rc(), Celo(4).rc()).rc()).rc()).rc(),
+                Natisni(Znak('\n').rc()).rc(),
+                Natisni(CeloVZnak(Deljenje(Tip::Celo, Celo(100).rc(), Celo(2).rc()).rc()).rc()).rc(),
+                Natisni(Znak('\n').rc()).rc(),
+                Natisni(CeloVZnak(Modulo(Tip::Celo, Celo(553).rc(), Celo(100).rc()).rc()).rc()).rc(),
+                Natisni(Znak('\n').rc()).rc(),
+            ]).rc()
+        };
+
+        test(drevo, "13\n0\n<\n2\n5\n")
+    }
+
 }
 

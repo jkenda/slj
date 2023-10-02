@@ -120,8 +120,22 @@ macro LOFF {
 }
 
 macro PUTC {
+    ; find how many bytes in char (1-4)
+    ; rax: char
+    ; rbx: length of char
+    ; rcx: increase length?
+    mov rax, [rsp]
+    mov rbx, 0
+    mov rcx, 1
+    repeat 3
+        shr   rax, 8
+        add   rbx, rcx
+        cmp   rax, 0
+        setne cl
+    end repeat
+
     ; write(SYS_stdout, stack.pop(), 8)
-    write STDOUT, rsp, 8
+    write STDOUT, rsp, rbx
     ALOC -1
 }
 
