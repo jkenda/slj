@@ -15,7 +15,7 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
                     let mut konec = i + 1;
                     loop {
                         match &postproc1[konec] {
-                            Oznaka(oznaka) => if oznaka.starts_with("konec_funkcije") {
+                            Oznaka(oznaka) => if oznaka.starts_with("8konec_funkcije") {
                                 postproc1[i] = JUMPRelative(oznaka.clone());
                                 break;
                             }
@@ -47,7 +47,7 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
                     oznake_vrstic.insert(oznaka.clone(), i as i32);
                     postproc1.remove(i);
                 },
-                JUMPRelative(oznaka) if postproc1[i + 1] == Oznaka(oznaka.clone()) => {
+                JUMPRelative(oznaka) if i + 1 < postproc1.len() && postproc1[i + 1] == Oznaka(oznaka.clone()) => {
                     postproc1.remove(i);
                 },
                 _ => i += 1,

@@ -1,22 +1,32 @@
 use super::*;
 
-const INCLUDE: &str = "include 'ukazi.asm'\n\n";
+const PRE: &str = r#"
+include 'ukazi.asm'
+
+entry $
+	mov [stack_0], rsp
+	mov r8, rsp
+
+"#;
+const POST: &str = r#"
+	exit 0
+"#;
 
 impl ToFasmX86 for Vec<UkazPodatekRelative> {
     fn v_fasm_x86(&self) -> String {
 
         self.iter()
-            .fold(INCLUDE.to_string(), |str, ukaz_podatek| {
+            .fold(PRE.to_string(), |str, ukaz_podatek| {
                 str
                 + if let Oznaka(_) = ukaz_podatek { "" } else { "\t" }
                 + &match ukaz_podatek {
-                    PUSHI(število) => format!("PUSH {število}"),
-                    PUSHF(število) => format!("PUSH {število}"),
-                    PUSHC(znak) => format!("PUSH {}", v_utf8(*znak)),
+                    PUSHI(število)       => format!("PUSH {število}"),
+                    PUSHF(število)       => format!("PUSH {število}"),
+                    PUSHC(znak)          => format!("PUSH {}", v_utf8(*znak)),
                     JUMPRelative(oznaka) => format!("JUMP {}", formatiraj_oznako(oznaka)),
                     JMPCRelative(oznaka) => format!("JMPC {}", formatiraj_oznako(oznaka)),
-                    Oznaka(oznaka) => format!("{}:", formatiraj_oznako(oznaka)),
-                    PC(i) => format!("PC {i}"),
+                    Oznaka(oznaka)       => format!("{}:", formatiraj_oznako(oznaka)),
+                    PC(i)                => format!("PC {i}"),
 
                     Osnovni(ALOC(mem))  => format!("ALOC {mem}"),
                     Osnovni(LOAD(addr)) => format!("LOAD {addr}"), // load normal
@@ -25,12 +35,12 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                     Osnovni(STOR(addr)) => format!("LOAD {addr}"), // store normal
                     Osnovni(STOF(addr)) => format!("LOAD {addr}"), // store w/ offset
                     Osnovni(STDY(addr)) => format!("LOAD {addr}"), // store dynamic
-                    Osnovni(TOP(addr))  => format!("TOP {addr}"),
+                    Osnovni(TOP(addr))  => format!("TOP  {addr}"),
                     Osnovni(instruction) => format!("{instruction:?}"),
                 }
                 + "\n"
             })
-        + "\n\texit 0\n"
+        + POST
     }
 }
 
@@ -106,15 +116,18 @@ mod testi {
         let drevo = Drevo {
             funkcije: vec![],
             št_klicev: HashMap::new(),
-            main: Zaporedje(vec![
-                Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(1).rc()).rc()).rc()).rc(),
-                Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(3).rc()).rc()).rc()).rc(),
-                Natisni(CeloVZnak(Odštevanje(Tip::Celo, Celo(58).rc(), Celo(10).rc()).rc()).rc()).rc(),
-                Natisni(CeloVZnak(Množenje(Tip::Celo, Celo(15).rc(), Celo(4).rc()).rc()).rc()).rc(),
-                Natisni(CeloVZnak(Deljenje(Tip::Celo, Celo(100).rc(), Celo(2).rc()).rc()).rc()).rc(),
-                Natisni(CeloVZnak(Modulo(Tip::Celo, Celo(553).rc(), Celo(100).rc()).rc()).rc()).rc(),
-                Natisni(Znak('ž').rc()).rc(),
-            ]).rc()
+            main: Okvir {
+                zaporedje: Zaporedje(vec![
+                    Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(1).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(3).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Odštevanje(Tip::Celo, Celo(58).rc(), Celo(10).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Množenje(Tip::Celo, Celo(15).rc(), Celo(4).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Deljenje(Tip::Celo, Celo(100).rc(), Celo(2).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Modulo(Tip::Celo, Celo(553).rc(), Celo(100).rc()).rc()).rc()).rc(),
+                    Natisni(Znak('ž').rc()).rc(),
+                ]).rc(),
+                št_spr: 11,
+            }.rc()
         };
 
         test(drevo, "130<25ž")

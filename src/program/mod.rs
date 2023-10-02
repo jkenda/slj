@@ -51,10 +51,8 @@ enum UkazPodatek
     JUMP(i32),
     JMPD,
     JMPC(i32),
-    PUSH(Podatek),
     ALOC(i32),
-    POS,
-    ZERO,
+    PUSH(Podatek),
     LOAD(i32), // load normal
     LDOF(i32), // load w/ offset
     LDDY(i32), // load dynamic
@@ -62,6 +60,8 @@ enum UkazPodatek
     STOF(i32), // store w/ offset
     STDY(i32), // store dynamic
     TOP(i32),
+    POS,
+    ZERO,
     SOFF,
     LOFF,
     PUTC,

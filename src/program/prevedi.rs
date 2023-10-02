@@ -317,13 +317,13 @@ impl Vozlišče {
                 ]);
 
                 [
-                    [JUMPRelative(format!("preskoci_funkcijo_{ime}"))].as_slice(),
-                    [Oznaka(format!("funkcija_{ime}"))].as_slice(),
+                    [JUMPRelative(format!("8preskoci_funkcijo_{ime}"))].as_slice(),
+                    [Oznaka(format!("8funkcija_{ime}"))].as_slice(),
                     pred.prevedi(št_klicev).as_slice(),
                     telo.prevedi(št_klicev).as_slice(),
-                    [Oznaka(format!("konec_funkcije_{ime}"))].as_slice(),
+                    [Oznaka(format!("8konec_funkcije_{ime}"))].as_slice(),
                     za.prevedi(št_klicev).as_slice(),
-                    [Oznaka(format!("preskoci_funkcijo_{ime}"))].as_slice(),
+                    [Oznaka(format!("8preskoci_funkcijo_{ime}"))].as_slice(),
                 ].concat()
             },
 
@@ -331,7 +331,7 @@ impl Vozlišče {
                 let (vrni, skok) = match &**funkcija {
                     Funkcija { tip, ime, .. } => (
                         Push(tip.sprememba_stacka()).rc(),
-                        Skok(format!("funkcija_{ime}")).rc()),
+                        Skok(format!("8funkcija_{ime}")).rc()),
                     _ => unreachable!("Funkcijski klic vedno kliče funkcijo"),
                 };
                 let pc = ProgramskiŠtevec((1 + argumenti.len(št_klicev) + skok.len(št_klicev)) as i32).rc();
@@ -499,12 +499,14 @@ mod test {
             laž: Natisni(Znak('l').rc()).rc(),
         }.prevedi(&HashMap::new()), [
             PUSHI(1),
-            JMPCRelative("8laz".to_string()),
+            JMPCRelative("8resnica_0".to_string()),
             PUSHC('l'),
             Osnovni(PUTC),
-            JUMPRelative("8laz".to_string()),
+            JUMPRelative("8konec_0".to_string()),
+            Oznaka("8resnica_0".to_string()),
             PUSHC('r'),
             Osnovni(PUTC),
+            Oznaka("8konec_0".to_string()),
         ]);
 
         assert_eq!(Zanka {
@@ -514,13 +516,15 @@ mod test {
                 izraz: Real(27.0).rc(),
             }.rc(),
         }.prevedi(&HashMap::new()), [
+            Oznaka("8zanka_1".to_string()),
             PUSHI(1),
             PUSHI(0),
             Osnovni(SUBI),
-            JMPCRelative("8konec".to_string()),
+            JMPCRelative("8konec_1".to_string()),
             PUSHF(27.0),
             Osnovni(STOR(25)),
-            JUMPRelative("8zacetek".to_string()),
+            JUMPRelative("8zanka_1".to_string()),
+            Oznaka("8konec_1".to_string()),
         ]);
 
         assert_eq!(Prirejanje {
@@ -587,17 +591,18 @@ mod test {
         ]);
 
         assert_eq!(funkcija.clone().prevedi(&št_klicev), [
-            JUMPRelative("8konec_funkcije".to_string()),
-            Oznaka("ena(real)".to_string()),
+            JUMPRelative("8preskoci_funkcijo_ena(real)".to_string()),
+            Oznaka("8funkcija_ena(real)".to_string()),
             Osnovni(LOFF),
             Osnovni(TOP(-5)),
             PUSHF(1.0),
             Osnovni(STOF(0)),
             Oznaka("vrni".to_string()),
-            Oznaka("konec_funkcije ena(real)".to_string()),
+            Oznaka("8konec_funkcije_ena(real)".to_string()),
             Osnovni(SOFF),
             Osnovni(ALOC(-2)),
             Osnovni(JMPD),
+            Oznaka("8preskoci_funkcijo_ena(real)".to_string()),
         ]);
 
         assert_eq!(FunkcijskiKlic {
@@ -609,7 +614,7 @@ mod test {
             PC(4),
             PUSHF(1.0),
             PUSHF(2.0),
-            JUMPRelative("ena(real)".to_string()),
+            JUMPRelative("8funkcija_ena(real)".to_string()),
         ]);
     }
 }

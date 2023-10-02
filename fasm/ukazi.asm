@@ -1,5 +1,7 @@
 format ELF64 executable
 
+use64
+
 SYS_read  equ 0
 SYS_write equ 1
 
@@ -16,15 +18,32 @@ macro write fd, buf, count {
     mov rdx, count
     syscall
     cmp rax, 0
-    jl .fatal_error
+    jl _fatal_error
 }
 
-macro PUSH data {
-    push qword data
+; write(fd, buf, count)
+macro read fd, buf, count {
+    ; syscall(SYS_write, fd, buf, count)
+    mov rax, SYS_read
+    mov rdi, fd
+    mov rsi, buf
+    mov rdx, count
+    syscall
+    cmp rax, 0
+    jl _fatal_error
+}
+
+macro NOOP {
+    nop
 }
 
 macro JUMP addr {
     jmp addr
+}
+
+macro JMPD {
+    pop rax
+    jmp [rax]
 }
 
 macro JMPC addr {
@@ -33,19 +52,14 @@ macro JMPC addr {
     jne  stack_0 + addr
 }
 
-macro JMPD {
-    pop rax
-    jmp [rax]
-}
-
-macro PC offset {
-    push rax + offset
+macro PUSH data {
+    push data
 }
 
 macro ALOC mem {
     if mem >= 0
         repeat mem
-            push qword 0
+            push 0
         end repeat
     else
         repeat -mem
@@ -54,19 +68,19 @@ macro ALOC mem {
     end if
 }
 
-macro ZERO {
-    pop  rax
-    cmp  rax, 0
-    mov  rax, 0
-    sete al
-    push rax
-}
-
 macro POS {
     pop  rax
     cmp  rax, 0
     mov  rax, 0
     setg al
+    push rax
+}
+
+macro ZERO {
+    pop  rax
+    cmp  rax, 0
+    mov  rax, 0
+    sete al
     push rax
 }
 
@@ -103,9 +117,15 @@ macro STDY addr {
     pop rax + addr
 }
 
+macro PC offset {
+    mov rax, rip
+    add rax, offset
+    push rax
+}
+
 macro TOP addr {
     ; addroff = PC
-    mov r8, [rip]
+    mov r8, rip
 }
 
 
@@ -136,7 +156,8 @@ macro PUTC {
 }
 
 macro GETC {
-    _TODO
+    call _getc
+    push rax
 }
 
 macro ADDI {
@@ -277,12 +298,43 @@ stack_0 dq 0
 
 segment readable executable
 
-_putc:
+_getc:
+    read STDIN, rsp, 1
+    ; if buf[0] & 0b11100000 == 0b11000000 {
+    mov rax, [rsp]
+    mov cl, al
+    and cl, 11100000b
+    cmp cl, 11000000b
+    je _read2
+    ; else if buf[0] & 0b11110000 == 0b11100000 {
+    mov cl, al
+    and cl, 11110000b
+    cmp cl, 11100000b
+    je _read3
+    ; else if buf[0] & 0b11111000 == 0b11110000 {
+    mov cl, al
+    and cl, 11111000b
+    cmp cl, 11110000b
+    je _read4
 
-.fatal_error:
+_read1:
+    ret
+_read2:
+    shl  rax, 8
+    read STDIN, rsp, 1
+    or   rax, [rsp]
+    ret
+_read3:
+    shl  rax, 16
+    read STDIN, rsp, 2
+    or   rax, [rsp]
+    ret
+_read4:
+    shl  rax, 24
+    read STDIN, rsp, 3
+    or   rax, [rsp]
+    ret
+
+_fatal_error:
     exit rax
-
-entry $
-    mov [stack_0], rsp
-    mov r8, rsp
 
