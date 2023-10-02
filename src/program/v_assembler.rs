@@ -19,7 +19,7 @@ impl Program {
                         Tip::Celo => format!("PUSH #{}\n",   unsafe { podatek.i }),
                         Tip::Znak => format!("PUSH '{}'\n",  unsafe { podatek.c
                             .to_string()
-                            .replace("\\", r"\\")
+                                .replace("\\", r"\\")
                                 .replace("\n", r"\n")
                                 .replace("\t", r"\t")
                                 .replace("\r", r"\r")

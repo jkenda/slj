@@ -221,12 +221,12 @@ impl Vozlišče {
             PogojniStavek{ pogoj, resnica, laž } => {
                 let oznaka = ŠT_OZNAK.fetch_add(1, Ordering::Relaxed);
                 [
-                    PogojniSkok(pogoj.clone(), format!("8resnica{oznaka}")).prevedi(št_klicev).as_slice(),
+                    PogojniSkok(pogoj.clone(), format!("8resnica_{oznaka}")).prevedi(št_klicev).as_slice(),
                     laž.prevedi(št_klicev).as_slice(),
-                    &[JUMPRelative(format!("8konec{oznaka}"))],
-                    &[Oznaka(format!("8resnica{oznaka}"))],
+                    &[JUMPRelative(format!("8konec_{oznaka}"))],
+                    &[Oznaka(format!("8resnica_{oznaka}"))],
                     resnica.prevedi(št_klicev).as_slice(),
-                    &[Oznaka(format!("8konec{oznaka}"))],
+                    &[Oznaka(format!("8konec_{oznaka}"))],
                 ].concat()
             },
 
@@ -234,11 +234,11 @@ impl Vozlišče {
                 let oznaka = ŠT_OZNAK.fetch_add(1, Ordering::Relaxed);
                 let pogoj = Zanikaj(pogoj.clone()).rc();
                 [
-                    [Oznaka(format!("8zanka{oznaka}"))].as_slice(),
-                    PogojniSkok(pogoj, format!("8konec{oznaka}")).prevedi(št_klicev).as_slice(),
+                    [Oznaka(format!("8zanka_{oznaka}"))].as_slice(),
+                    PogojniSkok(pogoj, format!("8konec_{oznaka}")).prevedi(št_klicev).as_slice(),
                     telo.prevedi(št_klicev).as_slice(),
-                    &[JUMPRelative(format!("8zanka{oznaka}"))],
-                    &[Oznaka(format!("8konec{oznaka}"))],
+                    &[JUMPRelative(format!("8zanka_{oznaka}"))],
+                    &[Oznaka(format!("8konec_{oznaka}"))],
                 ].concat()
             },
 
@@ -317,13 +317,13 @@ impl Vozlišče {
                 ]);
 
                 [
-                    [JUMPRelative(format!("preskoci_funkcijo{ime}"))].as_slice(),
-                    [Oznaka(format!("funkcija{ime}"))].as_slice(),
+                    [JUMPRelative(format!("preskoci_funkcijo_{ime}"))].as_slice(),
+                    [Oznaka(format!("funkcija_{ime}"))].as_slice(),
                     pred.prevedi(št_klicev).as_slice(),
                     telo.prevedi(št_klicev).as_slice(),
-                    [Oznaka(format!("konec_funkcije{ime}"))].as_slice(),
+                    [Oznaka(format!("konec_funkcije_{ime}"))].as_slice(),
                     za.prevedi(št_klicev).as_slice(),
-                    [Oznaka(format!("preskoci_funkcijo{ime}"))].as_slice(),
+                    [Oznaka(format!("preskoci_funkcijo_{ime}"))].as_slice(),
                 ].concat()
             },
 
@@ -331,7 +331,7 @@ impl Vozlišče {
                 let (vrni, skok) = match &**funkcija {
                     Funkcija { tip, ime, .. } => (
                         Push(tip.sprememba_stacka()).rc(),
-                        Skok(format!("funkcija{ime}")).rc()),
+                        Skok(format!("funkcija_{ime}")).rc()),
                     _ => unreachable!("Funkcijski klic vedno kliče funkcijo"),
                 };
                 let pc = ProgramskiŠtevec((1 + argumenti.len(št_klicev) + skok.len(št_klicev)) as i32).rc();

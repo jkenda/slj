@@ -1,12 +1,11 @@
 use super::*;
 
 impl Postprocesiraj for Vec<UkazPodatekRelative> {
-    fn postprocesiraj(&self) -> (Vec<UkazPodatek>, Vec<Tip>) {
-        let mut postproc1 = self.clone();
-        let mut postproc: Vec<UkazPodatek> = Vec::new();
-        let mut push_tipi = Vec::new();
 
-        // nadomesti "vrni" z JUMP x
+    // nadomesti "vrni" z JUMP x
+    fn vrni_v_oznake(&self) -> Vec<UkazPodatekRelative> {
+        let mut postproc1 = self.clone();
+        
         let mut i: usize = 0;
         while i < postproc1.len() {
             if let Oznaka(oznaka) = &postproc1[i] {
@@ -31,6 +30,13 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
             i += 1;
         }
 
+        postproc1
+    }
+
+    fn postprocesiraj(&self) -> (Vec<UkazPodatek>, Vec<Tip>) {
+        let mut postproc1 = self.clone();
+        let mut push_tipi = Vec::new();
+
         let mut oznake_vrstic: HashMap<String, i32> = HashMap::new();
 
         // preberi oznake vrstic in jih odstrani
@@ -49,18 +55,20 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
         }
 
         // relativni skok -> absolutni skok
-        for (št_vrstice, ukaz_podatek) in postproc1.iter().enumerate() {
-            postproc.push(match ukaz_podatek {
-                Osnovni(osnovni_ukaz) => osnovni_ukaz.clone(),
-                PUSHI(celo) => { push_tipi.push(Tip::Celo); PUSH(Podatek { i: *celo }) },
-                PUSHF(real) => { push_tipi.push(Tip::Real); PUSH(Podatek { f: *real }) },
-                PUSHC(znak) => { push_tipi.push(Tip::Znak); PUSH(Podatek { c: *znak }) },
-                JUMPRelative(oznaka) => JUMP(oznake_vrstic[oznaka]),
-                JMPCRelative(oznaka) => JMPC(oznake_vrstic[oznaka]),
-                PC(odmik) => { push_tipi.push(Tip::Celo); PUSH(Podatek { i: št_vrstice as i32 + odmik }) },
-                Oznaka(_) => NOOP,
-            });
-        }
+        let postproc = postproc1.iter()
+            .enumerate()
+            .map(|(i, ukaz_podatek)|
+                match ukaz_podatek {
+                    Osnovni(osnovni_ukaz) => osnovni_ukaz.clone(),
+                    PUSHI(celo) => { push_tipi.push(Tip::Celo); PUSH(Podatek { i: *celo }) },
+                    PUSHF(real) => { push_tipi.push(Tip::Real); PUSH(Podatek { f: *real }) },
+                    PUSHC(znak) => { push_tipi.push(Tip::Znak); PUSH(Podatek { c: *znak }) },
+                    JUMPRelative(oznaka) => JUMP(oznake_vrstic[oznaka]),
+                    JMPCRelative(oznaka) => JMPC(oznake_vrstic[oznaka]),
+                    PC(odmik) => { push_tipi.push(Tip::Celo); PUSH(Podatek { i: i as i32 + odmik }) },
+                    Oznaka(_) => NOOP,
+                })
+        .collect();
 
         (postproc, push_tipi)
     }

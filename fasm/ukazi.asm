@@ -24,13 +24,18 @@ macro PUSH data {
 }
 
 macro JUMP addr {
-    jmp stack_0 + addr
+    jmp addr
 }
 
 macro JMPC addr {
     pop  rax
     test rax, 1
     jne  stack_0 + addr
+}
+
+macro JMPD {
+    pop rax
+    jmp [rax]
 }
 
 macro PC offset {
@@ -52,7 +57,16 @@ macro ALOC mem {
 macro ZERO {
     pop  rax
     cmp  rax, 0
-    sete rax
+    mov  rax, 0
+    sete al
+    push rax
+}
+
+macro POS {
+    pop  rax
+    cmp  rax, 0
+    mov  rax, 0
+    setg al
     push rax
 }
 
@@ -91,7 +105,7 @@ macro STDY addr {
 
 macro TOP addr {
     ; addroff = PC
-    mov rip, r8
+    mov r8, [rip]
 }
 
 
@@ -259,53 +273,4 @@ segment readable executable
 entry $
     mov [stack_0], rsp
     mov r8, rsp
-
-    PUSH 48
-    PUSH 3
-    ADDI
-    PUSH 48
-    PUSH 1
-    ADDI
-    PUTC
-    PUTC
-    ; 48 + 1 = 49 -> '1'
-    ; 48 + 3 = 51 -> '3'
-
-    PUSH 10
-    PUTC
-    ; '\n'
-
-    PUSH 58
-    PUSH 10
-    SUBI
-    PUTC
-    PUSH 10
-    PUTC
-    ; 58 - 10 = 48 -> '0'
-
-    PUSH 15
-    PUSH 4
-    MULI
-    PUTC
-    PUSH 10
-    PUTC
-    ; 15 * 4 = 60 -> '<'
-
-    PUSH 100
-    PUSH 2
-    DIVI
-    PUTC
-    PUSH 10
-    PUTC
-    ; 100 / 2 = 50 -> '2'
-
-    PUSH 553
-    PUSH 100
-    MODI
-    PUTC
-    PUSH 10
-    PUTC
-    ; 553 % 100 = 53 -> '5'
-
-    exit 0
 
