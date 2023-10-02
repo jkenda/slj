@@ -120,21 +120,17 @@ macro LOFF {
 }
 
 macro PUTC {
-    ; find how many bytes in char (1-4)
-    ; rax: char
-    ; rbx: length of char
-    ; rcx: increase length?
+    ; count UTF-8 bytes
     mov rax, [rsp]
-    mov rbx, 0
-    mov rcx, 1
+    mov rbx, 1
     repeat 3
         shr   rax, 8
-        add   rbx, rcx
-        cmp   rax, 0
+        cmp   al,  0
         setne cl
+        add   bl,  cl
     end repeat
 
-    ; write(SYS_stdout, stack.pop(), 8)
+    ; write(SYS_stdout, dst, len)
     write STDOUT, rsp, rbx
     ALOC -1
 }
@@ -280,6 +276,8 @@ segment readable writeable
 stack_0 dq 0
 
 segment readable executable
+
+_putc:
 
 .fatal_error:
     exit rax

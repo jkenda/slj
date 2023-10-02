@@ -12,7 +12,7 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                 + &match ukaz_podatek {
                     PUSHI(število) => format!("PUSH {število}"),
                     PUSHF(število) => format!("PUSH {število}"),
-                    PUSHC(znak) => format!("PUSH {}", *znak as u32),
+                    PUSHC(znak) => format!("PUSH {}", v_utf8(*znak)),
                     JUMPRelative(oznaka) => format!("JUMP {}", formatiraj_oznako(oznaka)),
                     JMPCRelative(oznaka) => format!("JMPC {}", formatiraj_oznako(oznaka)),
                     Oznaka(oznaka) => format!("{}:", formatiraj_oznako(oznaka)),
@@ -30,8 +30,15 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                 }
                 + "\n"
             })
-        + "exit 0\n"
+        + "\n\texit 0\n"
     }
+}
+
+fn v_utf8(znak: char) -> u32 {
+    let mut buf = [0u8; 4];
+    znak.encode_utf8(&mut buf);
+    buf.iter().rev()
+        .fold(0, |acc, b| acc << 8 | *b as u32)
 }
 
 fn formatiraj_oznako(oznaka: &str) -> String {
@@ -102,19 +109,15 @@ mod testi {
             main: Zaporedje(vec![
                 Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(1).rc()).rc()).rc()).rc(),
                 Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(3).rc()).rc()).rc()).rc(),
-                Natisni(Znak('\n').rc()).rc(),
                 Natisni(CeloVZnak(Odštevanje(Tip::Celo, Celo(58).rc(), Celo(10).rc()).rc()).rc()).rc(),
-                Natisni(Znak('\n').rc()).rc(),
                 Natisni(CeloVZnak(Množenje(Tip::Celo, Celo(15).rc(), Celo(4).rc()).rc()).rc()).rc(),
-                Natisni(Znak('\n').rc()).rc(),
                 Natisni(CeloVZnak(Deljenje(Tip::Celo, Celo(100).rc(), Celo(2).rc()).rc()).rc()).rc(),
-                Natisni(Znak('\n').rc()).rc(),
                 Natisni(CeloVZnak(Modulo(Tip::Celo, Celo(553).rc(), Celo(100).rc()).rc()).rc()).rc(),
-                Natisni(Znak('\n').rc()).rc(),
+                Natisni(Znak('ž').rc()).rc(),
             ]).rc()
         };
 
-        test(drevo, "13\n0\n<\n2\n5\n")
+        test(drevo, "130<25ž")
     }
 
 }
