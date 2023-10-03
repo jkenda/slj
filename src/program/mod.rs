@@ -49,8 +49,8 @@ enum UkazPodatek
 {
     NOOP,
     JUMP(i32),
-    JMPD,
     JMPC(i32),
+    JMPD,
     ALOC(i32),
     PUSH(Podatek),
     LOAD(i32), // load normal

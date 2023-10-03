@@ -1,6 +1,7 @@
 use std::io;
 use std::env;
 use std::fs;
+use std::process::Stdio;
 use std::{fs::File, io::Write};
 use std::process::Command;
 
@@ -42,25 +43,31 @@ fn main() -> std::io::Result<()> {
                 .write_all(fasm.as_bytes())?;
 
             // compile with FASM
-            let output = Command::new("fasm")
+            let status = Command::new("fasm")
                 .arg("fasm/_main.asm")
-                .output()
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .status()
                 .expect("Failed to execute fasm");
 
-            io::stdout().write_all(&output.stdout)?;
-            io::stderr().write_all(&output.stderr)?;
-            if !output.status.success() {
-                return Err(std::io::Error::new(std::io::ErrorKind::Other, "FASM failed"));
+            if !status.success() {
+                return Err(io::Error::new(io::ErrorKind::Other, "compilation failed"));
             }
 
             // run compiled binary
-            let output = Command::new("fasm/_main")
-                .output()
+            let status = Command::new("fasm/_main")
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .status()
                 .expect("Failed to execute main");
 
-            io::stdout().write_all(&output.stdout)?;
-            io::stderr().write_all(&output.stderr)?;
-            Ok(())
+            match status.code() {
+                Some(0) => Ok(()),
+                Some(code) => Err(io::Error::new(io::ErrorKind::Other, format!("program failed with exit code {code}"))),
+                None => Err(io::Error::new(io::ErrorKind::Other, "program failed")),
+            }
         },
         Err(napake) => {
             napake.izpiši();

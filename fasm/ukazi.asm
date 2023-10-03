@@ -53,7 +53,12 @@ macro JMPC addr {
 }
 
 macro PUSH data {
-    push data
+    if data > 0xFFFF
+        mov rax, data
+        push rax
+    else
+        push data
+    end if
 }
 
 macro ALOC mem {
@@ -299,40 +304,48 @@ stack_0 dq 0
 segment readable executable
 
 _getc:
+    PUSH 0
     read STDIN, rsp, 1
-    ; if buf[0] & 0b11100000 == 0b11000000 {
     mov rax, [rsp]
+
     mov cl, al
     and cl, 11100000b
     cmp cl, 11000000b
     je _read2
-    ; else if buf[0] & 0b11110000 == 0b11100000 {
+
     mov cl, al
     and cl, 11110000b
     cmp cl, 11100000b
     je _read3
-    ; else if buf[0] & 0b11111000 == 0b11110000 {
+
     mov cl, al
     and cl, 11111000b
     cmp cl, 11110000b
     je _read4
 
 _read1:
+    ALOC -1
     ret
 _read2:
-    shl  rax, 8
     read STDIN, rsp, 1
-    or   rax, [rsp]
+    mov  rbx, [rsp]
+    shl  rbx, 8
+    or   rax, rbx
+    ALOC -1
     ret
 _read3:
-    shl  rax, 16
     read STDIN, rsp, 2
-    or   rax, [rsp]
+    mov  rbx, [rsp]
+    shl  rbx, 8
+    or   rax, rbx
+    ALOC -1
     ret
 _read4:
-    shl  rax, 24
     read STDIN, rsp, 3
-    or   rax, [rsp]
+    mov  rbx, [rsp]
+    shl  rbx, 8
+    or   rax, rbx
+    ALOC -1
     ret
 
 _fatal_error:

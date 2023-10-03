@@ -121,14 +121,11 @@ impl Program {
                 NOOP => *pc + 1,
 
                 JUMP(naslov) => *naslov,
-                JMPD => stack.pop()?.i,
                 JMPC(naslov) => if stack.pop()? != LAŽ { *naslov } else { *pc + 1 },
+                JMPD => stack.pop()?.i,
 
-                PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
                 ALOC(razlika) => { stack.set_len((stack.len() as i32 + razlika) as usize); *pc + 1 }
-
-                POS  => { *stack.last_mut()? = if stack.last()?.f  > 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
-                ZERO => { *stack.last_mut()? = if stack.last()?.f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
+                PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
 
                 LOAD(naslov) => { stack.push(*stack.get(*naslov as usize)?); *pc + 1 },
                 LDOF(naslov) => { stack.push(*stack.get(*addroff as usize + *naslov as usize)?); *pc + 1 },
@@ -147,6 +144,9 @@ impl Program {
                 }
 
                 TOP(naslov) => { *addroff = stack.len() as i32 + naslov; *pc + 1 },
+
+                POS  => { *stack.last_mut()? = if stack.last()?.f  > 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
+                ZERO => { *stack.last_mut()? = if stack.last()?.f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
 
                 SOFF => { *addroff = stack.pop()?.i;   *pc + 1 },
                 LOFF => { stack.push(Podatek { i: *addroff as i32 }); *pc + 1 },
@@ -192,7 +192,7 @@ impl Program {
 }
 
 fn preberi_znak(vhod: &mut impl io::Read) -> Option<char> {
-    let mut buf: [u8; 4] = [0, 0, 0, 0];
+    let mut buf = [0u8; 4];
     let _ = vhod.read(&mut buf[..1]).unwrap();
 
     if buf[0] & 0b11100000 == 0b11000000 {

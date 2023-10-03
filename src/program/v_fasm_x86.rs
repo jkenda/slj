@@ -22,10 +22,10 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                 + &match ukaz_podatek {
                     PUSHI(število)       => format!("PUSH {število}"),
                     PUSHF(število)       => format!("PUSH {število}"),
-                    PUSHC(znak)          => format!("PUSH {}", v_utf8(*znak)),
+                    PUSHC(znak)          => format!("PUSH 0x{:0X}", v_utf8(*znak)),
                     JUMPRelative(oznaka) => format!("JUMP {}", formatiraj_oznako(oznaka)),
                     JMPCRelative(oznaka) => format!("JMPC {}", formatiraj_oznako(oznaka)),
-                    Oznaka(oznaka)       => format!("{}:", formatiraj_oznako(oznaka)),
+                    Oznaka(oznaka)       => format!("{}:",     formatiraj_oznako(oznaka)),
                     PC(i)                => format!("PC {i}"),
 
                     Osnovni(ALOC(mem))  => format!("ALOC {mem}"),
@@ -65,39 +65,60 @@ fn formatiraj_oznako(oznaka: &str) -> String {
 #[cfg(test)]
 mod testi {
     use std::collections::HashMap;
+    use std::thread;
     use std::{fs::File, io::Write};
-    use std::process::Command;
+    use std::process::{Command, Stdio};
 
     use super::*;
     use crate::parser::drevo::{Drevo, Vozlišče};
     use crate::parser::tip::Tip;
     use Vozlišče::*;
 
-    fn test(drevo: Drevo, expected: &str) -> Result<(), io::Error> {
+    fn test(drevo: Drevo, input: &str, expected: &str, bytes: bool) -> Result<(), io::Error> {
         // transform AST into native x86_64 assembly
         let fasm = drevo
             .v_fasm_x86();
 
+        let thread_id = format!("{:?}", thread::current().id().to_owned());
+        let thread_id = thread_id
+            .split("(").nth(1).unwrap()
+            .split(")").nth(0).unwrap();
+
+        let program_filename = format!("fasm/_main__{thread_id}");
+
         // write assembly to file
-        File::create("fasm/_main.asm")?
+        File::create(format!("{program_filename}.asm"))?
             .write_all(fasm.as_bytes())?;
 
         // compile with FASM
         let output = Command::new("fasm")
-            .arg("fasm/_main.asm")
+            .arg(format!("{program_filename}.asm"))
             .output()
             .expect("Failed to execute fasm");
 
         if !output.status.success() {
             io::stdout().write_all(&output.stdout)?;
             io::stderr().write_all(&output.stderr)?;
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, "FASM failed"));
+            return Err(std::io::Error::new(std::io::ErrorKind::Other, "compilation failed"));
         }
 
         // run compiled binary
-        let output = Command::new("fasm/_main")
-            .output()
+        let mut proces = Command::new(program_filename)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .expect("Failed to execute main");
+
+        let mut child_stdin = proces.stdin
+            .take()
+            .expect("Failed to open stdin");
+
+        child_stdin.write_all(input.as_bytes())?;
+
+        let output = proces
+            .wait_with_output()
+            .expect("Failed to wait on main");
 
         if !output.status.success() {
             io::stdout().write_all(&output.stdout)?;
@@ -105,14 +126,52 @@ mod testi {
             return Err(std::io::Error::new(std::io::ErrorKind::Other, "program failed"));
         }
 
-        let output = String::from_utf8_lossy(&output.stdout);
-        assert_eq!(output, expected);
+        if bytes {
+            assert_eq!(output.stdout, expected.as_bytes());
+        }
+        else {
+            let output = String::from_utf8_lossy(&output.stdout);
+            assert_eq!(output, expected);
+        }
 
         Ok(())
     }
 
     #[test]
-    fn plus_minus_krat_deljeno_tiskaj() -> Result<(), io::Error> {
+    fn putc() -> Result<(), io::Error> {
+        let drevo = Drevo {
+            funkcije: vec![],
+            št_klicev: HashMap::new(),
+            main: Zaporedje(vec![
+                Natisni(Znak('a').rc()).rc(),
+                Natisni(Znak('ž').rc()).rc(),
+                Natisni(Znak('😭').rc()).rc(),
+                Natisni(Znak('\n').rc()).rc(),
+            ]).rc()
+        };
+
+        test(drevo, "", "až😭\n", true)
+    }
+
+    #[test]
+    fn getc() -> Result<(), io::Error> {
+        let drevo = Drevo {
+            funkcije: vec![],
+            št_klicev: HashMap::new(),
+            main: Zaporedje(vec![
+                Natisni(Preberi.rc()).rc(),
+                Natisni(Preberi.rc()).rc(),
+                Natisni(Preberi.rc()).rc(),
+                Natisni(Preberi.rc()).rc(),
+            ]).rc()
+        };
+
+        test(drevo, "asdf", "asdf", true)
+        //test(drevo, "až😭\n", "až😭\n", true)
+    }
+
+    #[test]
+    fn plus_minus_krat_deljeno_mod() -> Result<(), io::Error> {
         let drevo = Drevo {
             funkcije: vec![],
             št_klicev: HashMap::new(),
@@ -124,13 +183,13 @@ mod testi {
                     Natisni(CeloVZnak(Množenje(Tip::Celo, Celo(15).rc(), Celo(4).rc()).rc()).rc()).rc(),
                     Natisni(CeloVZnak(Deljenje(Tip::Celo, Celo(100).rc(), Celo(2).rc()).rc()).rc()).rc(),
                     Natisni(CeloVZnak(Modulo(Tip::Celo, Celo(553).rc(), Celo(100).rc()).rc()).rc()).rc(),
-                    Natisni(Znak('ž').rc()).rc(),
+                    Natisni(Znak('\n').rc()).rc(),
                 ]).rc(),
                 št_spr: 11,
             }.rc()
         };
 
-        test(drevo, "130<25ž")
+        test(drevo, "", "130<25\n", false)
     }
 
 }
