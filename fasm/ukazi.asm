@@ -37,19 +37,18 @@ macro NOOP {
     nop
 }
 
-macro JUMP addr {
-    jmp addr
+macro JUMP label {
+    jmp label
 }
 
 macro JMPD {
-    pop rax
-    jmp [rax]
+    ret
 }
 
-macro JMPC addr {
+macro JMPC label {
     pop  rax
     test rax, 1
-    jne  stack_0 + addr
+    jne label
 }
 
 macro PUSH data {
@@ -130,7 +129,7 @@ macro PC offset {
 
 macro TOP addr {
     ; addroff = PC
-    mov r8, rip
+    mov r8, rsp
 }
 
 

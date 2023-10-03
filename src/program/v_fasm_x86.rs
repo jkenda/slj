@@ -74,11 +74,8 @@ mod testi {
     use crate::parser::tip::Tip;
     use Vozlišče::*;
 
-    fn test(drevo: Drevo, input: &str, expected: &str, bytes: bool) -> Result<(), io::Error> {
+    fn test(fasm: &str, input: &str, expected: &str, bytes: bool) -> Result<(), io::Error> {
         // transform AST into native x86_64 assembly
-        let fasm = drevo
-            .v_fasm_x86();
-
         let thread_id = format!("{:?}", thread::current().id().to_owned());
         let thread_id = thread_id
             .split("(").nth(1).unwrap()
@@ -139,7 +136,7 @@ mod testi {
 
     #[test]
     fn putc() -> Result<(), io::Error> {
-        let drevo = Drevo {
+        let asm = Drevo {
             funkcije: vec![],
             št_klicev: HashMap::new(),
             main: Zaporedje(vec![
@@ -148,14 +145,15 @@ mod testi {
                 Natisni(Znak('😭').rc()).rc(),
                 Natisni(Znak('\n').rc()).rc(),
             ]).rc()
-        };
+        }
+        .v_fasm_x86();
 
-        test(drevo, "", "až😭\n", true)
+        test(&asm, "", "až😭\n", true)
     }
 
     #[test]
     fn getc() -> Result<(), io::Error> {
-        let drevo = Drevo {
+        let asm = Drevo {
             funkcije: vec![],
             št_klicev: HashMap::new(),
             main: Zaporedje(vec![
@@ -164,15 +162,16 @@ mod testi {
                 Natisni(Preberi.rc()).rc(),
                 Natisni(Preberi.rc()).rc(),
             ]).rc()
-        };
+        }
+        .v_fasm_x86();
 
-        test(drevo, "asdf", "asdf", true)
+        test(&asm, "asdf", "asdf", true)
         //test(drevo, "až😭\n", "až😭\n", true)
     }
 
     #[test]
     fn plus_minus_krat_deljeno_mod() -> Result<(), io::Error> {
-        let drevo = Drevo {
+        let asm = Drevo {
             funkcije: vec![],
             št_klicev: HashMap::new(),
             main: Okvir {
@@ -187,9 +186,54 @@ mod testi {
                 ]).rc(),
                 št_spr: 11,
             }.rc()
-        };
+        }
+        .v_fasm_x86();
 
-        test(drevo, "", "130<25\n", false)
+        test(&asm, "", "130<25\n", false)
+    }
+
+    #[test]
+    fn jump() -> Result<(), io::Error> {
+        let asm = vec![
+            PUSHC('0'),
+            Osnovni(PUTC),
+            JUMPRelative("else".to_string()),
+            PUSHC('1'),
+            Osnovni(PUTC),
+            Oznaka("else".to_string()),
+            PUSHC('2'),
+            Osnovni(PUTC),
+        ]
+        .v_fasm_x86();
+
+        test(&asm, "", "02", false)
+    }
+
+    #[test]
+    fn jmpc() -> Result<(), io::Error> {
+        let asm = vec![
+            PUSHC('0'),
+            Osnovni(PUTC),
+            PUSHI(1),
+            JMPCRelative("else1".to_string()),
+            PUSHC('1'),
+            Osnovni(PUTC),
+            Oznaka("else1".to_string()),
+            PUSHC('2'),
+            Osnovni(PUTC),
+            PUSHI(0),
+            JMPCRelative("else2".to_string()),
+            PUSHC('3'),
+            Osnovni(PUTC),
+            JUMPRelative("konec".to_string()),
+            Oznaka("else2".to_string()),
+            PUSHC('4'),
+            Osnovni(PUTC),
+            Oznaka("konec".to_string()),
+        ]
+        .v_fasm_x86();
+
+        test(&asm, "", "023", false)
     }
 
 }
