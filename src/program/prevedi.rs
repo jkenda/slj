@@ -212,6 +212,7 @@ impl Vozlišče {
             ProgramskiŠtevec(odmik) => vec![PC(*odmik)],
 
             Skok(oznaka) => vec![JUMPRelative(oznaka.clone())],
+            Klic(oznaka) => vec![CALL(oznaka.clone())],
             DinamičniSkok => vec![Osnovni(JMPD).to_owned()],
             PogojniSkok(pogoj, skok) => [
                 pogoj.prevedi(št_klicev).as_slice(),
@@ -331,7 +332,7 @@ impl Vozlišče {
                 let (vrni, skok) = match &**funkcija {
                     Funkcija { tip, ime, .. } => (
                         Push(tip.sprememba_stacka()).rc(),
-                        Skok(format!("8funkcija_{ime}")).rc()),
+                        Klic(format!("8funkcija_{ime}")).rc()),
                     _ => unreachable!("Funkcijski klic vedno kliče funkcijo"),
                 };
                 let pc = ProgramskiŠtevec((1 + argumenti.len(št_klicev) + skok.len(št_klicev)) as i32).rc();
@@ -614,7 +615,7 @@ mod test {
             PC(4),
             PUSHF(1.0),
             PUSHF(2.0),
-            JUMPRelative("8funkcija_ena(real)".to_string()),
+            CALL("8funkcija_ena(real)".to_string()),
         ]);
     }
 }

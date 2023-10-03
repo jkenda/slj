@@ -65,6 +65,7 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
                     PUSHC(znak) => { push_tipi.push(Tip::Znak); PUSH(Podatek { c: *znak }) },
                     JUMPRelative(oznaka) => JUMP(oznake_vrstic[oznaka]),
                     JMPCRelative(oznaka) => JMPC(oznake_vrstic[oznaka]),
+                    CALL(oznaka) => JUMP(oznake_vrstic[oznaka]),
                     PC(odmik) => { push_tipi.push(Tip::Celo); PUSH(Podatek { i: i as i32 + odmik }) },
                     Oznaka(_) => NOOP,
                 })

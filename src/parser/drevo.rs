@@ -95,6 +95,7 @@ pub enum Vozlišče {
 
     ProgramskiŠtevec(i32),
     Skok(String),
+    Klic(String),
     DinamičniSkok,
     PogojniSkok(Rc<Vozlišče>, String),
 
@@ -285,7 +286,7 @@ impl Vozlišče {
             Prazno => "  ".repeat(globina) + "()\n",
 
             Push(_) | Pop(_) | Vrh(_) | ShraniOdmik | NaložiOdmik
-                | ProgramskiŠtevec(_) | Skok(_) | PogojniSkok(..) | DinamičniSkok =>
+                | ProgramskiŠtevec(_) | Skok(_) | Klic(_) | PogojniSkok(..) | DinamičniSkok =>
                 "".to_string(),
 
             Niz(_) | Celo(_) | Real(_) | Znak(_) | Resnica | Laž
@@ -576,7 +577,7 @@ impl Vozlišče {
                 => l.sprememba_stacka() + d.sprememba_stacka() - 1,
 
             ProgramskiŠtevec(_)     => 1,
-            Skok(_)                 => 0,
+            Skok(_) | Klic(_)                 => 0,
             DinamičniSkok           => -1,
             PogojniSkok(pogoj, _)   => pogoj.sprememba_stacka() - 1,
 
@@ -645,6 +646,7 @@ impl Vozlišče {
 
             ProgramskiŠtevec(..) => Tip::Celo,
             Skok(..) => Tip::Brez,
+            Klic(..) => Tip::Brez,
             DinamičniSkok => Tip::Brez,
             PogojniSkok(..) => Tip::Brez,
 

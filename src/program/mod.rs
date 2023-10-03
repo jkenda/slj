@@ -95,6 +95,7 @@ enum UkazPodatekRelative {
     PUSHC(char),
     JUMPRelative(String),
     JMPCRelative(String),
+    CALL(String),
     PC(i32),
     Oznaka(String)
 }

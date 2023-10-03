@@ -41,6 +41,10 @@ macro JUMP label {
     jmp label
 }
 
+macro CALL label {
+    call label
+}
+
 macro JMPD {
     ret
 }
@@ -122,9 +126,6 @@ macro STDY addr {
 }
 
 macro PC offset {
-    mov rax, rip
-    add rax, offset
-    push rax
 }
 
 macro TOP addr {

@@ -25,6 +25,7 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                     PUSHC(znak)          => format!("PUSH 0x{:0X}", v_utf8(*znak)),
                     JUMPRelative(oznaka) => format!("JUMP {}", formatiraj_oznako(oznaka)),
                     JMPCRelative(oznaka) => format!("JMPC {}", formatiraj_oznako(oznaka)),
+                    CALL(oznaka)         => format!("CALL {}", formatiraj_oznako(oznaka)),
                     Oznaka(oznaka)       => format!("{}:",     formatiraj_oznako(oznaka)),
                     PC(i)                => format!("PC {i}"),
 
@@ -234,6 +235,27 @@ mod testi {
         .v_fasm_x86();
 
         test(&asm, "", "023", false)
+    }
+
+    #[test]
+    fn primerjave() -> Result<(), io::Error> {
+        let asm = vec![
+            PUSHI(1),
+            Osnovni(POS),
+            JMPCRelative("konec1".to_string()),
+            PUSHC('1'),
+            Osnovni(PUTC),
+            Oznaka("konec1".to_string()),
+            PUSHI(1),
+            Osnovni(ZERO),
+            JMPCRelative("konec2".to_string()),
+            PUSHC('2'),
+            Osnovni(PUTC),
+            Oznaka("konec2".to_string()),
+        ]
+        .v_fasm_x86();
+
+        test(&asm, "", "2", false)
     }
 
 }
