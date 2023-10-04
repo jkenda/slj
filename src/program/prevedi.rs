@@ -64,7 +64,7 @@ impl Vozlišče {
                 [Osnovni(LDDY(0))].as_slice(),
             ].concat(),
             Indeksiraj { seznam_ref, indeks } =>
-                Dereferenciraj(Seštevanje(Tip::Celo, seznam_ref.clone(), indeks.clone()).rc()).prevedi(št_klicev),
+                Dereferenciraj(Plus(Tip::Celo, seznam_ref.clone(), indeks.clone()).rc()).prevedi(št_klicev),
             Dolžina(vozlišče) => match vozlišče.tip() {
                 Tip::Seznam(_, dolžina) => Celo(dolžina).rc().prevedi(št_klicev),
                 Tip::RefSeznama(..) => [
@@ -74,50 +74,50 @@ impl Vozlišče {
                 _ => unreachable!("Jemanje dolžine nečesa, kar ni seznam"),
             },
 
-            Seštevanje(Tip::Celo, l, d) => [
+            Plus(Tip::Celo, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(ADDI)].as_slice(),
             ].concat(),
-            Seštevanje(Tip::Real, l, d) => [
+            Plus(Tip::Real, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(ADDF)].as_slice(),
             ].concat(),
-            Seštevanje(..) => unreachable!(),
-            Odštevanje(Tip::Celo, l, d) => [
+            Plus(..) => unreachable!(),
+            Minus(Tip::Celo, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(SUBI)].as_slice(),
             ].concat(),
-            Odštevanje(Tip::Real, l, d) => [
+            Minus(Tip::Real, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(SUBF)].as_slice(),
             ].concat(),
-            Odštevanje(..) => unreachable!(),
-            Množenje(Tip::Celo, l, d) => [
+            Minus(..) => unreachable!(),
+            Krat(Tip::Celo, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(MULI)].as_slice(),
             ].concat(),
-            Množenje(Tip::Real, l, d) => [
+            Krat(Tip::Real, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(MULF)].as_slice(),
             ].concat(),
-            Množenje(..) => unreachable!(),
-            Deljenje(Tip::Celo, l, d) => [
+            Krat(..) => unreachable!(),
+            Deljeno(Tip::Celo, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(DIVI)].as_slice(),
             ].concat(),
-            Deljenje(Tip::Real, l, d) => [
+            Deljeno(Tip::Real, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(DIVF)].as_slice(),
             ].concat(),
-            Deljenje(..) => unreachable!(),
+            Deljeno(..) => unreachable!(),
             Modulo(Tip::Celo, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
@@ -196,13 +196,13 @@ impl Vozlišče {
             ].concat(),
 
             Enako(tip, l, d) => [
-                Odštevanje(tip.clone(), l.clone(), d.clone()).prevedi(št_klicev).as_slice(),
+                Minus(tip.clone(), l.clone(), d.clone()).prevedi(št_klicev).as_slice(),
                 [Osnovni(ZERO)].as_slice(),
             ].concat(),
             NiEnako(tip, l, d) => Zanikaj(Enako(tip.clone(), l.clone(), d.clone()).rc()).prevedi(št_klicev),
 
             Večje(tip, l, d) => [
-                Odštevanje(tip.clone(), l.clone(), d.clone()).prevedi(št_klicev).as_slice(),
+                Minus(tip.clone(), l.clone(), d.clone()).prevedi(št_klicev).as_slice(),
                 [Osnovni(POS)].as_slice(),
             ].concat(),
             Manjše(tip, l, d)      => Večje(tip.clone(), d.clone(), l.clone()).prevedi(št_klicev),
@@ -419,22 +419,22 @@ mod test {
         assert_eq!(Resnica.prevedi(&HashMap::new()), [PUSHI(1)]);
         assert_eq!(Laž.prevedi(&HashMap::new()), [PUSHI(0)]);
 
-        assert_eq!(Seštevanje(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
+        assert_eq!(Plus(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(ADDF),
         ]);
-        assert_eq!(Odštevanje(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
+        assert_eq!(Minus(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(SUBF),
         ]);
-        assert_eq!(Množenje(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
+        assert_eq!(Krat(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(MULF),
         ]);
-        assert_eq!(Deljenje(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
+        assert_eq!(Deljeno(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(DIVF),

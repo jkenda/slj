@@ -1,10 +1,12 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::Display;
+use std::rc::Rc;
 use Tip::*;
 
-use crate::parser::napaka::OznakaNapake::*;
 use crate::parser::lekser::L;
+use crate::parser::napaka::OznakaNapake::*;
 
+use super::drevo::Vozlišče;
 use super::napaka::{Napake, Napaka};
 use super::lekser::Žeton;
 use super::loci::*;
@@ -23,7 +25,7 @@ pub enum Tip {
 }
 
 impl Tip {
-    pub fn from(izraz: &[Žeton]) -> Result<Self, Napake> {
+    pub fn from(izraz: &[Žeton], konstante: &HashMap<String, Rc<Vozlišče>>) -> Result<Self, Napake> {
         use Žeton::{Ločilo, Operator};
         match izraz {
             [ Žeton::Tip("brez", ..) ] => Ok(Tip::Brez),
@@ -31,16 +33,27 @@ impl Tip {
             [ Žeton::Tip("celo", ..) ] => Ok(Tip::Celo),
             [ Žeton::Tip("real", ..) ] => Ok(Tip::Real),
             [ Žeton::Tip("znak", ..) ] => Ok(Tip::Znak),
-            [ Ločilo("[", ..), tip @ .., Ločilo(";", ..), len @ Žeton::Literal(L::Celo(..)), Ločilo("]", ..) ] => 
-                Ok(Tip::Seznam(Box::new(Tip::from(tip)?), 
-                        match len.as_str().replace("_", "").parse() {
+            [ Ločilo("[", ..), tip @ .., Ločilo(";", ..), žeton @ Žeton::Literal(L::Celo(len, ..)) , Ločilo("]", ..) ] => 
+                Ok(Tip::Seznam(Box::new(Tip::from(tip, konstante)?), 
+                        match len.replace("_", "").parse() {
                             Ok(len) => Ok(len),
-                            Err(err) => Err(Napake::from_zaporedje(&[*len], E1,
-                                    &format!("Iz vrednosti ni mogoče ustvariti števila: {err} {}", len.lokacija_str())))
-            }?)),
+                            Err(err) => Err(Napake::from_zaporedje(&[*žeton], E1,
+                                    &format!("Iz vrednosti ni mogoče ustvariti števila: {err} {}", žeton.lokacija_str())))
+                        }?)),
+            [ Ločilo("[", ..), tip @ .., Ločilo(";", ..), žeton @ Žeton::Ime(ime, ..) , Ločilo("]", ..) ] => 
+                Ok(Tip::Seznam(Box::new(Tip::from(tip, konstante)?), 
+                        match konstante.get(*ime) {
+                            Some(v) => match &**v {
+                                Vozlišče::Celo(len) => Ok(*len),
+                                _ => Err(Napake::from_zaporedje(&[*žeton], E1,
+                                        &format!("'{ime}' ni tipa 'celo': {}", žeton.lokacija_str())))
+                            },
+                            None => Err(Napake::from_zaporedje(&[*žeton], E1,
+                                    &format!("Konstanta '{ime}' ne obstaja: {}", žeton.lokacija_str())))
+                        }?)),
             [ Ločilo("{", ..), vmes @ .., Ločilo("}", ..) ] => Ok(Tip::Strukt(zgradi_tip_strukta(vmes)?)),
-            [ Operator("@", ..), Ločilo("[", ..), ostanek @ .. , Ločilo("]", ..)] => Ok(RefSeznama(Box::new(Tip::from(ostanek)?))),
-            [ Operator("@", ..), ostanek @ .. ] => Ok(Referenca(Box::new(Tip::from(ostanek)?))),
+            [ Operator("@", ..), Ločilo("[", ..), ostanek @ .. , Ločilo("]", ..)] => Ok(RefSeznama(Box::new(Tip::from(ostanek, konstante)?))),
+            [ Operator("@", ..), ostanek @ .. ] => Ok(Referenca(Box::new(Tip::from(ostanek, konstante)?))),
             _ => Err(Napake::from_zaporedje(izraz, E1, 
                     &format!("Neznan tip: '{}'", izraz.iter().map(|t| t.as_str()).collect::<Vec<&str>>().join("")))),
         }
@@ -106,7 +119,7 @@ fn zgradi_tip_strukta<'a: 'b, 'b>(mut izraz: &'b [Žeton<'a>]) -> Result<BTreeMa
 
         match polje {
             [ ime @ Žeton::Ime(..), Žeton::Ločilo(":", ..), tip @ .. ] => {
-                match Tip::from(tip) {
+                match Tip::from(tip, &HashMap::new()) {
                     Ok(tip) => match polja.insert(ime.to_string(), Box::new(tip)) {
                         Some(..) => _ = napake.add_napaka(Napaka::from_zaporedje(&[*ime], E1, "Polje s tem imenom že obstaja")),
                         None => (),
@@ -123,7 +136,7 @@ fn zgradi_tip_strukta<'a: 'b, 'b>(mut izraz: &'b [Žeton<'a>]) -> Result<BTreeMa
     if izraz != &[] {
         match izraz {
             [ ime @ Žeton::Ime(..), Žeton::Ločilo(":", ..), tip @ .. ] => {
-                match Tip::from(tip) {
+                match Tip::from(tip, &HashMap::new()) {
                     Ok(tip) => match polja.insert(ime.to_string(), Box::new(tip)) {
                         Some(..) => _ = napake.add_napaka(Napaka::from_zaporedje(&[*ime], E1, "Polje s tem imenom že obstaja")),
                         None => (),
@@ -151,19 +164,19 @@ mod testi {
 
     #[test]
     fn from_string_to_string() {
-        assert_eq!(Tip::from("brez".razčleni("[test]").as_slice()).unwrap().to_string(), "brez");
-        assert_eq!(Tip::from("bool".razčleni("[test]").as_slice()).unwrap().to_string(), "bool");
-        assert_eq!(Tip::from("celo".razčleni("[test]").as_slice()).unwrap().to_string(), "celo");
-        assert_eq!(Tip::from("real".razčleni("[test]").as_slice()).unwrap().to_string(), "real");
-        assert_eq!(Tip::from("znak".razčleni("[test]").as_slice()).unwrap().to_string(), "znak");
+        assert_eq!(Tip::from("brez".razčleni("[test]").as_slice(), &HashMap::new()).unwrap().to_string(), "brez");
+        assert_eq!(Tip::from("bool".razčleni("[test]").as_slice(), &HashMap::new()).unwrap().to_string(), "bool");
+        assert_eq!(Tip::from("celo".razčleni("[test]").as_slice(), &HashMap::new()).unwrap().to_string(), "celo");
+        assert_eq!(Tip::from("real".razčleni("[test]").as_slice(), &HashMap::new()).unwrap().to_string(), "real");
+        assert_eq!(Tip::from("znak".razčleni("[test]").as_slice(), &HashMap::new()).unwrap().to_string(), "znak");
 
-        assert_eq!(Tip::from("[celo; 6]".razčleni("[test]").as_slice()).unwrap().to_string(), "[celo; 6]");
-        assert_eq!(Tip::from("[[celo; 3]; 6]".razčleni("[test]").as_slice()).unwrap().to_string(), "[[celo; 3]; 6]");
+        assert_eq!(Tip::from("[celo; 6]".razčleni("[test]").as_slice(), &HashMap::new()).unwrap().to_string(), "[celo; 6]");
+        assert_eq!(Tip::from("[[celo; 3]; 6]".razčleni("[test]").as_slice(), &HashMap::new()).unwrap().to_string(), "[[celo; 3]; 6]");
 
-        assert_eq!(Tip::from("{ x: real, y: real }".razčleni("[test]").as_slice()).unwrap().to_string(), "{\nx: real,\ny: real,\n}");
-        assert_eq!(Tip::from("{ _arr: [celo; 128], len: celo }".razčleni("[test]").as_slice()).unwrap().to_string(), "{\n_arr: [celo; 128],\nlen: celo,\n}");
+        assert_eq!(Tip::from("{ x: real, y: real }".razčleni("[test]").as_slice(), &HashMap::new()).unwrap().to_string(), "{\nx: real,\ny: real,\n}");
+        assert_eq!(Tip::from("{ _arr: [celo; 128], len: celo }".razčleni("[test]").as_slice(), &HashMap::new()).unwrap().to_string(), "{\n_arr: [celo; 128],\nlen: celo,\n}");
 
-        assert_eq!(Tip::from("@celo".razčleni("[test]").as_slice()).unwrap().to_string(), "@celo");
-        assert_eq!(Tip::from("@[real]".razčleni("[test]").as_slice()).unwrap().to_string(), "@[real]");
+        assert_eq!(Tip::from("@celo".razčleni("[test]").as_slice(), &HashMap::new()).unwrap().to_string(), "@celo");
+        assert_eq!(Tip::from("@[real]".razčleni("[test]").as_slice(), &HashMap::new()).unwrap().to_string(), "@[real]");
     }
 }

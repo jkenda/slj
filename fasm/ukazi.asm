@@ -181,8 +181,8 @@ macro SUBI {
 
 macro MULI {
     pop  rax
-    pop  rcx
-    mul  rcx
+    pop  rbx
+    imul rax, rbx
     push rax
 }
 
@@ -203,9 +203,10 @@ macro MODI {
 }
 
 macro POWI {
+    mov rax, 1
+    pop rcx
     pop rbx
-    pop rax
-    _TODO
+    call _powi
     push rax
 }
 
@@ -302,6 +303,15 @@ segment readable writeable
 stack_0 dq 0
 
 segment readable executable
+
+_powi:
+    cmp rcx, 0
+    je _powi_done
+    imul rax, rbx
+    dec rcx
+    jmp _powi
+_powi_done:
+    ret
 
 _getc:
     PUSH 0

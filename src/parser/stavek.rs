@@ -65,7 +65,7 @@ impl<'a> Parser<'a> {
     }
 
     fn deklaracija(&mut self, ime: &Žeton<'a>, tip: &[Žeton]) -> Result<Rc<Vozlišče>, Napake> {
-        let tip = Tip::from(tip)?;
+        let tip = Tip::from(tip, &self.konstante)?;
         let spremenljivka = match self.spremenljivke.get(ime.as_str()) {
             Some(_) => Err(Napake::from_zaporedje(&[*ime], E2, "Spremenljivka že obstaja")),
             None => Ok(self.dodaj_spremenljivko(ime.as_str(), tip.clone(), true)),
@@ -80,7 +80,7 @@ impl<'a> Parser<'a> {
     fn inicializacija(&mut self, ime: &Žeton<'a>, tip_izraza: Option<&[Žeton]>, izraz: &[Žeton<'a>], spremenljiva: bool) -> Result<Rc<Vozlišče>, Napake> {
         let izraz = self.drevo(izraz)?;
         let tip_spr = match tip_izraza {
-            Some(tip) => Tip::from(tip)?,
+            Some(tip) => Tip::from(tip, &self.konstante)?,
             None => izraz.tip(),
         };
         let spremenljivka = match self.spremenljivke.get(ime.as_str()) {
@@ -100,7 +100,7 @@ impl<'a> Parser<'a> {
     fn konstanta(&mut self, ime: &Žeton<'a>, tip_izraza: Option<&[Žeton]>, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         let drevo = self.drevo(izraz)?;
         let tip_kons = match tip_izraza {
-            Some(tip) => Tip::from(tip)?,
+            Some(tip) => Tip::from(tip, &self.konstante)?,
             None => drevo.tip(),
         };
         match self.konstante.get(ime.as_str()) {

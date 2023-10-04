@@ -185,8 +185,8 @@ impl<'a> Parser<'a> {
             [ Operator("-", ..), ostanek @ .. ] => {
                 let drevo = self.drevo(ostanek)?;
                 match drevo.tip() {
-                    Tip::Celo => Ok(Odštevanje(Tip::Celo, Celo(0).rc(), drevo).rc()),
-                    Tip::Real => Ok(Odštevanje(Tip::Real, Celo(0).rc(), drevo).rc()),
+                    Tip::Celo => Ok(Minus(Tip::Celo, Celo(0).rc(), drevo).rc()),
+                    Tip::Real => Ok(Minus(Tip::Real, Celo(0).rc(), drevo).rc()),
                     _ => Err(Napake::from_zaporedje(ostanek, E5, &format!("Nemogoča operacija: -{}", drevo.tip()))),
                 }
             },
@@ -252,7 +252,7 @@ impl<'a> Parser<'a> {
     fn pretvorba(&mut self, izraz: &[Žeton<'a>], tip_ven_izraz: &Žeton) -> Result<Rc<Vozlišče>, Napake> {
         let drevo = self.drevo(izraz)?.rc();
         let tip_noter = drevo.tip();
-        let tip_ven = Tip::from(&[*tip_ven_izraz])?;
+        let tip_ven = Tip::from(&[*tip_ven_izraz], &self.konstante)?;
 
         match (tip_noter.clone(), tip_ven.clone()) {
             (Tip::Real, Tip::Celo) => Ok(RealVCelo(drevo).rc()),
@@ -337,24 +337,24 @@ mod testi {
     fn aritmetični() {
         let mut parser = Parser::new();
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[]")), Operator("+", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
-            Seštevanje(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
+            Plus(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("-", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
-            Odštevanje(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
+            Minus(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("*", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
-            Množenje(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
+            Krat(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("/", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
-            Deljenje(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
+            Deljeno(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("%", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
             Modulo(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("**", 1, 2, "[test]"), Literal(L::Celo("2", 1, 4, "[test]")) ].as_slice()).unwrap(),
             Potenca(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
 
-        assert_eq!(parser.drevo("-(3-4)".razčleni("[test]").as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Odštevanje(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc());
+        assert_eq!(parser.drevo("-(3-4)".razčleni("[test]").as_slice()).unwrap(), Minus(Tip::Celo, Celo(0).rc(), Minus(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc());
         assert_eq!(parser.drevo("-3".razčleni("[test]").as_slice()).unwrap(), Celo(-3).rc());
-        assert_eq!(parser.drevo("-3 * 2".razčleni("[test]").as_slice()).unwrap(), Množenje(Tip::Celo, Celo(-3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.drevo("3 * -2".razčleni("[test]").as_slice()).unwrap(), Množenje(Tip::Celo, Celo(3).rc(), Celo(-2).rc()).rc());
-        assert_eq!(parser.drevo("--1".razčleni("[test]").as_slice()).unwrap(), Odštevanje(Tip::Celo, Celo(0).rc(), Celo(-1).rc()).rc());
-        assert_eq!(parser.drevo("2 + -1".razčleni("[test]").as_slice()).unwrap(), Seštevanje(Tip::Celo, Celo(2).rc(), Celo(-1).rc()).rc());
+        assert_eq!(parser.drevo("-3 * 2".razčleni("[test]").as_slice()).unwrap(), Krat(Tip::Celo, Celo(-3).rc(), Celo(2).rc()).rc());
+        assert_eq!(parser.drevo("3 * -2".razčleni("[test]").as_slice()).unwrap(), Krat(Tip::Celo, Celo(3).rc(), Celo(-2).rc()).rc());
+        assert_eq!(parser.drevo("--1".razčleni("[test]").as_slice()).unwrap(), Minus(Tip::Celo, Celo(0).rc(), Celo(-1).rc()).rc());
+        assert_eq!(parser.drevo("2 + -1".razčleni("[test]").as_slice()).unwrap(), Plus(Tip::Celo, Celo(2).rc(), Celo(-1).rc()).rc());
     }
 
     #[test]

@@ -13,7 +13,7 @@ impl<'a> Parser<'a> {
         let tip = match tip_izraz {
             [] => Ok(Tip::Brez),
             [Ločilo("->", ..)] => Err(Napake::from_zaporedje(&[*oklepaj], E5, "Za '->' pričakovan tip")),
-            [Ločilo("->", ..), ostanek @ ..] => Tip::from(ostanek),
+            [Ločilo("->", ..), ostanek @ ..] => Tip::from(ostanek, &self.konstante),
             _ =>  Err(Napake::from_zaporedje(tip_izraz, E5, "Pričakovan '-> <tip>'")),
         }?;
 
@@ -53,7 +53,7 @@ impl<'a> Parser<'a> {
             }
 
             let ime = &ime[0];
-            let tip = Tip::from(tip)?;
+            let tip = Tip::from(tip, &self.konstante)?;
 
             if spr_funkcije.contains_key(ime.as_str()) {
                 return Err(Napake::from_zaporedje(&[*ime], E7, "Imena parametrov morajo biti unikatna"))

@@ -171,26 +171,27 @@ mod testi {
     }
 
     #[test]
-    fn plus_minus_krat_deljeno_mod() -> Result<(), io::Error> {
+    fn cele_operacije() -> Result<(), io::Error> {
         let asm = Drevo {
             funkcije: vec![],
             št_klicev: HashMap::new(),
             main: Okvir {
                 zaporedje: Zaporedje(vec![
-                    Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(1).rc()).rc()).rc()).rc(),
-                    Natisni(CeloVZnak(Seštevanje(Tip::Celo, Celo(48).rc(), Celo(3).rc()).rc()).rc()).rc(),
-                    Natisni(CeloVZnak(Odštevanje(Tip::Celo, Celo(58).rc(), Celo(10).rc()).rc()).rc()).rc(),
-                    Natisni(CeloVZnak(Množenje(Tip::Celo, Celo(15).rc(), Celo(4).rc()).rc()).rc()).rc(),
-                    Natisni(CeloVZnak(Deljenje(Tip::Celo, Celo(100).rc(), Celo(2).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Plus(Tip::Celo, Celo(48).rc(), Celo(1).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Plus(Tip::Celo, Celo(48).rc(), Celo(3).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Minus(Tip::Celo, Celo(58).rc(), Celo(10).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Krat(Tip::Celo, Celo(15).rc(), Celo(4).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Deljeno(Tip::Celo, Celo(100).rc(), Celo(2).rc()).rc()).rc()).rc(),
                     Natisni(CeloVZnak(Modulo(Tip::Celo, Celo(553).rc(), Celo(100).rc()).rc()).rc()).rc(),
-                    Natisni(Znak('\n').rc()).rc(),
+                    Natisni(CeloVZnak(Potenca(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Minus(Tip::Celo, Celo(128).rc(), Potenca(Tip::Celo, Celo(-3).rc(), Celo(4).rc()).rc()).rc()).rc()).rc(),
                 ]).rc(),
                 št_spr: 11,
             }.rc()
         }
         .v_fasm_x86();
 
-        test(&asm, "", "130<25\n", false)
+        test(&asm, "", "130<25Q/", false)
     }
 
     #[test]
