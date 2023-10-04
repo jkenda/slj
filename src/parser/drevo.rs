@@ -281,6 +281,10 @@ impl PartialEq for Vozlišče {
 }
 
 impl Vozlišče {
+    pub fn rc(&self) -> Rc<Self> {
+        Rc::new(self.clone())
+    }
+
     pub fn drevo(&self, globina: usize) -> String {
         match self {
             Prazno => "  ".repeat(globina) + "()\n",
@@ -525,10 +529,6 @@ impl Vozlišče {
         }
     }
 
-    pub fn rc(&self) -> Rc<Self> {
-        Rc::new(self.clone())
-    }
-
     pub fn sprememba_stacka(&self) -> i32 {
         match self {
             Prazno => 0,
@@ -540,9 +540,8 @@ impl Vozlišče {
             ShraniOdmik => -1,
             NaložiOdmik => 1,
 
-            Celo(_) => 1,
-            Real(_) => 1,
-            Znak(_) => 1,
+            Celo(_) | Real(_) | Znak(_) => 1,
+            Resnica | Laž => 1,
             Niz(niz) => niz.chars().count() as i32,
 
             Spremenljivka{ tip, .. } => tip.sprememba_stacka(),
@@ -550,17 +549,14 @@ impl Vozlišče {
 
             Dereferenciraj(spr) => spr.sprememba_stacka(),
             Indeksiraj { seznam_ref, .. } => match &**seznam_ref {
-                Spremenljivka { tip, .. } => tip.sprememba_stacka(),
-                Referenca(spr) => match &**spr {
-                    Spremenljivka { tip, .. } => tip.sprememba_stacka(),
-                    _ => unreachable!("Vedno indeksiramo referenco na seznam."),
+                spr @ Spremenljivka { .. } => spr.sprememba_stacka(),
+                Referenca(spr) | RefSeznama(spr) => match &**spr {
+                    spr @ Spremenljivka { .. } => spr.sprememba_stacka(),
+                    _ => unreachable!("Zakaj indeksiraš tip '{seznam_ref:?}'??"),
                 },
-                _ => unreachable!("Vedno indeksiramo referenco na seznam."),
+                _ => unreachable!("Zakaj indeksiraš tip '{seznam_ref:?}'??"),
             }
             Dolžina(..) => 1,
-
-            Resnica => 1,
-            Laž     => 1,
 
             Plus(_, l, d) | Minus(_, l, d) | Krat(_, l, d) | Deljeno(_, l, d) | Modulo(_, l, d) | Potenca(_, l, d) |
                 Enako(_, l, d) | NiEnako(_, l, d) | Večje(_, l, d) | VečjeEnako(_, l, d) | Manjše(_, l, d) | ManjšeEnako(_, l, d)

@@ -1,7 +1,9 @@
 use super::*;
 
 const PRE: &str = "include 'ukazi.asm'\n\n";
-const POST: &str = "\n\texit 0";
+const POST: &str = "
+    exit 0
+";
 
 impl ToFasmX86 for Vec<UkazPodatekRelative> {
     fn v_fasm_x86(&self) -> String {
@@ -50,8 +52,7 @@ fn formatiraj_oznako(oznaka: &str) -> String {
         .replace("[", "F")
         .replace("]", "G")
         .replace("@", "V")
-        .replace(", ", "__")
-        )
+        .replace(", ", "__"))
 }
 
 #[cfg(test)]
@@ -278,7 +279,7 @@ mod testi {
             PUSHC('1'), Osnovni(TOP(0)), PUSHC('2'), PUSHC('3'),
 
             Osnovni(LOAD(0)), Osnovni(PUTC),
-            Osnovni(LOAD(1)), Osnovni(PUTC),
+            PUSHI(1), Osnovni(LDDY(0)), Osnovni(PUTC),
             Osnovni(LDOF(0)), Osnovni(PUTC),
             Osnovni(LDOF(1)), Osnovni(PUTC),
 
@@ -295,7 +296,7 @@ mod testi {
             PUSHC('1'), Osnovni(TOP(0)), PUSHC('2'), PUSHC('3'),
 
             Osnovni(LOAD(0)), PUSHI(1), Osnovni(SUBI), Osnovni(STOR(0)),
-            Osnovni(LOAD(1)), PUSHI(1), Osnovni(SUBI), Osnovni(STOR(1)),
+            Osnovni(LOAD(1)), PUSHI(1), Osnovni(SUBI), PUSHI(1), Osnovni(STDY(0)),
             Osnovni(LDOF(1)), PUSHI(1), Osnovni(SUBI), Osnovni(STOF(1)),
             Osnovni(LOAD(0)), Osnovni(PUTC),
             Osnovni(LOAD(1)), Osnovni(PUTC),
@@ -323,14 +324,16 @@ mod testi {
     #[test]
     fn natisni() -> Result<(), io::Error> {
         let asm = r#"
-            natisni(0)
+            natisni('a')
+            natisni("bcd")
+            natisni!("efg", 2 + 3)
         "#
         .razčleni("[test]")
         .analiziraj()
         .unwrap()
         .v_fasm_x86();
 
-        test(&asm, "", "8", false)
+        test(&asm, "", "abcdefg5", false)
     }
 
 }

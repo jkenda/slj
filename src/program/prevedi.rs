@@ -222,12 +222,12 @@ impl Vozlišče {
             PogojniStavek{ pogoj, resnica, laž } => {
                 let oznaka = ŠT_OZNAK.fetch_add(1, Ordering::Relaxed);
                 [
-                    PogojniSkok(pogoj.clone(), format!("8resnica_{oznaka}")).prevedi(št_klicev).as_slice(),
+                    PogojniSkok(pogoj.clone(), format!("true_{oznaka}")).prevedi(št_klicev).as_slice(),
                     laž.prevedi(št_klicev).as_slice(),
-                    &[JUMPRelative(format!("8konec_{oznaka}"))],
-                    &[Oznaka(format!("8resnica_{oznaka}"))],
+                    &[JUMPRelative(format!("end_{oznaka}"))],
+                    &[Oznaka(format!("true_{oznaka}"))],
                     resnica.prevedi(št_klicev).as_slice(),
-                    &[Oznaka(format!("8konec_{oznaka}"))],
+                    &[Oznaka(format!("end_{oznaka}"))],
                 ].concat()
             },
 
@@ -235,11 +235,11 @@ impl Vozlišče {
                 let oznaka = ŠT_OZNAK.fetch_add(1, Ordering::Relaxed);
                 let pogoj = Zanikaj(pogoj.clone()).rc();
                 [
-                    [Oznaka(format!("8zanka_{oznaka}"))].as_slice(),
-                    PogojniSkok(pogoj, format!("8konec_{oznaka}")).prevedi(št_klicev).as_slice(),
+                    [Oznaka(format!("loop_{oznaka}"))].as_slice(),
+                    PogojniSkok(pogoj, format!("end_{oznaka}")).prevedi(št_klicev).as_slice(),
                     telo.prevedi(št_klicev).as_slice(),
-                    &[JUMPRelative(format!("8zanka_{oznaka}"))],
-                    &[Oznaka(format!("8konec_{oznaka}"))],
+                    &[JUMPRelative(format!("loop_{oznaka}"))],
+                    &[Oznaka(format!("end_{oznaka}"))],
                 ].concat()
             },
 
@@ -284,7 +284,12 @@ impl Vozlišče {
                 [Oznaka("vrni".to_string())].as_slice(),
             ].concat(),
 
-            Zaporedje(vozlišča) => vozlišča.into_iter().map(|v| v.prevedi(št_klicev)).flatten().collect(),
+            Zaporedje(vozlišča) =>
+                vozlišča.into_iter()
+                .map(|v| v.prevedi(št_klicev))
+                .flatten()
+                .collect(),
+
             Okvir{ zaporedje, št_spr } => Zaporedje(vec![
                 Push(*št_spr).rc(),
                 zaporedje.clone(),
@@ -298,13 +303,13 @@ impl Vozlišče {
 
                 let parametri_velikost = parametri.iter()
                     .map(|p| p.sprememba_stacka())
-                    .sum();
+                    .sum::<i32>();
 
                 let pred = Zaporedje(vec![
                     NaložiOdmik.rc(),
                     Vrh((- tip.sprememba_stacka()                    // vrni (+0)
-                         - ProgramskiŠtevec(0).sprememba_stacka()    // PC (+1)
-                         - parametri_velikost               // [ argumenti ] (+2 ...)
+                         - parametri_velikost                        // [ argumenti ] (+1 ...)
+                         - ProgramskiŠtevec(0).sprememba_stacka()    // PC
                          - NaložiOdmik.sprememba_stacka()            // prejšnji odmik
                         ) as i32).rc(),
                     Push(*prostor).rc(),
@@ -313,18 +318,17 @@ impl Vozlišče {
                 let za = Zaporedje(vec![
                     Pop(*prostor).rc(),           // odstrani spremenljivke funkcije
                     ShraniOdmik.rc(),             // naloži prejšnji odmik stacka
-                    Pop(parametri_velikost).rc(), // odstrani parametre
                     DinamičniSkok.rc(),           // skoči iz funkcije na klicatelja
                 ]);
 
                 [
-                    [JUMPRelative(format!("8preskoci_funkcijo_{ime}"))].as_slice(),
-                    [Oznaka(format!("8funkcija_{ime}"))].as_slice(),
+                    [JUMPRelative(format!("skip_{ime}"))].as_slice(),
+                    [Oznaka(format!("fn_{ime}"))].as_slice(),
                     pred.prevedi(št_klicev).as_slice(),
                     telo.prevedi(št_klicev).as_slice(),
-                    [Oznaka(format!("8konec_funkcije_{ime}"))].as_slice(),
+                    [Oznaka(format!("fn_end_{ime}"))].as_slice(),
                     za.prevedi(št_klicev).as_slice(),
-                    [Oznaka(format!("8preskoci_funkcijo_{ime}"))].as_slice(),
+                    [Oznaka(format!("skip_{ime}"))].as_slice(),
                 ].concat()
             },
 
@@ -332,17 +336,18 @@ impl Vozlišče {
                 let (vrni, skok) = match &**funkcija {
                     Funkcija { tip, ime, .. } => (
                         Push(tip.sprememba_stacka()).rc(),
-                        Klic(format!("8funkcija_{ime}")).rc()),
+                        Klic(format!("fn_{ime}")).rc(),
+                    ),
                     _ => unreachable!("Funkcijski klic vedno kliče funkcijo"),
                 };
-                let pc = ProgramskiŠtevec((1 + argumenti.len(št_klicev) + skok.len(št_klicev)) as i32).rc();
 
                 Zaporedje(vec![
                     spremenljivke.clone(),
                     vrni,              // rezerviraj prostor za rezultat funkcije
-                    pc,                // naloži PC (kam se vrniti iz funkcije)
                     argumenti.clone(), // naloži argumente
+                    ProgramskiŠtevec((1 + skok.len(št_klicev)) as i32).rc(),
                     skok,              // skoči v funkcijo
+                    Pop(argumenti.sprememba_stacka()).rc(),
                 ]).prevedi(št_klicev)
             },
 
@@ -487,11 +492,11 @@ mod test {
         ]);
 
         assert_eq!(ProgramskiŠtevec(-7).prevedi(&HashMap::new()), [PC(-7)]);
-        assert_eq!(Skok("8zanka".to_string()).prevedi(&HashMap::new()), [JUMPRelative("8zanka".to_string())]);
+        assert_eq!(Skok("zanka".to_string()).prevedi(&HashMap::new()), [JUMPRelative("zanka".to_string())]);
         assert_eq!(DinamičniSkok.prevedi(&HashMap::new()), [Osnovni(JMPD)]);
-        assert_eq!(PogojniSkok(Resnica.rc(), "8konec".to_string()).prevedi(&HashMap::new()), [
+        assert_eq!(PogojniSkok(Resnica.rc(), "konec".to_string()).prevedi(&HashMap::new()), [
                    PUSHI(1),
-                   JMPCRelative("8konec".to_string()),
+                   JMPCRelative("konec".to_string()),
         ]);
 
         assert_eq!(PogojniStavek { 
@@ -500,14 +505,14 @@ mod test {
             laž: Natisni(Znak('l').rc()).rc(),
         }.prevedi(&HashMap::new()), [
             PUSHI(1),
-            JMPCRelative("8resnica_0".to_string()),
+            JMPCRelative("true_0".to_string()),
             PUSHC('l'),
             Osnovni(PUTC),
-            JUMPRelative("8konec_0".to_string()),
-            Oznaka("8resnica_0".to_string()),
+            JUMPRelative("end_0".to_string()),
+            Oznaka("true_0".to_string()),
             PUSHC('r'),
             Osnovni(PUTC),
-            Oznaka("8konec_0".to_string()),
+            Oznaka("end_0".to_string()),
         ]);
 
         assert_eq!(Zanka {
@@ -517,15 +522,15 @@ mod test {
                 izraz: Real(27.0).rc(),
             }.rc(),
         }.prevedi(&HashMap::new()), [
-            Oznaka("8zanka_1".to_string()),
+            Oznaka("loop_1".to_string()),
             PUSHI(1),
             PUSHI(0),
             Osnovni(SUBI),
-            JMPCRelative("8konec_1".to_string()),
+            JMPCRelative("end_1".to_string()),
             PUSHF(27.0),
             Osnovni(STOR(25)),
-            JUMPRelative("8zanka_1".to_string()),
-            Oznaka("8konec_1".to_string()),
+            JUMPRelative("loop_1".to_string()),
+            Oznaka("end_1".to_string()),
         ]);
 
         assert_eq!(Prirejanje {
@@ -592,18 +597,17 @@ mod test {
         ]);
 
         assert_eq!(funkcija.clone().prevedi(&št_klicev), [
-            JUMPRelative("8preskoci_funkcijo_ena(real)".to_string()),
-            Oznaka("8funkcija_ena(real)".to_string()),
+            JUMPRelative("skip_ena(real)".to_string()),
+            Oznaka("fn_ena(real)".to_string()),
             Osnovni(LOFF),
             Osnovni(TOP(-5)),
             PUSHF(1.0),
             Osnovni(STOF(0)),
             Oznaka("vrni".to_string()),
-            Oznaka("8konec_funkcije_ena(real)".to_string()),
+            Oznaka("fn_end_ena(real)".to_string()),
             Osnovni(SOFF),
-            Osnovni(ALOC(-2)),
             Osnovni(JMPD),
-            Oznaka("8preskoci_funkcijo_ena(real)".to_string()),
+            Oznaka("skip_ena(real)".to_string()),
         ]);
 
         assert_eq!(FunkcijskiKlic {
@@ -612,10 +616,11 @@ mod test {
             argumenti: Zaporedje(vec![Real(1.0).rc(), Real(2.0).rc()]).rc(),
         }.prevedi(&HashMap::new()), [
             Osnovni(ALOC(1)),
-            PC(4),
             PUSHF(1.0),
             PUSHF(2.0),
-            CALL("8funkcija_ena(real)".to_string()),
+            PC(2),
+            CALL("fn_ena(real)".to_string()),
+            Osnovni(ALOC(-2))
         ]);
     }
 }

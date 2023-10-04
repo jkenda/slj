@@ -1,10 +1,16 @@
 use slj::{parser::{Parse, lekser::{Razčleni, Žeton::*, L}}, program::ToProgram};
 use std::io::Cursor;
 
-fn test(program: &str, vhod: &str) -> String {
+fn test(src: &str, vhod: &str) -> String {
     let mut izhod = Vec::<u8>::new();
 
-    program.razčleni("[test]").analiziraj().unwrap().v_program().zaženi_z_io(&mut Cursor::new(vhod), &mut izhod);
+    src
+        .razčleni("[test]")
+        .analiziraj()
+        .unwrap()
+        .v_program()
+        .zaženi_z_io(&mut Cursor::new(vhod), &mut izhod);
+
     return String::from_utf8(izhod).unwrap();
 }
 

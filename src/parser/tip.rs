@@ -72,8 +72,7 @@ impl Tip {
             Bool | Celo | Real | Znak => 1,
             Seznam(tip, len) => (tip.sprememba_stacka() * len) + 1,
             Strukt(polja) => polja.values().map(|p| p.sprememba_stacka()).sum(),
-            Referenca(_) => 1,
-            RefSeznama(_) => 1,
+            Referenca(_) | RefSeznama(_) => 1,
         }
     }
 

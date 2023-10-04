@@ -1,4 +1,4 @@
-use std::str;
+use std::{str, io::{BufReader, BufWriter}};
 
 use unsafe_unwrap::UnsafeUnwrap;
 
@@ -6,7 +6,7 @@ use super::*;
 
 impl Program {
     pub fn zaženi(&self) {
-        self.zaženi_z_io(&mut io::stdin(), &mut io::stdout());
+        self.zaženi_z_io(&mut BufReader::new(io::stdin()), &mut BufWriter::new(io::stdout()));
     }
 
     pub fn zaženi_debug(&self) {

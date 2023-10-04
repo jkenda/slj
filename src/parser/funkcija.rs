@@ -23,16 +23,27 @@ impl<'a> Parser<'a> {
         if prazno != [] {
             return Err(Napake::from_zaporedje(prazno, E3, "Izraz funkcije se mora zaključiti z '}'"));
         }
-        
-        let vrni = Spremenljivka { tip: tip.clone(), ime: "0_vrni".to_string(), naslov: 0, z_odmikom: true, spremenljiva: true }.rc();
-        let pc   = Spremenljivka { tip: Tip::Celo, ime: "0_PC".to_string(), naslov: vrni.sprememba_stacka(), z_odmikom: true, spremenljiva: false }.rc();
 
+        let mut _naslov_nove = 0;
+        let mut naslov = |tip: &Tip| {
+            let naslov = _naslov_nove;
+            _naslov_nove += tip.sprememba_stacka();
+            naslov
+        };
+
+        let mut spremenljivka = |tip: &Tip, ime: &str| {
+            Spremenljivka {
+                tip: tip.clone(),
+                ime: ime.to_string(),
+                naslov: naslov(&tip),
+                z_odmikom: true,
+                spremenljiva: true
+            }.rc()
+        };
+                
         let mut spr_funkcije = HashMap::from([
-            ("0_vrni", vrni.clone()),
-            ("0_PC", pc.clone()),
+            ("0_vrni", spremenljivka(&tip, "0_vrni")),
         ]);
-
-        let mut naslov_nove = vrni.sprememba_stacka() + pc.sprememba_stacka();
 
         let mut parametri = Vec::new(); 
         let mut napake = Napake::new();
@@ -59,15 +70,15 @@ impl<'a> Parser<'a> {
                 return Err(Napake::from_zaporedje(&[*ime], E7, "Imena parametrov morajo biti unikatna"))
             }
             else {
-                let spr = Spremenljivka { tip: tip.clone(), ime: ime.to_string(), naslov: naslov_nove, z_odmikom: true, spremenljiva: true }.rc();
+                let spr = spremenljivka(&tip, ime.as_str());
                 spr_funkcije.insert(ime.as_str(), spr.clone());
                 parametri.push(spr);
-                naslov_nove += tip.sprememba_stacka();
             }
         }
 
         let podpis_funkcije = Self::podpis_funkcije(ime, parametri.iter().map(|p| p.tip()).collect::<Vec<Tip>>().as_slice());
-        spr_funkcije.insert("0_OF", Spremenljivka { tip: Tip::Celo, ime: "0_OF".to_string(), naslov: naslov_nove, z_odmikom: true, spremenljiva: false }.rc());
+        spr_funkcije.insert("0_PC", spremenljivka(&Tip::Celo, "0_PC"));
+        spr_funkcije.insert("0_OF", spremenljivka(&Tip::Celo, "0_OF"));
 
         let mut okolje_funkcije = self.clone();
         okolje_funkcije.znotraj_funkcije = true;

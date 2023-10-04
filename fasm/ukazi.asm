@@ -113,10 +113,13 @@ macro LDOF addr
     push qword [r9 - 8 - 8*addr]
 }
 
-macro LDDY addr
+macro LDDY offset
 {
-    pop rax
-    push qword [rax - 8 - 8*addr]
+    pop  rbx      ; get dynamic offset
+    imul rbx, 8
+    mov  rax, r8  ; get base address
+    sub  rax, rbx ; calculate addr
+    push qword [rax - 8 - 8*offset]
 }
 
 macro STOR addr
@@ -132,18 +135,22 @@ macro STOF addr
 macro STDY addr
 {
     ; save dynaddr to rax
-    pop rax
-    pop qword [rax - 8 - addr*8]
+    pop  rbx
+    imul rbx, 8
+    mov  rax, r8
+    sub  rax, rbx
+    pop  qword [rax - 8 - addr*8]
 }
 
 macro PC offset
 {
 }
 
-macro TOP addr
+macro TOP offset
 {
     ; addroff = SP
     mov r9, rsp
+    sub r9, 8 * offset
 }
 
 
