@@ -1,16 +1,7 @@
 use super::*;
 
-const PRE: &str = r#"
-include 'ukazi.asm'
-
-entry $
-	mov [stack_0], rsp
-	mov r8, rsp
-
-"#;
-const POST: &str = r#"
-	exit 0
-"#;
+const PRE: &str = "include 'ukazi.asm'\n\n";
+const POST: &str = "\n\texit 0";
 
 impl ToFasmX86 for Vec<UkazPodatekRelative> {
     fn v_fasm_x86(&self) -> String {
@@ -31,11 +22,11 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
 
                     Osnovni(ALOC(mem))  => format!("ALOC {mem}"),
                     Osnovni(LOAD(addr)) => format!("LOAD {addr}"), // load normal
-                    Osnovni(LDOF(addr)) => format!("LOAD {addr}"), // load w/ offset
-                    Osnovni(LDDY(addr)) => format!("LOAD {addr}"), // load dynamic
-                    Osnovni(STOR(addr)) => format!("LOAD {addr}"), // store normal
-                    Osnovni(STOF(addr)) => format!("LOAD {addr}"), // store w/ offset
-                    Osnovni(STDY(addr)) => format!("LOAD {addr}"), // store dynamic
+                    Osnovni(LDOF(addr)) => format!("LDOF {addr}"), // load w/ offset
+                    Osnovni(LDDY(addr)) => format!("LDDY {addr}"), // load dynamic
+                    Osnovni(STOR(addr)) => format!("STOR {addr}"), // store normal
+                    Osnovni(STOF(addr)) => format!("STOF {addr}"), // store w/ offset
+                    Osnovni(STDY(addr)) => format!("STDY {addr}"), // store dynamic
                     Osnovni(TOP(addr))  => format!("TOP  {addr}"),
                     Osnovni(instruction) => format!("{instruction:?}"),
                 }
@@ -71,6 +62,8 @@ mod testi {
     use std::process::{Command, Stdio};
 
     use super::*;
+    use crate::parser::lekser::Razčleni;
+    use crate::parser::Parse;
     use crate::parser::drevo::{Drevo, Vozlišče};
     use crate::parser::tip::Tip;
     use Vozlišče::*;
@@ -195,6 +188,26 @@ mod testi {
     }
 
     #[test]
+    fn bitne_operacije() -> Result<(), io::Error> {
+        let asm = vec![
+            PUSHI(0b110), PUSHI(0b011), Osnovni(BOR),  Osnovni(PUTC),
+            PUSHI(0b110), PUSHI(0b011), Osnovni(BXOR), Osnovni(PUTC),
+            PUSHI(0b110), PUSHI(0b011), Osnovni(BAND), Osnovni(PUTC),
+            PUSHI(0b011), PUSHI(0b001), Osnovni(BSLL), Osnovni(PUTC),
+            PUSHI(0b110), PUSHI(0b001), Osnovni(BSLR), Osnovni(PUTC),
+        ]
+        .v_fasm_x86();
+
+        test(&asm, "", &String::from_utf8_lossy(&[
+                0b111u8,
+                0b101u8,
+                0b010u8,
+                0b110u8,
+                0b011u8,
+        ]), false)
+    }
+
+    #[test]
     fn jump() -> Result<(), io::Error> {
         let asm = vec![
             PUSHC('0'),
@@ -257,6 +270,67 @@ mod testi {
         .v_fasm_x86();
 
         test(&asm, "", "2", false)
+    }
+
+    #[test]
+    fn load() -> Result<(), io::Error> {
+        let asm = vec![
+            PUSHC('1'), Osnovni(TOP(0)), PUSHC('2'), PUSHC('3'),
+
+            Osnovni(LOAD(0)), Osnovni(PUTC),
+            Osnovni(LOAD(1)), Osnovni(PUTC),
+            Osnovni(LDOF(0)), Osnovni(PUTC),
+            Osnovni(LDOF(1)), Osnovni(PUTC),
+
+            Osnovni(PUTC), Osnovni(PUTC), Osnovni(PUTC),
+        ]
+        .v_fasm_x86();
+
+        test(&asm, "", "1223321", false)
+    }
+
+    #[test]
+    fn stor() -> Result<(), io::Error> {
+        let asm = vec![
+            PUSHC('1'), Osnovni(TOP(0)), PUSHC('2'), PUSHC('3'),
+
+            Osnovni(LOAD(0)), PUSHI(1), Osnovni(SUBI), Osnovni(STOR(0)),
+            Osnovni(LOAD(1)), PUSHI(1), Osnovni(SUBI), Osnovni(STOR(1)),
+            Osnovni(LDOF(1)), PUSHI(1), Osnovni(SUBI), Osnovni(STOF(1)),
+            Osnovni(LOAD(0)), Osnovni(PUTC),
+            Osnovni(LOAD(1)), Osnovni(PUTC),
+            Osnovni(LOAD(2)), Osnovni(PUTC),
+
+            Osnovni(ALOC(-3)),
+        ]
+        .v_fasm_x86();
+
+        test(&asm, "", "012", false)
+    }
+
+    #[test]
+    fn loff_soff() -> Result<(), io::Error> {
+        let asm = vec![
+            Osnovni(LOFF), Osnovni(TOP(0)), Osnovni(LOFF),
+            Osnovni(LOAD(0)), Osnovni(LOAD(1)), Osnovni(SUBI),
+            PUSHC('0'), Osnovni(ADDI), Osnovni(PUTC),
+        ]
+        .v_fasm_x86();
+
+        test(&asm, "", "8", false)
+    }
+
+    #[test]
+    fn natisni() -> Result<(), io::Error> {
+        let asm = r#"
+            natisni(0)
+        "#
+        .razčleni("[test]")
+        .analiziraj()
+        .unwrap()
+        .v_fasm_x86();
+
+        test(&asm, "", "8", false)
     }
 
 }

@@ -59,7 +59,7 @@ impl Program {
                 BXOR          => "BXOR\n".to_string(),
                 BAND          => "BAND\n".to_string(),
                 BSLL          => "BSLL\n".to_string(),
-                BSLD          => "BSLD\n".to_string(),
+                BSLR          => "BSLR\n".to_string(),
                 FTOI          => "FTOI\n".to_string(),
                 ITOF          => "ITOF\n".to_string(),
             }

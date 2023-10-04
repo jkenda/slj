@@ -106,7 +106,7 @@ impl Program {
                 BAND => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i & stack.pop().unsafe_unwrap().i;  *pc + 1 },
 
                 BSLL => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i << stack.pop().unsafe_unwrap().i;  *pc + 1 },
-                BSLD => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i >> stack.pop().unsafe_unwrap().i;  *pc + 1 },
+                BSLR => { stack.last_mut().unsafe_unwrap().i = stack.get(stack.len() - 2).unsafe_unwrap().i >> stack.pop().unsafe_unwrap().i;  *pc + 1 },
 
                 FTOI => { stack.last_mut().unsafe_unwrap().i = stack.last().unsafe_unwrap().f as i32; *pc + 1 },
                 ITOF => { stack.last_mut().unsafe_unwrap().f = stack.last().unsafe_unwrap().i as f32; *pc + 1 },
@@ -181,7 +181,7 @@ impl Program {
                 BAND => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i & stack.pop()?.i;  *pc + 1 },
 
                 BSLL => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i << stack.pop()?.i;  *pc + 1 },
-                BSLD => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i >> stack.pop()?.i;  *pc + 1 },
+                BSLR => { stack.last_mut()?.i = stack.get(stack.len() - 2)?.i >> stack.pop()?.i;  *pc + 1 },
 
                 FTOI => { stack.last_mut()?.i = stack.last()?.f as i32; *pc + 1 },
                 ITOF => { stack.last_mut()?.f = stack.last()?.i as f32; *pc + 1 },

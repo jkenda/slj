@@ -192,7 +192,7 @@ impl Vozlišče {
             BitniPremikDesno(l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
-                [Osnovni(BSLD)].as_slice(),
+                [Osnovni(BSLR)].as_slice(),
             ].concat(),
 
             Enako(tip, l, d) => [

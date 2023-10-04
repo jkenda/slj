@@ -82,7 +82,7 @@ enum UkazPodatek
     BXOR,
     BAND,
     BSLL,
-    BSLD,
+    BSLR,
     FTOI,
     ITOF,
 }

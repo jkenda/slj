@@ -10,7 +10,8 @@ STDOUT equ 1
 STDERR equ 2
 
 ; write(fd, buf, count)
-macro write fd, buf, count {
+macro write fd, buf, count
+{
     ; syscall(SYS_write, fd, buf, count)
     mov rax, SYS_write
     mov rdi, fd
@@ -22,7 +23,8 @@ macro write fd, buf, count {
 }
 
 ; write(fd, buf, count)
-macro read fd, buf, count {
+macro read fd, buf, count
+{
     ; syscall(SYS_write, fd, buf, count)
     mov rax, SYS_read
     mov rdi, fd
@@ -33,29 +35,35 @@ macro read fd, buf, count {
     jl _fatal_error
 }
 
-macro NOOP {
+macro NOOP
+{
     nop
 }
 
-macro JUMP label {
+macro JUMP label
+{
     jmp label
 }
 
-macro CALL label {
+macro CALL label
+{
     call label
 }
 
-macro JMPD {
+macro JMPD
+{
     ret
 }
 
-macro JMPC label {
+macro JMPC label
+{
     pop  rax
     test rax, 1
     jne label
 }
 
-macro PUSH data {
+macro PUSH data
+{
     if data > 0xFFFF
         mov rax, data
         push rax
@@ -64,7 +72,8 @@ macro PUSH data {
     end if
 }
 
-macro ALOC mem {
+macro ALOC mem
+{
     if mem >= 0
         repeat mem
             push 0
@@ -76,7 +85,8 @@ macro ALOC mem {
     end if
 }
 
-macro POS {
+macro POS
+{
     pop  rax
     cmp  rax, 0
     mov  rax, 0
@@ -84,7 +94,8 @@ macro POS {
     push rax
 }
 
-macro ZERO {
+macro ZERO
+{
     pop  rax
     cmp  rax, 0
     mov  rax, 0
@@ -92,59 +103,64 @@ macro ZERO {
     push rax
 }
 
-macro LOAD addr {
-    push [stack_0 + addr]
+macro LOAD addr
+{
+    push qword [r8 - 8 - 8*addr]
 }
 
-macro LDOF addr {
-    ; addroff stored in r8
-    mov  rax, r8
-    add  rax, stack_0
-    push rax + addr
+macro LDOF addr
+{
+    push qword [r9 - 8 - 8*addr]
 }
 
-macro LDDY addr {
-    pop  rax
-    push rax + addr
+macro LDDY addr
+{
+    pop rax
+    push qword [rax - 8 - 8*addr]
 }
 
-macro STOR addr {
-    pop stack_0 + addr
+macro STOR addr
+{
+    pop qword [r8 - 8 - 8*addr]
 }
 
-macro STOF addr {
-    ; addroff stored in r8
-    mov rax, r8
-    add rax stack_0
-    pop rax + addr
+macro STOF addr
+{
+    pop qword [r9 - 8 - 8*addr]
 }
 
-macro STDY addr {
+macro STDY addr
+{
     ; save dynaddr to rax
     pop rax
-    pop rax + addr
+    pop qword [rax - 8 - addr*8]
 }
 
-macro PC offset {
+macro PC offset
+{
 }
 
-macro TOP addr {
-    ; addroff = PC
-    mov r8, rsp
+macro TOP addr
+{
+    ; addroff = SP
+    mov r9, rsp
 }
 
 
-macro SOFF {
+macro SOFF
+{
     ; addroff = stack.pop()
-    pop r8
+    pop r9
 }
 
-macro LOFF {
+macro LOFF
+{
     ; stack.push(addroff)
-    push r8
+    push r9
 }
 
-macro PUTC {
+macro PUTC
+{
     ; count UTF-8 bytes
     mov rax, [rsp]
     mov rbx, 1
@@ -160,33 +176,38 @@ macro PUTC {
     ALOC -1
 }
 
-macro GETC {
+macro GETC
+{
     call _getc
     push rax
 }
 
-macro ADDI {
+macro ADDI
+{
     pop rbx
     pop rax
     add rax, rbx
     push rax
 }
 
-macro SUBI {
+macro SUBI
+{
     pop rbx
     pop rax
     sub rax, rbx
     push rax
 }
 
-macro MULI {
+macro MULI
+{
     pop  rax
     pop  rbx
     imul rax, rbx
     push rax
 }
 
-macro DIVI {
+macro DIVI
+{
     pop  rbx
     cdq
     pop  rax
@@ -194,7 +215,8 @@ macro DIVI {
     push rax
 }
 
-macro MODI {
+macro MODI
+{
     pop  rbx
     cdq
     pop  rax
@@ -202,7 +224,8 @@ macro MODI {
     push rdx
 }
 
-macro POWI {
+macro POWI
+{
     mov rax, 1
     pop rcx
     pop rbx
@@ -210,89 +233,88 @@ macro POWI {
     push rax
 }
 
-macro BOR  {
+macro BOR 
+{
     pop rbx
     pop rax
     or  rax, rbx
     push rax
 }
 
-macro BXOR {
+macro BXOR
+{
     pop rbx
     pop rax
     xor rax, rbx
     push rax
 }
 
-macro BAND {
+macro BAND
+{
     pop rbx
     pop rax
-    xor rax, rbx
+    and rax, rbx
     push rax
 }
 
-macro BSLL {
-    pop rbx
+macro BSLL
+{
+    pop rcx
     pop rax
-    sal rax, rbx
+    shl rax, cl
     push rax
 }
 
-macro BSLD {
-    pop rbx
+macro BSLR
+{
+    pop rcx
     pop rax
-    sar rax, rbx
+    shr rax, cl
     push rax
 }
 
-macro ADDF {
-    pop rbx
-    pop rax
-    fadd rax, rbx
-    push rax
-}
-
-macro SUBF {
-    pop rbx
-    pop rax
-    fsub rax, rbx
-    push rax
-}
-
-macro MULF {
-    pop rbx
-    pop rax
-    fmul rax, rbx
-    push rax
-}
-
-macro DIVF {
-    pop rbx
-    pop rax
-    fdiv rax, rbx
-    push rax
-}
-
-macro MODF {
-    pop rbx
-    pop rax
-    fdiv rax, rbx
-    push rax
-}
-
-macro POWF {
+macro ADDF
+{
     _TODO
 }
 
-macro FTOI {
+macro SUBF
+{
     _TODO
 }
 
-macro ITOF {
+macro MULF
+{
     _TODO
 }
 
-macro exit code {
+macro DIVF
+{
+    _TODO
+}
+
+macro MODF
+{
+    _TODO
+}
+
+macro POWF
+{
+    _TODO
+}
+
+macro FTOI
+{
+    _TODO
+}
+
+macro ITOF
+{
+    _TODO
+}
+
+macro exit code
+{
     mov rax, 60
     mov rdi, code
     syscall
@@ -360,4 +382,9 @@ _read4:
 
 _fatal_error:
     exit rax
+
+entry $
+	mov r8, rsp
+    ; addroff = SP
+	mov r9, rsp
 
