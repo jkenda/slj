@@ -70,7 +70,23 @@ macro PUSH data
 
 macro ALOC mem
 {
-    if mem >= 0
+    local rem
+
+    if mem > 16
+        rem = mem - (mem / 16 * 16)
+        repeat rem
+            push 0
+        end repeat
+        mov rax, mem / 16
+        call _push
+    else if mem < -32
+        rem = -mem - (-mem / 16 * 16)
+        repeat rem
+            pop qword [rsp-8]
+        end repeat
+        mov rax, -mem / 16
+        call _pop
+    else if mem >= 0
         repeat mem
             push 0
         end repeat
@@ -383,6 +399,30 @@ format ELF64 executable
 use64
 
 segment readable executable
+
+_push:
+    pop rbx
+_push_loop:
+    repeat 16
+        push 0
+    end repeat
+    dec  rax
+    cmp  rax, 0
+    jne  _push_loop
+    push rbx
+    ret
+
+_pop:
+    pop rbx
+_pop_loop:
+    repeat 16
+        pop qword [rsp-8]
+    end repeat
+    dec  rax
+    cmp  rax, 0
+    jne  _pop_loop
+    push rbx
+    ret
 
 _powi:
     cmp rcx, 0
