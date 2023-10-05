@@ -1,3 +1,5 @@
+use crate::parser::loci::Escape;
+
 use super::*;
 
 impl Program {
@@ -17,15 +19,7 @@ impl Program {
                     match self.push_tipi[j - 1] {
                         Tip::Real => format!("PUSH #{:?}\n", unsafe { podatek.f }),
                         Tip::Celo => format!("PUSH #{}\n",   unsafe { podatek.i }),
-                        Tip::Znak => format!("PUSH '{}'\n",  unsafe { podatek.c
-                            .to_string()
-                                .replace("\\", r"\\")
-                                .replace("\n", r"\n")
-                                .replace("\t", r"\t")
-                                .replace("\r", r"\r")
-                                .replace("\"", r#"\""#)
-                                .replace("\'", r"\'")
-                        }),
+                        Tip::Znak => format!("PUSH '{}'\n",  unsafe { podatek.c.to_string().escape() }),
                         _ => unreachable!()
                     }
                 },

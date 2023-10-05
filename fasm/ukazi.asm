@@ -1,7 +1,3 @@
-format ELF64 executable
-
-use64
-
 SYS_read  equ 0
 SYS_write equ 1
 
@@ -88,8 +84,8 @@ macro ALOC mem
 macro POS
 {
     pop  rax
-    cmp  rax, 0
-    mov  rax, 0
+    cmp  eax, 0
+    mov  eax, 0
     setg al
     push rax
 }
@@ -97,7 +93,7 @@ macro POS
 macro ZERO
 {
     pop  rax
-    cmp  rax, 0
+    cmp  eax, 0
     mov  rax, 0
     sete al
     push rax
@@ -282,42 +278,71 @@ macro BSLR
 
 macro ADDF
 {
-    _TODO
+    fld  dword [rsp+8]
+    fadd dword [rsp]
+    pop  qword [rsp-8]
+    fstp dword [rsp]
 }
 
 macro SUBF
 {
-    _TODO
+    fld  dword [rsp+8]
+    fsub dword [rsp]
+    pop  qword [rsp-8]
+    fstp dword [rsp]
 }
 
 macro MULF
 {
-    _TODO
+    fld  dword [rsp+8]
+    fmul dword [rsp]
+    pop  qword [rsp-8]
+    fstp dword [rsp]
 }
 
 macro DIVF
 {
-    _TODO
+    fld  dword [rsp+8]
+    fdiv dword [rsp]
+    pop  qword [rsp-8]
+    fstp dword [rsp]
 }
 
 macro MODF
 {
-    _TODO
+    fld   dword [rsp]
+    fld   dword [rsp+8]
+    fprem
+    pop   qword [rsp-8]
+    fstp  dword [rsp]
 }
 
 macro POWF
 {
-    _TODO
+    fld dword [rsp]
+    fld dword [rsp+8]
+    fyl2x
+    fld1
+    fld st1
+    fprem
+    f2xm1
+    faddp
+    fscale
+    fxch st1
+    pop  qword [rsp-8]
+    fstp dword [rsp]
 }
 
 macro FTOI
 {
-    _TODO
+    fld   dword [rsp]
+    fistp dword [rsp]
 }
 
 macro ITOF
 {
-    _TODO
+    fild dword [rsp]
+    fstp dword [rsp]
 }
 
 macro exit code
@@ -327,9 +352,8 @@ macro exit code
     syscall
 }
 
-segment readable writeable
-; ptr to stack begin
-stack_0 dq 0
+format ELF64 executable
+use64
 
 segment readable executable
 
@@ -394,4 +418,5 @@ entry $
 	mov r8, rsp
     ; addroff = SP
 	mov r9, rsp
+    finit
 

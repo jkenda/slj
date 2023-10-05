@@ -1,5 +1,5 @@
 use std::{rc::Rc, fmt::Display, mem::{discriminant, self}, collections::HashMap};
-use super::{tip::Tip, napaka::{Napake, OznakaNapake::*}, lekser::Žeton};
+use super::{tip::Tip, napaka::{Napake, OznakaNapake::*}, lekser::Žeton, loci::Escape};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
@@ -64,12 +64,12 @@ pub enum Vozlišče {
     Resnica,
     Laž,
 
-    Plus(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
-    Minus(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
-    Krat(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
-    Deljeno(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
-    Modulo(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
-    Potenca(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Add(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Sub(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Mul(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Div(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Mod(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
+    Pow(Tip, Rc<Vozlišče>, Rc<Vozlišče>),
 
     CeloVReal(Rc<Vozlišče>),
     RealVCelo(Rc<Vozlišče>),
@@ -123,15 +123,7 @@ impl Display for Vozlišče {
         f.write_str(&match self {
             Prazno => "()".to_owned(),
 
-            Niz(niz) => "\"".to_owned() 
-                    + &niz
-                    .replace("\n", r"\n")
-                    .replace("\t", r"\t")
-                    .replace("\r", r"\r")
-                    .replace("\"", r#"\""#)
-                    .replace("\'", r"\'")
-                    + "\"",
-
+            Niz(niz) => format!(r#""{}""#, niz.escape()),
             Celo(število) => število.to_string(),
             Real(število) => število.to_string(),
             Znak(znak)    => znak.to_string(),
@@ -145,12 +137,12 @@ impl Display for Vozlišče {
             Resnica => "resnica".to_owned(),
             Laž     => "laž".to_owned(),
 
-            Plus(..) => "+".to_owned(),
-            Minus(..) => "-".to_owned(),
-            Krat(..)   => "*".to_owned(),
-            Deljeno(..)   => "/".to_owned(),
-            Modulo(..)     => "%".to_owned(),
-            Potenca(..)    => "**".to_owned(),
+            Add(..) => "+".to_owned(),
+            Sub(..) => "-".to_owned(),
+            Mul(..)   => "*".to_owned(),
+            Div(..)   => "/".to_owned(),
+            Mod(..)     => "%".to_owned(),
+            Pow(..)    => "**".to_owned(),
 
             CeloVReal(..)  => "kot".to_owned(),
 
@@ -222,12 +214,12 @@ impl PartialEq for Vozlišče {
             (Resnica, Resnica) => true,
             (Laž, Laž) => true,
 
-            (Plus(lt, ll, ld), Plus(dt, dl, dd)) |
-            (Minus(lt, ll, ld), Minus(dt, dl, dd)) |
-            (Krat(lt, ll, ld), Krat(dt, dl, dd)) |
-            (Deljeno(lt, ll, ld), Deljeno(dt, dl, dd)) |
-            (Modulo(lt, ll, ld), Modulo(dt, dl, dd)) |
-            (Potenca(lt, ll, ld), Potenca(dt, dl, dd)) => lt == dt && ll == dl && ld == dd,
+            (Add(lt, ll, ld), Add(dt, dl, dd)) |
+            (Sub(lt, ll, ld), Sub(dt, dl, dd)) |
+            (Mul(lt, ll, ld), Mul(dt, dl, dd)) |
+            (Div(lt, ll, ld), Div(dt, dl, dd)) |
+            (Mod(lt, ll, ld), Mod(dt, dl, dd)) |
+            (Pow(lt, ll, ld), Pow(dt, dl, dd)) => lt == dt && ll == dl && ld == dd,
 
             (CeloVReal(l), CeloVReal(d)) => l == d,
             (RealVCelo(l), RealVCelo(d)) => l == d,
@@ -311,7 +303,7 @@ impl Vozlišče {
                 + &l.drevo(globina + 1) 
                 + &d.drevo(globina + 1),
 
-            Potenca(_, l, d) | Krat(_, l, d) | Deljeno(_, l, d) | Modulo(_, l, d) | Plus(_, l, d) | Minus(_, l, d)
+            Pow(_, l, d) | Mul(_, l, d) | Div(_, l, d) | Mod(_, l, d) | Add(_, l, d) | Sub(_, l, d)
                 | Enako(_, l, d) | NiEnako(_, l, d) | Večje(_, l, d) | VečjeEnako(_, l, d) | Manjše(_, l, d) | ManjšeEnako(_, l, d) =>
                 "  ".repeat(globina) + &self.to_string() + "\n"
                 + &l.drevo(globina + 1) 
@@ -405,32 +397,32 @@ impl Vozlišče {
                 _ => unreachable!(),
             },
 
-            Plus(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+            Add(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
                     (Celo(l), Celo(d)) => Ok(Celo(l + d)),
                     (Real(l), Real(d)) => Ok(Real(l + d)),
                     _ => unreachable!(),
             },
-            Minus(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+            Sub(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
                     (Celo(l), Celo(d)) => Ok(Celo(l - d)),
                     (Real(l), Real(d)) => Ok(Real(l - d)),
                     _ => unreachable!(),
             },
-            Krat(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+            Mul(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
                     (Celo(l), Celo(d)) => Ok(Celo(l * d)),
                     (Real(l), Real(d)) => Ok(Real(l * d)),
                     _ => unreachable!(),
             },
-            Deljeno(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+            Div(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
                     (Celo(l), Celo(d)) => Ok(Celo(l / d)),
                     (Real(l), Real(d)) => Ok(Real(l / d)),
                     _ => unreachable!(),
             },
-            Modulo(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+            Mod(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
                 (Celo(l), Celo(d)) => Ok(Celo(l % d)),
                 (Real(l), Real(d)) => Ok(Real(l % d)),
                 _ => unreachable!(),
             },
-            Potenca(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
+            Pow(_, l, d) => match (l.eval(izraz)?, d.eval(izraz)?) {
                 (Celo(l), Celo(d)) => Ok(Celo(l.pow(d as u32))),
                 (Real(l), Real(d)) => Ok(Real(l.powf(d))),
                 _ => unreachable!(),
@@ -558,7 +550,7 @@ impl Vozlišče {
             }
             Dolžina(..) => 1,
 
-            Plus(_, l, d) | Minus(_, l, d) | Krat(_, l, d) | Deljeno(_, l, d) | Modulo(_, l, d) | Potenca(_, l, d) |
+            Add(_, l, d) | Sub(_, l, d) | Mul(_, l, d) | Div(_, l, d) | Mod(_, l, d) | Pow(_, l, d) |
                 Enako(_, l, d) | NiEnako(_, l, d) | Večje(_, l, d) | VečjeEnako(_, l, d) | Manjše(_, l, d) | ManjšeEnako(_, l, d)
                 => l.sprememba_stacka() + d.sprememba_stacka() - 1,
 
@@ -633,7 +625,7 @@ impl Vozlišče {
             BitniAli(..) | BitniXor(..) | BitniIn(..) | BitniPremikLevo(..) | BitniPremikDesno(..) => Tip::Celo,
             Enako(..) | NiEnako(..) | Večje(..) | VečjeEnako(..) | Manjše(..) | ManjšeEnako(..) => Tip::Bool,
 
-            Plus(tip, ..) | Minus(tip, ..) | Krat(tip, ..) | Deljeno(tip, ..) | Modulo(tip, ..) | Potenca(tip,..) => tip.clone(),
+            Add(tip, ..) | Sub(tip, ..) | Mul(tip, ..) | Div(tip, ..) | Mod(tip, ..) | Pow(tip,..) => tip.clone(),
 
             CeloVReal(..) => Tip::Real,
             RealVCelo(..) => Tip::Celo,
@@ -689,8 +681,8 @@ impl Vozlišče {
                 Enako(_, a, b) | NiEnako(_, a, b) | Večje(_, a, b) | VečjeEnako(_, a, b) | Manjše(_, a, b) | ManjšeEnako(_, a, b) 
                     => a.vsebuje(other) || b.vsebuje(other),
 
-                Plus(_, a, b) | Minus(_, a, b) | Krat(_, a, b) | Deljeno(_, a, b) 
-                    | Modulo(_, a, b) | Potenca(_, a, b) => a.vsebuje(other) || b.vsebuje(other),
+                Add(_, a, b) | Sub(_, a, b) | Mul(_, a, b) | Div(_, a, b) 
+                    | Mod(_, a, b) | Pow(_, a, b) => a.vsebuje(other) || b.vsebuje(other),
 
                 CeloVReal(a) | RealVCelo(a) => a.vsebuje(other),
 
@@ -744,7 +736,7 @@ mod testi {
 
     #[test]
     fn eval() {
-        assert_eq!(Plus(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(13));
+        assert_eq!(Add(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(13));
         assert_eq!(Celo(42).eval(&[]).unwrap(), Celo(42));
         assert_eq!(Real(3.14).eval(&[]).unwrap(), Real(3.14));
         assert_eq!(Znak('ć').eval(&[]).unwrap(), Znak('ć'));
@@ -752,18 +744,18 @@ mod testi {
 
         assert_eq!(Dolžina(Spremenljivka { tip: Tip::Seznam(Box::new(Tip::Brez), 14), ime: "".to_string(), naslov: 0, z_odmikom: false, spremenljiva: true }.rc()).eval(&[]).unwrap(), Celo(14));
 
-        assert_eq!(Plus(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(13));
-        assert_eq!(Plus(Tip::Real, Real(13.0).rc(), Real(29.0).rc()).eval(&[]).unwrap(), Real(42.0));
-        assert_eq!(Minus(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(1));
-        assert_eq!(Minus(Tip::Real, Real(13.0).rc(), Real(29.0).rc()).eval(&[]).unwrap(), Real(-16.0));
-        assert_eq!(Krat(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(42));
-        assert_eq!(Krat(Tip::Real, Real(13.0).rc(), Real(29.0).rc()).eval(&[]).unwrap(), Real(377.0));
-        assert_eq!(Deljeno(Tip::Celo, Celo(16).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(2));
-        assert_eq!(Deljeno(Tip::Real, Real(13.0).rc(), Real(4.0).rc()).eval(&[]).unwrap(), Real(3.25));
-        assert_eq!(Modulo(Tip::Celo, Celo(16).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(4));
-        assert_eq!(Modulo(Tip::Real, Real(13.75).rc(), Real(0.5).rc()).eval(&[]).unwrap(), Real(0.25));
-        assert_eq!(Potenca(Tip::Celo, Celo(2).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(64));
-        assert_eq!(Potenca(Tip::Real, Real(4.0).rc(), Real(0.5).rc()).eval(&[]).unwrap(), Real(2.0));
+        assert_eq!(Add(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(13));
+        assert_eq!(Add(Tip::Real, Real(13.0).rc(), Real(29.0).rc()).eval(&[]).unwrap(), Real(42.0));
+        assert_eq!(Sub(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(1));
+        assert_eq!(Sub(Tip::Real, Real(13.0).rc(), Real(29.0).rc()).eval(&[]).unwrap(), Real(-16.0));
+        assert_eq!(Mul(Tip::Celo, Celo(7).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(42));
+        assert_eq!(Mul(Tip::Real, Real(13.0).rc(), Real(29.0).rc()).eval(&[]).unwrap(), Real(377.0));
+        assert_eq!(Div(Tip::Celo, Celo(16).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(2));
+        assert_eq!(Div(Tip::Real, Real(13.0).rc(), Real(4.0).rc()).eval(&[]).unwrap(), Real(3.25));
+        assert_eq!(Mod(Tip::Celo, Celo(16).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(4));
+        assert_eq!(Mod(Tip::Real, Real(13.75).rc(), Real(0.5).rc()).eval(&[]).unwrap(), Real(0.25));
+        assert_eq!(Pow(Tip::Celo, Celo(2).rc(), Celo(6).rc()).eval(&[]).unwrap(), Celo(64));
+        assert_eq!(Pow(Tip::Real, Real(4.0).rc(), Real(0.5).rc()).eval(&[]).unwrap(), Real(2.0));
 
         assert_eq!(CeloVReal(Celo(13).rc()).eval(&[]).unwrap(), Real(13.0));
         assert_eq!(RealVCelo(Real(13.0).rc()).eval(&[]).unwrap(), Celo(13));

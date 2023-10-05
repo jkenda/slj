@@ -52,8 +52,8 @@ impl Program {
                 PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
                 ALOC(razlika) => { stack.resize((stack.len() as i32 + razlika) as usize, NIČ); *pc + 1 }
 
-                POS  => { *stack.last_mut().unsafe_unwrap() = if stack.last().unsafe_unwrap().f  > 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
-                ZERO => { *stack.last_mut().unsafe_unwrap() = if stack.last().unsafe_unwrap().f == 0.0 { RESNICA } else { LAŽ }; *pc + 1 },
+                POS  => { *stack.last_mut().unsafe_unwrap() = if stack.last().unsafe_unwrap().i  > 0 { RESNICA } else { LAŽ }; *pc + 1 },
+                ZERO => { *stack.last_mut().unsafe_unwrap() = if stack.last().unsafe_unwrap().i == 0 { RESNICA } else { LAŽ }; *pc + 1 },
 
                 LOAD(naslov) => { stack.push(*stack.get(*naslov as usize).unsafe_unwrap()); *pc + 1 },
                 LDOF(naslov) => { stack.push(*stack.get((*addroff + *naslov) as usize).unsafe_unwrap()); *pc + 1 },

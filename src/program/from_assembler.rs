@@ -1,3 +1,5 @@
+use crate::parser::loci::Escape;
+
 use super::*;
 
 impl From<String> for Program {
@@ -26,16 +28,7 @@ impl From<String> for Program {
                     }
                     else {
                         push_tipi.push(Tip::Znak);
-                        PUSH(Podatek { c: besede[2][1..besede[1].len()-1]
-                            .replace(r"\\", "\\")
-                                .replace(r"\n", "\n")
-                                .replace(r"\t", "\t")
-                                .replace(r"\r", "\r")
-                                .replace(r#"\""#, "\"")
-                                .replace(r"\'", "\'")
-                                .chars()
-                                .next()
-                                .unwrap() })
+                        PUSH(Podatek { c: besede[2][1..besede[1].len()-1].unescape().chars().nth(0).unwrap() })
                     }
                 },
                 "ALOC" => ALOC(besede[2][0..].parse().unwrap()),

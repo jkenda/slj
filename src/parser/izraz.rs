@@ -1,4 +1,5 @@
 use super::*;
+use crate::parser::loci::Escape;
 
 impl<'a> Parser<'a> {
     pub fn drevo(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
@@ -162,9 +163,9 @@ impl<'a> Parser<'a> {
             [ Operator("-", ..), Literal(L::Celo(str, ..)) ] => Ok(Vozlišče::Celo(-str.replace("_", "").parse::<i32>().unwrap()).rc()),
             [ Operator("-", ..), Literal(L::Real(str, ..)) ] => Ok(Vozlišče::Real(-str.replace("_", "").parse::<f32>().unwrap()).rc()),
             // znak
-            [ Literal(L::Znak(str, ..)) ] => Ok(Vozlišče::Znak(odvzemi_escape(&str[1..str.len()-1]).chars().nth(0).unwrap()).rc()),
+            [ Literal(L::Znak(str, ..)) ] => Ok(Vozlišče::Znak((&str[1..str.len()-1]).unescape().chars().nth(0).unwrap()).rc()),
             // niz
-            [ Literal(L::Niz(niz, ..)) ] => Ok(Vozlišče::Niz(odvzemi_escape(&niz[1..niz.len()-1])).rc()),
+            [ Literal(L::Niz(niz, ..)) ] => Ok(Vozlišče::Niz((&niz[1..niz.len()-1]).unescape()).rc()),
             // izraz v oklepaju
             [ Ločilo("(", ..), ostanek @ .., Ločilo(")", ..) ] => self.drevo(ostanek),
             // funkcija asm(str)
@@ -185,8 +186,8 @@ impl<'a> Parser<'a> {
             [ Operator("-", ..), ostanek @ .. ] => {
                 let drevo = self.drevo(ostanek)?;
                 match drevo.tip() {
-                    Tip::Celo => Ok(Minus(Tip::Celo, Celo(0).rc(), drevo).rc()),
-                    Tip::Real => Ok(Minus(Tip::Real, Celo(0).rc(), drevo).rc()),
+                    Tip::Celo => Ok(Sub(Tip::Celo, Celo(0).rc(), drevo).rc()),
+                    Tip::Real => Ok(Sub(Tip::Real, Celo(0).rc(), drevo).rc()),
                     _ => Err(Napake::from_zaporedje(ostanek, E5, &format!("Nemogoča operacija: -{}", drevo.tip()))),
                 }
             },
@@ -337,24 +338,24 @@ mod testi {
     fn aritmetični() {
         let mut parser = Parser::new();
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[]")), Operator("+", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
-            Plus(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
+            Add(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("-", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
-            Minus(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
+            Sub(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("*", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
-            Krat(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
+            Mul(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("/", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
-            Deljeno(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
+            Div(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("%", 1, 2, "[test]"), Literal(L::Celo("2", 1, 3, "[test]")) ].as_slice()).unwrap(),
-            Modulo(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
+            Mod(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
         assert_eq!(parser.drevo([ Literal(L::Celo("3", 1, 1, "[test]")), Operator("**", 1, 2, "[test]"), Literal(L::Celo("2", 1, 4, "[test]")) ].as_slice()).unwrap(),
-            Potenca(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
+            Pow(Tip::Celo, Celo(3).rc(), Celo(2).rc()).rc());
 
-        assert_eq!(parser.drevo("-(3-4)".razčleni("[test]").as_slice()).unwrap(), Minus(Tip::Celo, Celo(0).rc(), Minus(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc());
+        assert_eq!(parser.drevo("-(3-4)".razčleni("[test]").as_slice()).unwrap(), Sub(Tip::Celo, Celo(0).rc(), Sub(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc());
         assert_eq!(parser.drevo("-3".razčleni("[test]").as_slice()).unwrap(), Celo(-3).rc());
-        assert_eq!(parser.drevo("-3 * 2".razčleni("[test]").as_slice()).unwrap(), Krat(Tip::Celo, Celo(-3).rc(), Celo(2).rc()).rc());
-        assert_eq!(parser.drevo("3 * -2".razčleni("[test]").as_slice()).unwrap(), Krat(Tip::Celo, Celo(3).rc(), Celo(-2).rc()).rc());
-        assert_eq!(parser.drevo("--1".razčleni("[test]").as_slice()).unwrap(), Minus(Tip::Celo, Celo(0).rc(), Celo(-1).rc()).rc());
-        assert_eq!(parser.drevo("2 + -1".razčleni("[test]").as_slice()).unwrap(), Plus(Tip::Celo, Celo(2).rc(), Celo(-1).rc()).rc());
+        assert_eq!(parser.drevo("-3 * 2".razčleni("[test]").as_slice()).unwrap(), Mul(Tip::Celo, Celo(-3).rc(), Celo(2).rc()).rc());
+        assert_eq!(parser.drevo("3 * -2".razčleni("[test]").as_slice()).unwrap(), Mul(Tip::Celo, Celo(3).rc(), Celo(-2).rc()).rc());
+        assert_eq!(parser.drevo("--1".razčleni("[test]").as_slice()).unwrap(), Sub(Tip::Celo, Celo(0).rc(), Celo(-1).rc()).rc());
+        assert_eq!(parser.drevo("2 + -1".razčleni("[test]").as_slice()).unwrap(), Add(Tip::Celo, Celo(2).rc(), Celo(-1).rc()).rc());
     }
 
     #[test]

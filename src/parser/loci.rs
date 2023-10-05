@@ -1,5 +1,10 @@
 use super::{lekser::Žeton, napaka::{Napake, OznakaNapake}};
 
+pub trait Escape {
+    fn escape(&self) -> String;    
+    fn unescape(&self) -> String;
+}
+
 pub fn loči_spredaj<'a, 'b>(izraz: &'b[Žeton<'a>], nizi: &'b[&'static str]) ->
     Option<Result<(&'b[Žeton<'a>], &'b Žeton<'a>, &'b[Žeton<'a>]), Napake>>
     where 'a: 'b
@@ -95,26 +100,27 @@ pub fn razdeli<'a, 'b>(izraz: &'b[Žeton<'a>], nizi: &'b[&'static str]) -> Resul
     }
 }
 
-pub fn odvzemi_escape(niz: &str) -> String {
-    niz.to_string()
-        .replace(r"\\", "\\")
-        .replace(r"\n", "\n")
-        .replace(r"\t", "\t")
-        .replace(r"\r", "\r")
-        .replace(r#"\"""#, "\"")
-        .replace(r"\'", "\'")
-}
+impl Escape for str {
+    fn unescape(&self) -> String {
+        self.to_string()
+            .replace(r"\\", "\\")
+            .replace(r"\n", "\n")
+            .replace(r"\t", "\t")
+            .replace(r"\r", "\r")
+            .replace(r#"\"""#, "\"")
+            .replace(r"\'", "\'")
+    }
 
-pub fn dodaj_escape(niz: &str) -> String {
-    niz.to_string()
-        .replace("\\", r"\\")
-        .replace("\n", r"\n")
-        .replace("\t", r"\t")
-        .replace("\r", r"\r")
-        .replace("\"", r#"\""#)
-        .replace("\'", r"\'")
+    fn escape(&self) -> String {
+        self.to_string()
+            .replace("\\", r"\\")
+            .replace("\n", r"\n")
+            .replace("\t", r"\t")
+            .replace("\r", r"\r")
+            .replace("\"", r#"\""#)
+            .replace("\'", r"\'")
+    }
 }
-
 #[cfg(test)]
 mod testi {
     use super::*;

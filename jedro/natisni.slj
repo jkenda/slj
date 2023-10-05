@@ -82,6 +82,7 @@ funkcija natisni(št: real) {
     natisni(celi_del)
 
     če za_vejico == 0.0 {
+        natisni(".0")
         vrni
     }
 

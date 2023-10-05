@@ -4,12 +4,12 @@ use crate::parser::{Vozlišče::{*, self}, Tip};
 
 pub fn prireditveni_op(op: &str) -> VozliščeOption {
     match op {
-        "+="  => Aritmetični(Plus),
-        "-="  => Aritmetični(Minus),
-        "*="  => Aritmetični(Krat),
-        "/="  => Aritmetični(Deljeno),
-        "%="  => Aritmetični(Modulo),
-        "**=" => Aritmetični(Potenca),
+        "+="  => Aritmetični(Add),
+        "-="  => Aritmetični(Sub),
+        "*="  => Aritmetični(Mul),
+        "/="  => Aritmetični(Div),
+        "%="  => Aritmetični(Mod),
+        "**=" => Aritmetični(Pow),
         "||=" => Logični(Disjunkcija),
         "&&=" => Logični(Konjunkcija),
         "<<=" => Bitni(BitniPremikLevo),
@@ -36,12 +36,12 @@ pub fn primerjalni_op(op: &str) -> Option<fn(Tip, Rc<Vozlišče>, Rc<Vozlišče>
 
 pub fn aritmetični_op(op: &str) -> fn(Tip, Rc<Vozlišče>, Rc<Vozlišče>) -> Vozlišče {
     match op {
-        "+"  => Plus,
-        "-"  => Minus,
-        "*"  => Krat,
-        "/"  => Deljeno,
-        "%"  => Modulo,
-        "**" => Potenca,
+        "+"  => Add,
+        "-"  => Sub,
+        "*"  => Mul,
+        "/"  => Div,
+        "%"  => Mod,
+        "**" => Pow,
         _    => unreachable!()
     }
 }

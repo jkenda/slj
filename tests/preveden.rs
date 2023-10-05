@@ -74,7 +74,6 @@ fn natisni_znak() {
 #[test]
 fn natisni_bool() {
     let program = r#"natisni(resnica)"#;
-    println!("{}", program.razčleni("[test]").analiziraj().unwrap().to_string());
     assert_eq!(test(program, ""), "resnica");
 
     let program = r#"natisni(laž)"#;

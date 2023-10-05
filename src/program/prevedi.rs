@@ -64,7 +64,7 @@ impl Vozlišče {
                 [Osnovni(LDDY(0))].as_slice(),
             ].concat(),
             Indeksiraj { seznam_ref, indeks } =>
-                Dereferenciraj(Plus(Tip::Celo, seznam_ref.clone(), indeks.clone()).rc()).prevedi(št_klicev),
+                Dereferenciraj(Add(Tip::Celo, seznam_ref.clone(), indeks.clone()).rc()).prevedi(št_klicev),
             Dolžina(vozlišče) => match vozlišče.tip() {
                 Tip::Seznam(_, dolžina) => Celo(dolžina).rc().prevedi(št_klicev),
                 Tip::RefSeznama(..) => [
@@ -74,72 +74,72 @@ impl Vozlišče {
                 _ => unreachable!("Jemanje dolžine nečesa, kar ni seznam"),
             },
 
-            Plus(Tip::Celo, l, d) => [
+            Add(Tip::Celo, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(ADDI)].as_slice(),
             ].concat(),
-            Plus(Tip::Real, l, d) => [
+            Add(Tip::Real, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(ADDF)].as_slice(),
             ].concat(),
-            Plus(..) => unreachable!(),
-            Minus(Tip::Celo, l, d) => [
+            Add(..) => unreachable!(),
+            Sub(Tip::Celo, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(SUBI)].as_slice(),
             ].concat(),
-            Minus(Tip::Real, l, d) => [
+            Sub(Tip::Real, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(SUBF)].as_slice(),
             ].concat(),
-            Minus(..) => unreachable!(),
-            Krat(Tip::Celo, l, d) => [
+            Sub(..) => unreachable!(),
+            Mul(Tip::Celo, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(MULI)].as_slice(),
             ].concat(),
-            Krat(Tip::Real, l, d) => [
+            Mul(Tip::Real, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(MULF)].as_slice(),
             ].concat(),
-            Krat(..) => unreachable!(),
-            Deljeno(Tip::Celo, l, d) => [
+            Mul(..) => unreachable!(),
+            Div(Tip::Celo, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(DIVI)].as_slice(),
             ].concat(),
-            Deljeno(Tip::Real, l, d) => [
+            Div(Tip::Real, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(DIVF)].as_slice(),
             ].concat(),
-            Deljeno(..) => unreachable!(),
-            Modulo(Tip::Celo, l, d) => [
+            Div(..) => unreachable!(),
+            Mod(Tip::Celo, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(MODI)].as_slice(),
             ].concat(),
-            Modulo(Tip::Real, l, d) => [
+            Mod(Tip::Real, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(MODF)].as_slice(),
             ].concat(),
-            Modulo(..) => unreachable!(),
-            Potenca(Tip::Celo, l, d) => [
+            Mod(..) => unreachable!(),
+            Pow(Tip::Celo, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(POWI)].as_slice(),
             ].concat(),
-            Potenca(Tip::Real, l, d) => [
+            Pow(Tip::Real, l, d) => [
                 l.prevedi(št_klicev).as_slice(),
                 d.prevedi(št_klicev).as_slice(),
                 [Osnovni(POWF)].as_slice(),
             ].concat(),
-            Potenca(..) => unreachable!(),
+            Pow(..) => unreachable!(),
 
             CeloVReal(vozlišče) => [
                 vozlišče.prevedi(št_klicev).as_slice(),
@@ -196,13 +196,13 @@ impl Vozlišče {
             ].concat(),
 
             Enako(tip, l, d) => [
-                Minus(tip.clone(), l.clone(), d.clone()).prevedi(št_klicev).as_slice(),
+                Sub(tip.clone(), l.clone(), d.clone()).prevedi(št_klicev).as_slice(),
                 [Osnovni(ZERO)].as_slice(),
             ].concat(),
             NiEnako(tip, l, d) => Zanikaj(Enako(tip.clone(), l.clone(), d.clone()).rc()).prevedi(št_klicev),
 
             Večje(tip, l, d) => [
-                Minus(tip.clone(), l.clone(), d.clone()).prevedi(št_klicev).as_slice(),
+                Sub(tip.clone(), l.clone(), d.clone()).prevedi(št_klicev).as_slice(),
                 [Osnovni(POS)].as_slice(),
             ].concat(),
             Manjše(tip, l, d)      => Večje(tip.clone(), d.clone(), l.clone()).prevedi(št_klicev),
@@ -211,12 +211,12 @@ impl Vozlišče {
 
             ProgramskiŠtevec(odmik) => vec![PC(*odmik)],
 
-            Skok(oznaka) => vec![JUMPRelative(oznaka.clone())],
+            Skok(oznaka) => vec![JUMPRel(oznaka.clone())],
             Klic(oznaka) => vec![CALL(oznaka.clone())],
             DinamičniSkok => vec![Osnovni(JMPD).to_owned()],
             PogojniSkok(pogoj, skok) => [
                 pogoj.prevedi(št_klicev).as_slice(),
-                [JMPCRelative(skok.clone())].as_slice(),
+                [JMPCRel(skok.clone())].as_slice(),
             ].concat(),
 
             PogojniStavek{ pogoj, resnica, laž } => {
@@ -224,7 +224,7 @@ impl Vozlišče {
                 [
                     PogojniSkok(pogoj.clone(), format!("true_{oznaka}")).prevedi(št_klicev).as_slice(),
                     laž.prevedi(št_klicev).as_slice(),
-                    &[JUMPRelative(format!("end_{oznaka}"))],
+                    &[JUMPRel(format!("end_{oznaka}"))],
                     &[Oznaka(format!("true_{oznaka}"))],
                     resnica.prevedi(št_klicev).as_slice(),
                     &[Oznaka(format!("end_{oznaka}"))],
@@ -238,7 +238,7 @@ impl Vozlišče {
                     [Oznaka(format!("loop_{oznaka}"))].as_slice(),
                     PogojniSkok(pogoj, format!("end_{oznaka}")).prevedi(št_klicev).as_slice(),
                     telo.prevedi(št_klicev).as_slice(),
-                    &[JUMPRelative(format!("loop_{oznaka}"))],
+                    &[JUMPRel(format!("loop_{oznaka}"))],
                     &[Oznaka(format!("end_{oznaka}"))],
                 ].concat()
             },
@@ -322,7 +322,7 @@ impl Vozlišče {
                 ]);
 
                 [
-                    [JUMPRelative(format!("skip_{ime}"))].as_slice(),
+                    [JUMPRel(format!("skip_{ime}"))].as_slice(),
                     [Oznaka(format!("fn_{ime}"))].as_slice(),
                     pred.prevedi(št_klicev).as_slice(),
                     telo.prevedi(št_klicev).as_slice(),
@@ -424,32 +424,32 @@ mod test {
         assert_eq!(Resnica.prevedi(&HashMap::new()), [PUSHI(1)]);
         assert_eq!(Laž.prevedi(&HashMap::new()), [PUSHI(0)]);
 
-        assert_eq!(Plus(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
+        assert_eq!(Add(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(ADDF),
         ]);
-        assert_eq!(Minus(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
+        assert_eq!(Sub(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(SUBF),
         ]);
-        assert_eq!(Krat(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
+        assert_eq!(Mul(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(MULF),
         ]);
-        assert_eq!(Deljeno(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
+        assert_eq!(Div(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(DIVF),
         ]);
-        assert_eq!(Modulo(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
+        assert_eq!(Mod(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(MODF),
         ]);
-        assert_eq!(Potenca(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
+        assert_eq!(Pow(Tip::Real, Real(1.0).rc(), Real(2.0).rc()).prevedi(&HashMap::new()), [
                    PUSHF(1.0),
                    PUSHF(2.0),
                    Osnovni(POWF),
@@ -492,11 +492,11 @@ mod test {
         ]);
 
         assert_eq!(ProgramskiŠtevec(-7).prevedi(&HashMap::new()), [PC(-7)]);
-        assert_eq!(Skok("zanka".to_string()).prevedi(&HashMap::new()), [JUMPRelative("zanka".to_string())]);
+        assert_eq!(Skok("zanka".to_string()).prevedi(&HashMap::new()), [JUMPRel("zanka".to_string())]);
         assert_eq!(DinamičniSkok.prevedi(&HashMap::new()), [Osnovni(JMPD)]);
         assert_eq!(PogojniSkok(Resnica.rc(), "konec".to_string()).prevedi(&HashMap::new()), [
                    PUSHI(1),
-                   JMPCRelative("konec".to_string()),
+                   JMPCRel("konec".to_string()),
         ]);
 
         assert_eq!(PogojniStavek { 
@@ -505,10 +505,10 @@ mod test {
             laž: Natisni(Znak('l').rc()).rc(),
         }.prevedi(&HashMap::new()), [
             PUSHI(1),
-            JMPCRelative("true_0".to_string()),
+            JMPCRel("true_0".to_string()),
             PUSHC('l'),
             Osnovni(PUTC),
-            JUMPRelative("end_0".to_string()),
+            JUMPRel("end_0".to_string()),
             Oznaka("true_0".to_string()),
             PUSHC('r'),
             Osnovni(PUTC),
@@ -526,10 +526,10 @@ mod test {
             PUSHI(1),
             PUSHI(0),
             Osnovni(SUBI),
-            JMPCRelative("end_1".to_string()),
+            JMPCRel("end_1".to_string()),
             PUSHF(27.0),
             Osnovni(STOR(25)),
-            JUMPRelative("loop_1".to_string()),
+            JUMPRel("loop_1".to_string()),
             Oznaka("end_1".to_string()),
         ]);
 
@@ -597,7 +597,7 @@ mod test {
         ]);
 
         assert_eq!(funkcija.clone().prevedi(&št_klicev), [
-            JUMPRelative("skip_ena(real)".to_string()),
+            JUMPRel("skip_ena(real)".to_string()),
             Oznaka("fn_ena(real)".to_string()),
             Osnovni(LOFF),
             Osnovni(TOP(-5)),

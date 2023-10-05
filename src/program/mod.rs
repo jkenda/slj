@@ -93,8 +93,8 @@ enum UkazPodatekRelative {
     PUSHI(i32),
     PUSHF(f32),
     PUSHC(char),
-    JUMPRelative(String),
-    JMPCRelative(String),
+    JUMPRel(String),
+    JMPCRel(String),
     CALL(String),
     PC(i32),
     Oznaka(String)

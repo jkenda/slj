@@ -13,14 +13,14 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                 str
                 + if let Oznaka(_) = ukaz_podatek { "" } else { "\t" }
                 + &match ukaz_podatek {
-                    PUSHI(število)       => format!("PUSH {število}"),
-                    PUSHF(število)       => format!("PUSH {število}"),
-                    PUSHC(znak)          => format!("PUSH 0x{:0X}", v_utf8(*znak)),
-                    JUMPRelative(oznaka) => format!("JUMP {}", formatiraj_oznako(oznaka)),
-                    JMPCRelative(oznaka) => format!("JMPC {}", formatiraj_oznako(oznaka)),
-                    CALL(oznaka)         => format!("CALL {}", formatiraj_oznako(oznaka)),
-                    Oznaka(oznaka)       => format!("{}:",     formatiraj_oznako(oznaka)),
-                    PC(i)                => format!("PC {i}"),
+                    PUSHI(število)  => format!("PUSH {število}"),
+                    PUSHF(število)  => format!("PUSH 0x{:0X} ; {število:?}f", unsafe { std::mem::transmute::<f32, u32>(*število) }),
+                    PUSHC(znak)     => format!("PUSH 0x{:0X} ", v_utf8(*znak)),
+                    JUMPRel(oznaka) => format!("JUMP {}", formatiraj_oznako(oznaka)),
+                    JMPCRel(oznaka) => format!("JMPC {}", formatiraj_oznako(oznaka)),
+                    CALL(oznaka)    => format!("CALL {}", formatiraj_oznako(oznaka)),
+                    Oznaka(oznaka)  => format!("{}:",     formatiraj_oznako(oznaka)),
+                    PC(i)           => format!("PC {i}"),
 
                     Osnovni(ALOC(mem))  => format!("ALOC {mem}"),
                     Osnovni(LOAD(addr)) => format!("LOAD {addr}"), // load normal
@@ -89,13 +89,14 @@ mod testi {
             .expect("Failed to execute fasm");
 
         if !output.status.success() {
+            println!("{program_filename}.asm");
             io::stdout().write_all(&output.stdout)?;
             io::stderr().write_all(&output.stderr)?;
             return Err(std::io::Error::new(std::io::ErrorKind::Other, "compilation failed"));
         }
 
         // run compiled binary
-        let mut proces = Command::new(program_filename)
+        let mut proces = Command::new(&program_filename)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -113,17 +114,18 @@ mod testi {
             .expect("Failed to wait on main");
 
         if !output.status.success() {
+            println!("{program_filename}.asm");
             io::stdout().write_all(&output.stdout)?;
             io::stderr().write_all(&output.stderr)?;
             return Err(std::io::Error::new(std::io::ErrorKind::Other, "program failed"));
         }
 
         if bytes {
-            assert_eq!(output.stdout, expected.as_bytes());
+            assert_eq!(output.stdout, expected.as_bytes(), "{program_filename}");
         }
         else {
             let output = String::from_utf8_lossy(&output.stdout);
-            assert_eq!(output, expected);
+            assert_eq!(output, expected, "{program_filename}");
         }
 
         Ok(())
@@ -171,21 +173,61 @@ mod testi {
             št_klicev: HashMap::new(),
             main: Okvir {
                 zaporedje: Zaporedje(vec![
-                    Natisni(CeloVZnak(Plus(Tip::Celo, Celo(48).rc(), Celo(1).rc()).rc()).rc()).rc(),
-                    Natisni(CeloVZnak(Plus(Tip::Celo, Celo(48).rc(), Celo(3).rc()).rc()).rc()).rc(),
-                    Natisni(CeloVZnak(Minus(Tip::Celo, Celo(58).rc(), Celo(10).rc()).rc()).rc()).rc(),
-                    Natisni(CeloVZnak(Krat(Tip::Celo, Celo(15).rc(), Celo(4).rc()).rc()).rc()).rc(),
-                    Natisni(CeloVZnak(Deljeno(Tip::Celo, Celo(100).rc(), Celo(2).rc()).rc()).rc()).rc(),
-                    Natisni(CeloVZnak(Modulo(Tip::Celo, Celo(553).rc(), Celo(100).rc()).rc()).rc()).rc(),
-                    Natisni(CeloVZnak(Potenca(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc()).rc(),
-                    Natisni(CeloVZnak(Minus(Tip::Celo, Celo(128).rc(), Potenca(Tip::Celo, Celo(-3).rc(), Celo(4).rc()).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Add(Tip::Celo, Celo(48).rc(), Celo(1).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Add(Tip::Celo, Celo(48).rc(), Celo(3).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Sub(Tip::Celo, Celo(58).rc(), Celo(10).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Mul(Tip::Celo, Celo(15).rc(), Celo(4).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Mul(Tip::Celo, Celo(-62).rc(), Celo(-1).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Div(Tip::Celo, Celo(100).rc(), Celo(2).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Mod(Tip::Celo, Celo(553).rc(), Celo(100).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Pow(Tip::Celo, Celo(3).rc(), Celo(4).rc()).rc()).rc()).rc(),
+                    Natisni(CeloVZnak(Sub(Tip::Celo, Celo(128).rc(), Pow(Tip::Celo, Celo(-3).rc(), Celo(4).rc()).rc()).rc()).rc()).rc(),
                 ]).rc(),
                 št_spr: 11,
             }.rc()
         }
         .v_fasm_x86();
 
-        test(&asm, "", "130<25Q/", false)
+        test(&asm, "", "130<>25Q/", false)
+    }
+
+    #[test]
+    fn itof_ftoi() -> Result<(), io::Error> {
+        let asm = Drevo {
+            funkcije: vec![],
+            št_klicev: HashMap::new(),
+            main: Zaporedje(vec![
+                Natisni(RealVCelo(CeloVReal(ZnakVCelo(Znak('0').rc()).rc()).rc()).rc()).rc(),
+                Natisni(RealVCelo(CeloVReal(ZnakVCelo(Znak('1').rc()).rc()).rc()).rc()).rc(),
+                Natisni(RealVCelo(CeloVReal(ZnakVCelo(Znak('2').rc()).rc()).rc()).rc()).rc(),
+                Natisni(RealVCelo(CeloVReal(ZnakVCelo(Znak('3').rc()).rc()).rc()).rc()).rc(),
+            ]).rc(),
+        }
+        .v_fasm_x86();
+
+        test(&asm, "", "0123", false)
+    }
+
+    #[test]
+    fn realne_operacije() -> Result<(), io::Error> {
+        let asm = Drevo {
+            funkcije: vec![],
+            št_klicev: HashMap::new(),
+            main: Zaporedje(vec![
+                Natisni(CeloVZnak(RealVCelo(Add(Tip::Real, Real( 48.0).rc(), Real(  1.0).rc()).rc()).rc()).rc()).rc(),
+                Natisni(CeloVZnak(RealVCelo(Add(Tip::Real, Real( 48.0).rc(), Real(  3.0).rc()).rc()).rc()).rc()).rc(),
+                Natisni(CeloVZnak(RealVCelo(Sub(Tip::Real, Real( 58.0).rc(), Real( 10.0).rc()).rc()).rc()).rc()).rc(),
+                Natisni(CeloVZnak(RealVCelo(Mul(Tip::Real, Real( 15.0).rc(), Real(  4.0).rc()).rc()).rc()).rc()).rc(),
+                Natisni(CeloVZnak(RealVCelo(Mul(Tip::Real, Real(-62.0).rc(), Real( -1.0).rc()).rc()).rc()).rc()).rc(),
+                Natisni(CeloVZnak(RealVCelo(Div(Tip::Real, Real(100.0).rc(), Real(  2.0).rc()).rc()).rc()).rc()).rc(),
+                Natisni(CeloVZnak(RealVCelo(Mod(Tip::Real, Real(553.0).rc(), Real(100.0).rc()).rc()).rc()).rc()).rc(),
+                Natisni(CeloVZnak(RealVCelo(Pow(Tip::Real, Real(3.0).rc(),   Real(  4.0).rc()).rc()).rc()).rc()).rc(),
+                Natisni(CeloVZnak(RealVCelo(Sub(Tip::Real, Real(128.0).rc(), Pow(Tip::Real, Real(-3.0).rc(), Real(4.0).rc()).rc()).rc()).rc()).rc()).rc(),
+            ]).rc(),
+        }
+        .v_fasm_x86();
+
+        test(&asm, "", "130<>25Q/", false)
     }
 
     #[test]
@@ -213,7 +255,7 @@ mod testi {
         let asm = vec![
             PUSHC('0'),
             Osnovni(PUTC),
-            JUMPRelative("else".to_string()),
+            JUMPRel("else".to_string()),
             PUSHC('1'),
             Osnovni(PUTC),
             Oznaka("else".to_string()),
@@ -231,17 +273,17 @@ mod testi {
             PUSHC('0'),
             Osnovni(PUTC),
             PUSHI(1),
-            JMPCRelative("else1".to_string()),
+            JMPCRel("else1".to_string()),
             PUSHC('1'),
             Osnovni(PUTC),
             Oznaka("else1".to_string()),
             PUSHC('2'),
             Osnovni(PUTC),
             PUSHI(0),
-            JMPCRelative("else2".to_string()),
+            JMPCRel("else2".to_string()),
             PUSHC('3'),
             Osnovni(PUTC),
-            JUMPRelative("konec".to_string()),
+            JUMPRel("konec".to_string()),
             Oznaka("else2".to_string()),
             PUSHC('4'),
             Osnovni(PUTC),
@@ -257,13 +299,13 @@ mod testi {
         let asm = vec![
             PUSHI(1),
             Osnovni(POS),
-            JMPCRelative("konec1".to_string()),
+            JMPCRel("konec1".to_string()),
             PUSHC('1'),
             Osnovni(PUTC),
             Oznaka("konec1".to_string()),
             PUSHI(1),
             Osnovni(ZERO),
-            JMPCRelative("konec2".to_string()),
+            JMPCRel("konec2".to_string()),
             PUSHC('2'),
             Osnovni(PUTC),
             Oznaka("konec2".to_string()),
