@@ -68,6 +68,8 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
                     CALL(oznaka) => JUMP(oznake_vrstic[oznaka]),
                     PC(odmik) => { push_tipi.push(Tip::Celo); PUSH(Podatek { i: i as i32 + odmik }) },
                     Oznaka(_) => NOOP,
+
+                    _ => unreachable!("ostali ukazi so namenjeni optimizaciji za x86")
                 })
         .collect();
 

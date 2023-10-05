@@ -97,7 +97,12 @@ enum UkazPodatekRelative {
     JMPCRel(String),
     CALL(String),
     PC(i32),
-    Oznaka(String)
+    Oznaka(String),
+
+    PUSHOPT(i32),
+    STIMM(i32, i32, &'static str),
+    LDOP(&'static str, &'static str, &'static str, i32, i32),
+    LDST(&'static str, &'static str, i32, i32),
 }
 
 #[derive(Debug, PartialEq)]

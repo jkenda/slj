@@ -96,6 +96,9 @@ fn natisni_število() {
     assert_eq!(program.razčleni("[test]"), [Ime("natisni", 1, 1, "[test]"), Ločilo("(", 1, 8, "[test]"), Literal(L::Celo("0", 1, 9, "[test]")), Ločilo(")", 1, 10, "[test]")]);
     assert_eq!(test(program, ""), "0");
 
+    let program = r#"natisni(0.0)"#;
+    assert_eq!(test(program, ""), "0.0");
+
     let program = r#"natisni(0.02)"#;
     assert_eq!(test(program, ""), "0.02");
 
@@ -103,7 +106,7 @@ fn natisni_število() {
     assert_eq!(test(program, ""), "0.5");
 
     let program = r#"natisni(3.141592653589793)"#;
-    assert_eq!(test(program, ""), "3.141592");
+    assert_eq!(test(program, ""), "3.14159");
 }
 
 #[test]

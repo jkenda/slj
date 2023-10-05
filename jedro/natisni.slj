@@ -70,7 +70,7 @@ funkcija _natisni_dol(št: celo, dolžina: celo) {
 }
 
 funkcija natisni(št: real) {
-    kons NATANČNOST = 6
+    kons NATANČNOST = 5
 
     če št < 0.0 {
         natisni('-')
@@ -86,7 +86,7 @@ funkcija natisni(št: real) {
         vrni
     }
 
-    spr decimalke = (za_vejico * 10.0**NATANČNOST kot real) kot celo
+    spr decimalke = (za_vejico * (10**NATANČNOST) kot real) kot celo
     spr natančnost = NATANČNOST
 
     dokler decimalke % 10 == 0 {

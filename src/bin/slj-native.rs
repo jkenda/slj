@@ -43,15 +43,14 @@ fn main() -> std::io::Result<()> {
                 .write_all(fasm.as_bytes())?;
 
             // compile with FASM
-            let status = Command::new("fasm")
+            let output = Command::new("fasm")
                 .arg("fasm/_main.asm")
-                .stdin(Stdio::inherit())
-                .stdout(Stdio::inherit())
-                .stderr(Stdio::inherit())
-                .status()
+                .output()
                 .expect("Failed to execute fasm");
 
-            if !status.success() {
+            if !output.status.success() {
+                io::stdout().write_all(&output.stdout)?;
+                io::stderr().write_all(&output.stderr)?;
                 return Err(io::Error::new(io::ErrorKind::Other, "compilation failed"));
             }
 

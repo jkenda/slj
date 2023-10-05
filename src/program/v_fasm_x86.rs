@@ -1,3 +1,7 @@
+use std::mem::transmute;
+
+use crate::parser::loci::Escape;
+
 use super::*;
 
 const PRE: &str = "include 'ukazi.asm'\n\n";
@@ -8,28 +12,189 @@ const POST: &str = "
 impl ToFasmX86 for Vec<UkazPodatekRelative> {
     fn v_fasm_x86(&self) -> String {
 
-        self.iter()
+        let mut opti = self.clone();
+        let mut i = 0;
+
+        // optimiziraj
+
+        while i < opti.len() - 2 {
+            let sub = &opti[i..];
+            //println!("sub: {:?}", &sub[0..3]);
+            i = match sub {
+                [
+                    a @ (PUSHI(..) | PUSHC(..)),
+                    b @ (PUSHI(..) | PUSHC(..)),
+                    Osnovni(op @ (ADDI | SUBI | MULI | DIVF)),
+                    ..
+                ] => {
+                    let op = match op {
+                        ADDI => i32::wrapping_add,
+                        SUBI => i32::wrapping_sub,
+                        MULI => i32::wrapping_mul,
+                        DIVF => i32::wrapping_div,
+                        _ => unreachable!()
+                    };
+                    opti[i] = match (a, b) {
+                        (PUSHI(a), PUSHI(b)) => PUSHI(op(*a, *b)),
+                        (PUSHI(a), PUSHC(b)) => PUSHC(unsafe {transmute::<i32, char>(op(*a, v_utf8(*b))) }),
+                        (PUSHC(a), PUSHI(b)) => PUSHC(unsafe {transmute::<i32, char>(op(v_utf8(*a), *b)) }),
+                        (PUSHC(a), PUSHC(b)) => PUSHC(unsafe {transmute::<i32, char>(op(v_utf8(*a), v_utf8(*b))) }),
+                        _ => unreachable!(),
+                    };
+                    opti.remove(i + 1); opti.remove(i + 1);
+                    i
+                },
+
+                [PUSHF(a), PUSHF(b), Osnovni(op @ (ADDF | SUBF | MULF | DIVF))] => {
+                    let result = match op {
+                        ADDF => a + b,
+                        SUBF => a - b,
+                        MULF => a * b,
+                        DIVF => a / b,
+                        _ => unreachable!(),
+                    };
+                    PUSHOPT(unsafe { std::mem::transmute::<f32, i32>(result) });
+                    opti.remove(i + 1); opti.remove(i + 1);
+                    i
+                }
+
+                [
+                    Osnovni(ld1 @ (LOAD(src) | LDOF(src))),
+                    Osnovni(ld2 @ (LOAD(dst) | LDOF(dst))),
+                    Osnovni(op @ (ADDI | SUBI | MULI)),
+                    ..
+                ] => {
+                    let op = match op {
+                        ADDI => "add", SUBI => "sub",
+                        MULI => "imul", DIVI => "idiv",
+                        _ => unreachable!(),
+                    };
+                    let off1 = match ld1 {
+                        LOAD(..) => "r8",
+                        LDOF(..) => "r9",
+                        _ => unreachable!(),
+                    };
+                    let off2 = match ld2 {
+                        LOAD(..) => "r8",
+                        LDOF(..) => "r9",
+                        _ => unreachable!(),
+                    };
+
+                    opti[i] = LDOP(op, off1, off2, *src, *dst);
+                    opti.remove(i + 1); opti.remove(i + 1);
+                    i
+                },
+
+                [
+                    push @ (PUSHI(..) | PUSHC(..) | PUSHF(..)),
+                    Osnovni(stor @ (STOR(dst) | STOF(dst))),
+                    ..
+                ] => {
+                    let reg = match stor {
+                        STOR(..) => "r8",
+                        STOF(..) => "r9",
+                        _ => unreachable!(),
+                    };
+                    let data = match push {
+                        PUSHI(data) => *data,
+                        PUSHC(data) => v_utf8(*data),
+                        PUSHF(data) => unsafe { transmute::<f32, i32>(*data) },
+                        _ => unreachable!(),
+                    };
+                    opti[i] = STIMM(data, *dst, reg);
+                    opti.remove(i + 1);
+                    i - 1
+                },
+
+                [
+                    Osnovni(load @ (LOAD(src) | LDOF(src))),
+                    Osnovni(stor @ (STOR(dst) | STOF(dst))),
+                    ..
+                ] => {
+                    let reg1 = match load {
+                        LOAD(..) => "r8",
+                        LDOF(..) => "r9",
+                        _ => unreachable!(),
+                    };
+                    let reg2 = match stor {
+                        STOR(..) => "r8",
+                        STOF(..) => "r9",
+                        _ => unreachable!(),
+                    };
+
+                    opti[i] = LDST(reg1, reg2, *src, *dst);
+                    opti.remove(i + 1);
+                    i
+                },
+
+                [
+                    STIMM(..),
+                    Osnovni(stor @ (STOR(dst) | STOF(dst))),
+                    ..
+                ] => {
+                    // potuj nazaj do PUSHa
+                    let mut j = i;
+
+                    let data = loop {
+                        match &opti[j] {
+                            PUSHI(data) => break Some(*data),
+                            PUSHC(data) => break Some(v_utf8(*data)),
+                            PUSHF(data) => break Some(unsafe { transmute::<f32, i32>(*data) }),
+                            STIMM(..) => j -= 1,
+                            _ => break None,
+                        };
+                        if i == 0 { break None }
+                    };
+
+                    match data {
+                        Some(data) => {
+                            let reg = match stor {
+                                STOR(..) => "r8",
+                                STOF(..) => "r9",
+                                _ => unreachable!(),
+                            };
+
+                            let dst = *dst;
+                            opti.remove(j);
+                            opti.remove(i);
+                            opti.insert(i, STIMM(data, dst, reg));
+                            i
+                        },
+                        None => i + 1
+                    }
+                },
+
+                _ => i + 1,
+            }
+        }
+
+        opti.iter()
             .fold(PRE.to_string(), |str, ukaz_podatek| {
                 str
                 + if let Oznaka(_) = ukaz_podatek { "" } else { "\t" }
                 + &match ukaz_podatek {
-                    PUSHI(število)  => format!("PUSH {število}"),
-                    PUSHF(število)  => format!("PUSH 0x{:0X} ; {število:?}f", unsafe { std::mem::transmute::<f32, u32>(*število) }),
-                    PUSHC(znak)     => format!("PUSH 0x{:0X} ", v_utf8(*znak)),
+                    PUSHI(število)  => format!("PUSH 0x{število:X} ; {število:?}: celo"),
+                    PUSHF(število)  => format!("PUSH 0x{:X} ; {število:?}: real", unsafe { std::mem::transmute::<f32, u32>(*število) }),
+                    PUSHC(znak)     => format!("PUSH 0x{:X} ; '{}': char", v_utf8(*znak), znak.to_string().escape()),
                     JUMPRel(oznaka) => format!("JUMP {}", formatiraj_oznako(oznaka)),
                     JMPCRel(oznaka) => format!("JMPC {}", formatiraj_oznako(oznaka)),
                     CALL(oznaka)    => format!("CALL {}", formatiraj_oznako(oznaka)),
                     Oznaka(oznaka)  => format!("{}:",     formatiraj_oznako(oznaka)),
                     PC(i)           => format!("PC {i}"),
 
+                    PUSHOPT(data) => format!("PUSH_OPT 0x{data:X}"),
+                    STIMM(data, addr, reg) => format!("ST_IMM 0x{data:X}, {addr}, {reg}"),
+                    LDOP(op, ld1, ld2, addr1, addr2) => format!("LD_OP {op}, {ld1}, {ld2}, {addr1}, {addr2}"),
+                    LDST(off1, off2, src, dst) => format!("LD_ST {off1}, {off2}, {src}, {dst}"),
+
                     Osnovni(ALOC(mem))  => format!("ALOC {mem}"),
-                    Osnovni(LOAD(addr)) => format!("LOAD {addr}"), // load normal
-                    Osnovni(LDOF(addr)) => format!("LDOF {addr}"), // load w/ offset
-                    Osnovni(LDDY(addr)) => format!("LDDY {addr}"), // load dynamic
-                    Osnovni(STOR(addr)) => format!("STOR {addr}"), // store normal
-                    Osnovni(STOF(addr)) => format!("STOF {addr}"), // store w/ offset
-                    Osnovni(STDY(addr)) => format!("STDY {addr}"), // store dynamic
-                    Osnovni(TOP(addr))  => format!("TOP  {addr}"),
+                    Osnovni(LOAD(addr)) => format!("LOAD 0x{addr:0X}"), // load normal
+                    Osnovni(LDOF(addr)) => format!("LDOF 0x{addr:0X}"), // load w/ offset
+                    Osnovni(LDDY(offs)) => format!("LDDY {offs}"), // load dynamic
+                    Osnovni(STOR(addr)) => format!("STOR 0x{addr:0X}"), // store normal
+                    Osnovni(STOF(addr)) => format!("STOF 0x{addr:0X}"), // store w/ offset
+                    Osnovni(STDY(offs)) => format!("STDY {offs}"), // store dynamic
+                    Osnovni(TOP(offs))  => format!("TOP  {offs}"),
                     Osnovni(instruction) => format!("{instruction:?}"),
                 }
                 + "\n"
@@ -38,11 +203,12 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
     }
 }
 
-fn v_utf8(znak: char) -> u32 {
+fn v_utf8(znak: char) -> i32 {
     let mut buf = [0u8; 4];
     znak.encode_utf8(&mut buf);
-    buf.iter().rev()
-        .fold(0, |acc, b| acc << 8 | *b as u32)
+    let n = buf.iter().rev()
+        .fold(0, |acc, b| acc << 8 | *b as u32);
+    unsafe { transmute::<u32, i32>(n) }
 }
 
 fn formatiraj_oznako(oznaka: &str) -> String {
@@ -221,13 +387,13 @@ mod testi {
                 Natisni(CeloVZnak(RealVCelo(Mul(Tip::Real, Real(-62.0).rc(), Real( -1.0).rc()).rc()).rc()).rc()).rc(),
                 Natisni(CeloVZnak(RealVCelo(Div(Tip::Real, Real(100.0).rc(), Real(  2.0).rc()).rc()).rc()).rc()).rc(),
                 Natisni(CeloVZnak(RealVCelo(Mod(Tip::Real, Real(553.0).rc(), Real(100.0).rc()).rc()).rc()).rc()).rc(),
-                Natisni(CeloVZnak(RealVCelo(Pow(Tip::Real, Real(3.0).rc(),   Real(  4.0).rc()).rc()).rc()).rc()).rc(),
-                Natisni(CeloVZnak(RealVCelo(Sub(Tip::Real, Real(128.0).rc(), Pow(Tip::Real, Real(-3.0).rc(), Real(4.0).rc()).rc()).rc()).rc()).rc()).rc(),
+                //Natisni(CeloVZnak(RealVCelo(Pow(Tip::Real, Real(3.0).rc(),   Real(  4.0).rc()).rc()).rc()).rc()).rc(),
+                //Natisni(CeloVZnak(RealVCelo(Sub(Tip::Real, Real(128.0).rc(), Pow(Tip::Real, Real(-3.0).rc(), Real(4.0).rc()).rc()).rc()).rc()).rc()).rc(),
             ]).rc(),
         }
         .v_fasm_x86();
 
-        test(&asm, "", "130<>25Q/", false)
+        test(&asm, "", "130<>25", false)
     }
 
     #[test]

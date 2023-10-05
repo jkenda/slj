@@ -54,8 +54,8 @@ macro JMPD
 macro JMPC label
 {
     pop  rax
-    test rax, 1
-    jne label
+    cmp rax, 0
+    jne  label
 }
 
 macro PUSH data
@@ -189,7 +189,7 @@ macro ADDI
 {
     pop rbx
     pop rax
-    add rax, rbx
+    add eax, ebx
     push rax
 }
 
@@ -197,7 +197,7 @@ macro SUBI
 {
     pop rbx
     pop rax
-    sub rax, rbx
+    sub eax, ebx
     push rax
 }
 
@@ -205,7 +205,7 @@ macro MULI
 {
     pop  rax
     pop  rbx
-    imul rax, rbx
+    imul eax, ebx
     push rax
 }
 
@@ -240,7 +240,7 @@ macro BOR
 {
     pop rbx
     pop rax
-    or  rax, rbx
+    or  eax, ebx
     push rax
 }
 
@@ -248,7 +248,7 @@ macro BXOR
 {
     pop rbx
     pop rax
-    xor rax, rbx
+    xor eax, ebx
     push rax
 }
 
@@ -256,7 +256,7 @@ macro BAND
 {
     pop rbx
     pop rax
-    and rax, rbx
+    and eax, ebx
     push rax
 }
 
@@ -264,7 +264,7 @@ macro BSLL
 {
     pop rcx
     pop rax
-    shl rax, cl
+    shl eax, cl
     push rax
 }
 
@@ -272,7 +272,7 @@ macro BSLR
 {
     pop rcx
     pop rax
-    shr rax, cl
+    shr eax, cl
     push rax
 }
 
@@ -350,6 +350,33 @@ macro exit code
     mov rax, 60
     mov rdi, code
     syscall
+}
+
+
+macro LD_OP op, off1, off2, addr1, addr2
+{
+    mov rax, [off1 - 8 - 8 * addr1]
+    mov rbx, [off2 - 8 - 8 * addr2]
+    op  eax, ebx
+    push rax
+}
+
+; optimized push (PUSH PUSH ADD, PUSH PUSH SUB, ...)
+macro PUSH_OPT data
+{
+    PUSH data
+}
+
+; push and store (PUSH STORE, PUSH STOF)
+macro ST_IMM data, addr, reg
+{
+    mov qword [reg - 8 - 8*addr], data
+}
+
+macro LD_ST reg1, reg2, src, dst
+{
+    mov rcx, [reg1 - 8 - 8*src]
+    mov [rax - 8 - 8*dst], rcx
 }
 
 format ELF64 executable

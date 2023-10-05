@@ -58,7 +58,7 @@ fn natisni_število() {
     assert_eq!(test(program, ""), "0.5");
 
     let program = r#"natisni(3.141592653589793)"#;
-    assert_eq!(test(program, ""), "3.141592");
+    assert_eq!(test(program, ""), "3.14159");
 }
 
 #[test]
