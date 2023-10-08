@@ -58,12 +58,15 @@ impl Napaka {
         let datoteke = unsafe { datoteke().get_mut().unwrap() };
 
         if !datoteke.contains_key(&self.datoteka) {
-            datoteke.insert(self.datoteka.clone(),
+            let mut datoteka = 
                 read_to_string(&self.datoteka)
                 .unwrap()
                 .lines()
                 .map(String::from)
-                .collect());
+                .collect::<Vec<String>>();
+
+            datoteka.push("\n".to_string());
+            datoteke.insert(self.datoteka.clone(), datoteka);
         }
 
         datoteke.get(&self.datoteka).unwrap()
