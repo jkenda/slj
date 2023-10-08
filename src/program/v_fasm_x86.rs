@@ -1,16 +1,188 @@
-use std::mem::transmute;
+use std::{mem::transmute, fmt::Display};
 
-use crate::parser::loci::Escape;
+use super::{
+    ToFasmX86,
+    UkazPodatekRelative::{self, *},
+    UkazPodatek::*,
+};
 
-use super::*;
+const HEADER: &str = include_str!("../../fasm/header.asm");
+const FOOTER: &str = include_str!("../../fasm/footer.asm");
 
-const PRE: &str = "include 'ukazi.asm'\n\n";
-const POST: &str = "
-    exit 0
-";
+#[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
+enum Instr {
+    Label(String),
+    Macro(&'static str),
+    Aloc(i32),
+
+    Nop,
+    Ret,
+
+    Mov(Op, Op),
+    Push(Op),
+    Pop(Op),
+
+    ArOp(ArO, R, Op),
+    IDiv(R),
+    Cdq,
+
+    Cmp(Op, Op),
+    Setg(R),
+    Sete(R),
+    Setne(R),
+
+    Jmp(String),
+    Jne(String),
+    Jl(String),
+    Call(String),
+    Syscall,
+
+    Fld(Op),
+    Fild(Op),
+    Fstp(Op),
+    Fistp(Op),
+    Fadd(Op),
+    Fsub(Op),
+    Fmul(Op),
+    Fdiv(Op),
+    Fprem,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(dead_code)]
+enum Op {
+    ImmU(u32),
+    ImmS(i32),
+    Reg(R),
+    Deref(Size, R, i32)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(dead_code)]
+enum Size {
+    Dword,
+    Qword,
+}
+
+use Instr::*;
+use Op::*;
+use Size::*;
+use super::{
+    ArO,
+    R::{self, *}
+};
+
+impl Display for Instr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Label(label) => write!(f, "{label}:\n"),
+            Macro(text)  => write!(f, "\t{text}\n"),
+            Aloc(mem)    => write!(f, "\taloc {mem}\n"),
+
+            Nop => "\tnop\n".fmt(f),
+            Ret => "\tret\n".fmt(f),
+
+            Mov(a, b)   => write!(f, "\tmov  {a}, {b}\n"),
+            Push(data)  => write!(f, "\tpush {data}\n"),
+            Pop(data)   => write!(f, "\tpop  {data}\n"),
+
+            ArOp(ar_op, a, b)  => write!(f, "\t{ar_op} {a}, {b}\n"),
+            IDiv(r)      => write!(f, "\tidiv {r}\n"),
+            Cdq         => write!(f, "\tcdq\n"),
+
+            Cmp(a, b)   => write!(f, "\tcmp  {a}, {b}\n"),
+            Setg(r)     => write!(f, "\tsetg {r}\n"),
+            Sete(r)     => write!(f, "\tsete {r}\n"),
+            Setne(r)    => write!(f, "\tsetne {r}\n"),
+
+            Jmp(label)  => write!(f, "\tjmp  {label}\n"),
+            Jne(label)  => write!(f, "\tjne  {label}\n"),
+            Jl(label)   => write!(f, "\tjl   {label}\n"),
+            Call(label) => write!(f, "\tcall {label}\n"),
+            Syscall     => write!(f, "\tsyscall\n"),
+
+            Fld(op)     => write!(f, "\tfld  {op}\n"),
+            Fild(op)    => write!(f, "\tfild {op}\n"),
+            Fstp(op)    => write!(f, "\tfstp {op}\n"),
+            Fistp(op)   => write!(f, "\tfistp {op}\n"),
+            Fadd(op)    => write!(f, "\tfadd {op}\n"),
+            Fsub(op)    => write!(f, "\tfsub {op}\n"),
+            Fmul(op)    => write!(f, "\tfmul {op}\n"),
+            Fdiv(op)    => write!(f, "\tfdiv {op}\n"),
+            Fprem       => write!(f, "\tfprem\n"),
+        }
+    }
+}
+
+impl Display for Op {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ImmU(data)           => write!(f, "0x{data:X}"),
+            ImmS(data)           => write!(f, "{data}"),
+            Reg(r)               => write!(f, "{r}"),
+            Deref(size, r, off)  => write!(f, "{size} [{r}{}{}]",
+                if *off == 0 { "" } else if *off > 0 { " + " } else { " - " },
+                if *off == 0 { "".to_string() } else { off.abs().to_string() }),
+        }
+    }
+}
+
+impl Display for Size {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Dword => write!(f, "dword"),
+            Qword => write!(f, "qword"),
+        }
+    }
+}
+
+impl Display for super::ArO {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use ArO::*;
+        match self {
+            Add  => write!(f, "add "),
+            Sub  => write!(f, "sub "),
+            IMul => write!(f, "imul"),
+            Or   => write!(f, "or  "),
+            Xor  => write!(f, "xor "),
+            And  => write!(f, "and "),
+            Shl  => write!(f, "shl "),
+            Shr  => write!(f, "shr "),
+        }
+    }
+}
+
+impl Display for super::R {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Rax => write!(f, "rax"),
+            Eax => write!(f, "eax"),
+            Al  => write!(f, "al"),
+            Rbx => write!(f, "rbx"),
+            Ebx => write!(f, "ebx"),
+            Bl  => write!(f, "bl"),
+            Rcx => write!(f, "rcx"),
+            Cl  => write!(f, "cl"),
+            Ecx => write!(f, "ecx"),
+            Rdx => write!(f, "rdx"),
+            Rsi => write!(f, "rsi"),
+            Rdi => write!(f, "rdi"),
+            R8  => write!(f, "r8"),
+            R9  => write!(f, "r9"),
+            Rsp => write!(f, "rsp"),
+        }
+    }
+}
 
 impl ToFasmX86 for Vec<UkazPodatekRelative> {
     fn v_fasm_x86(&self) -> String {
+        use Instr::*;
+        use Op::*;
+        use super::{
+            R::*,
+            ArO::*,
+        };
 
         let mut opti = self.clone();
         let mut i = 0;
@@ -19,7 +191,6 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
 
         while i < opti.len() - 2 {
             let sub = &opti[i..];
-            //println!("sub: {:?}", &sub[0..3]);
             i = match sub {
                 [
                     a @ (PUSHI(..) | PUSHC(..)),
@@ -53,7 +224,7 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                         DIVF => a / b,
                         _ => unreachable!(),
                     };
-                    PUSHOPT(unsafe { std::mem::transmute::<f32, i32>(result) });
+                    PUSHF(result);
                     opti.remove(i + 1); opti.remove(i + 1);
                     i
                 }
@@ -65,18 +236,18 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                     ..
                 ] => {
                     let op = match op {
-                        ADDI => "add", SUBI => "sub",
-                        MULI => "imul", DIVI => "idiv",
+                        ADDI => Add, SUBI => Sub,
+                        MULI => IMul,
                         _ => unreachable!(),
                     };
                     let off1 = match ld1 {
-                        LOAD(..) => "r8",
-                        LDOF(..) => "r9",
+                        LOAD(..) => R8,
+                        LDOF(..) => R9,
                         _ => unreachable!(),
                     };
                     let off2 = match ld2 {
-                        LOAD(..) => "r8",
-                        LDOF(..) => "r9",
+                        LOAD(..) => R8,
+                        LDOF(..) => R9,
                         _ => unreachable!(),
                     };
 
@@ -91,8 +262,8 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                     ..
                 ] => {
                     let reg = match stor {
-                        STOR(..) => "r8",
-                        STOF(..) => "r9",
+                        STOR(..) => R8,
+                        STOF(..) => R9,
                         _ => unreachable!(),
                     };
                     let data = match push {
@@ -101,7 +272,7 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                         PUSHF(data) => unsafe { transmute::<f32, i32>(*data) },
                         _ => unreachable!(),
                     };
-                    opti[i] = STIMM(data, *dst, reg);
+                    opti[i] = STIMM(unsafe { transmute::<i32, u32>(data) }, *dst, reg);
                     opti.remove(i + 1);
                     i - 1
                 },
@@ -112,13 +283,13 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                     ..
                 ] => {
                     let reg1 = match load {
-                        LOAD(..) => "r8",
-                        LDOF(..) => "r9",
+                        LOAD(..) => R8,
+                        LDOF(..) => R9,
                         _ => unreachable!(),
                     };
                     let reg2 = match stor {
-                        STOR(..) => "r8",
-                        STOF(..) => "r9",
+                        STOR(..) => R8,
+                        STOF(..) => R9,
                         _ => unreachable!(),
                     };
 
@@ -149,15 +320,15 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                     match data {
                         Some(data) => {
                             let reg = match stor {
-                                STOR(..) => "r8",
-                                STOF(..) => "r9",
+                                STOR(..) => R8,
+                                STOF(..) => R9,
                                 _ => unreachable!(),
                             };
 
                             let dst = *dst;
                             opti.remove(j);
                             opti.remove(i);
-                            opti.insert(i, STIMM(data, dst, reg));
+                            opti.insert(i, STIMM(unsafe { transmute::<i32, u32>(data) }, dst, reg));
                             i
                         },
                         None => i + 1
@@ -168,38 +339,237 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
             }
         }
 
-        opti.iter()
-            .fold(PRE.to_string(), |str, ukaz_podatek| {
-                str
-                + if let Oznaka(_) = ukaz_podatek { "" } else { "\t" }
-                + &match ukaz_podatek {
-                    PUSHI(število)  => format!("PUSH 0x{število:X} ; {število:?}: celo"),
-                    PUSHF(število)  => format!("PUSH 0x{:X} ; {število:?}: real", unsafe { std::mem::transmute::<f32, u32>(*število) }),
-                    PUSHC(znak)     => format!("PUSH 0x{:X} ; '{}': char", v_utf8(*znak), znak.to_string().escape()),
-                    JUMPRel(oznaka) => format!("JUMP {}", formatiraj_oznako(oznaka)),
-                    JMPCRel(oznaka) => format!("JMPC {}", formatiraj_oznako(oznaka)),
-                    CALL(oznaka)    => format!("CALL {}", formatiraj_oznako(oznaka)),
-                    Oznaka(oznaka)  => format!("{}:",     formatiraj_oznako(oznaka)),
-                    PC(i)           => format!("PC {i}"),
+        let mut asm = Vec::new();
+        asm.reserve(opti.len() * 3);
 
-                    PUSHOPT(data) => format!("PUSH_OPT 0x{data:X}"),
-                    STIMM(data, addr, reg) => format!("ST_IMM 0x{data:X}, {addr}, {reg}"),
-                    LDOP(op, ld1, ld2, addr1, addr2) => format!("LD_OP {op}, {ld1}, {ld2}, {addr1}, {addr2}"),
-                    LDST(off1, off2, src, dst) => format!("LD_ST {off1}, {off2}, {src}, {dst}"),
+        opti.into_iter()
+            .fold(&mut asm, |seq, ukaz_podatek| {
+                seq.append(&mut match ukaz_podatek {
+                    PUSHI(število) =>
+                        push(unsafe { transmute::<i32, u32>(število) }),
+                    PUSHF(število) =>
+                        push(unsafe { transmute::<f32, u32>(število) }),
+                    PUSHC(znak) =>
+                        push(unsafe { transmute::<i32, u32>(v_utf8(znak)) }),
+                    JUMPRel(oznaka) => vec![
+                        Jmp(formatiraj_oznako(&oznaka))],
+                    JMPCRel(oznaka) =>vec![
+                        Pop(Reg(Rax)),
+                        Cmp(Reg(Rax), ImmU(0)),
+                        Jne(formatiraj_oznako(&oznaka))],
+                    CALL(oznaka) => vec![
+                        Call(formatiraj_oznako(&oznaka))],
+                    Oznaka(oznaka) => vec![
+                        Label(formatiraj_oznako(&oznaka))],
+                    PC(..) => vec![],
 
-                    Osnovni(ALOC(mem))  => format!("ALOC {mem}"),
-                    Osnovni(LOAD(addr)) => format!("LOAD 0x{addr:0X}"), // load normal
-                    Osnovni(LDOF(addr)) => format!("LDOF 0x{addr:0X}"), // load w/ offset
-                    Osnovni(LDDY(offs)) => format!("LDDY {offs}"), // load dynamic
-                    Osnovni(STOR(addr)) => format!("STOR 0x{addr:0X}"), // store normal
-                    Osnovni(STOF(addr)) => format!("STOF 0x{addr:0X}"), // store w/ offset
-                    Osnovni(STDY(offs)) => format!("STDY {offs}"), // store dynamic
-                    Osnovni(TOP(offs))  => format!("TOP  {offs}"),
-                    Osnovni(instruction) => format!("{instruction:?}"),
-                }
-                + "\n"
-            })
-        + POST
+                    STIMM(data, addr, reg) => vec![
+                        Mov(Deref(Qword, reg, -8 - 8 * addr), ImmU(data))],
+                    LDOP(op, r1, r2, addr1, addr2) => vec![
+                        Mov(Reg(Rax), Deref(Qword, r1, -8 - 8 * addr1)),
+                        Mov(Reg(Rbx), Deref(Qword, r2, -8 - 8 * addr2)),
+                        ArOp(op, Eax, Reg(Ebx)),
+                        Push(Reg(Rax))],
+                    LDST(r1, r2, src, dst) => vec![
+                        Mov(Reg(Rax), Deref(Qword, r1, src)),
+                        Mov(Deref(Qword, r2, -8 - 8 * dst), Reg(Rax))],
+
+                    Osnovni(NOOP) => vec![Nop],
+                    Osnovni(JMPD) => vec![Ret],
+                    Osnovni(POS) => vec![
+                        Pop(Reg(Rax)),
+                        Cmp(Reg(Eax), ImmU(0)),
+                        Mov(Reg(Eax), ImmU(0)),
+                        Setg(Al),
+                        Push(Reg(Rax))
+                    ],
+                    Osnovni(ZERO) => vec![
+                        Pop(Reg(Rax)),
+                        Cmp(Reg(Eax), ImmU(0)),
+                        Mov(Reg(Eax), ImmU(0)),
+                        Sete(Al),
+                        Push(Reg(Rax))],
+
+                    Osnovni(LOAD(addr)) => vec![
+                        Push(Deref(Qword, R8, -8 - 8 * addr))],
+                    Osnovni(LDOF(addr)) => vec![
+                        Push(Deref(Qword, R9, -8 - 8 * addr))],
+                    Osnovni(LDDY(offs)) => vec![
+                        Pop(Reg(Rbx)),
+                        ArOp(IMul, Rbx, ImmU(8)),
+                        Mov(Reg(Rax), Reg(R8)),
+                        ArOp(Sub, Rax, Reg(Rbx)),
+                        Push(Deref(Qword, Rax, -8 - 8 * offs))],
+
+                    Osnovni(STOR(addr)) => vec![
+                        Pop(Deref(Qword, R8, -8 - 8 * addr))],
+                    Osnovni(STOF(addr)) => vec![
+                        Pop(Deref(Qword, R9, -8 - 8 * addr))],
+                    Osnovni(STDY(offs)) => vec![
+                        Pop(Reg(Rbx)),
+                        ArOp(IMul, Rbx, ImmU(8)),
+                        Mov(Reg(Rax), Reg(R8)),
+                        ArOp(Sub, Rax, Reg(Rbx)),
+                        Pop(Deref(Qword, Rax, -8 - 8 * offs))],
+
+                    Osnovni(TOP(offs)) => vec![
+                        Mov(Reg(R9), Reg(Rsp)),
+                        ArOp(Sub, R9, ImmS(8 * offs))],
+                    Osnovni(LOFF) => vec![
+                        Push(Reg(R9))],
+                    Osnovni(SOFF) => vec![
+                        Pop(Reg(R9))],
+
+                    Osnovni(op @ (ADDI | SUBI | MULI)) => vec![
+                        Pop(Reg(Rbx)),
+                        Pop(Reg(Rax)),
+                        match op {
+                            ADDI => ArOp(Add, Rax, Reg(Rbx)),
+                            SUBI => ArOp(Sub, Rax, Reg(Rbx)),
+                            MULI => ArOp(IMul, Rax, Reg(Rbx)),
+                            _ => unreachable!()
+                        },
+                        Push(Reg(Rax))],
+                    Osnovni(op @ (DIVI | MODI)) => vec![
+                        Pop(Reg(Rbx)),
+                        Pop(Reg(Rax)),
+                        Cdq,
+                        IDiv(Ebx),
+                        match op {
+                            DIVI => Push(Reg(Rax)),
+                            MODI => Push(Reg(Rdx)),
+                            _ => unreachable!()
+                        }],
+                    Osnovni(POWI) => vec![
+                        Mov(Reg(Rax), ImmS(1)),
+                        Pop(Reg(Rcx)),
+                        Pop(Reg(Rbx)),
+                        Call("_powi".to_string()),
+                        Push(Reg(Rax))],
+                    Osnovni(op @ (BOR | BXOR | BAND | BSLL | BSLR)) => vec![
+                        Pop(Reg(Rcx)),
+                        Pop(Reg(Rax)),
+                        match op {
+                            BOR  => ArOp(Or,  Eax, Reg(Ecx)),
+                            BXOR => ArOp(Xor, Eax, Reg(Ecx)),
+                            BAND => ArOp(And, Eax, Reg(Ecx)),
+                            BSLL => ArOp(Shl, Eax, Reg(Cl)),
+                            BSLR => ArOp(Shr, Eax, Reg(Cl)),
+                            _ => unreachable!()
+                        },
+                        Push(Reg(Rax))],
+
+                    Osnovni(op @ (ADDF | SUBF | MULF | DIVF)) => vec![
+                        Fld(Deref(Dword, Rsp, 8)),
+                        match op {
+                            ADDF => Fadd(Deref(Dword, Rsp, 0)),
+                            SUBF => Fsub(Deref(Dword, Rsp, 0)),
+                            MULF => Fmul(Deref(Dword, Rsp, 0)),
+                            DIVF => Fdiv(Deref(Dword, Rsp, 0)),
+                            _ => unreachable!()
+                        },
+                        Pop(Deref(Qword, Rsp, -8)),
+                        Fstp(Deref(Dword, Rsp, 0))],
+                    Osnovni(MODF) => vec![
+                        Fld(Deref(Dword, Rsp, 0)),
+                        Fld(Deref(Dword, Rsp, 8)),
+                        Fprem,
+                        Pop(Deref(Qword, Rsp, -8)),
+                        Fstp(Deref(Dword, Rsp, 0))],
+                    Osnovni(POWF) => vec![
+                        Macro("powf"),],
+
+                    Osnovni(FTOI) => vec![
+                        Fld  (Deref(Dword, Rsp, 0)),
+                        Fistp(Deref(Dword, Rsp, 0))],
+                    Osnovni(ITOF) => vec![
+                        Fild(Deref(Dword, Rsp, 0)),
+                        Fstp(Deref(Dword, Rsp, 0))],
+
+                    Osnovni(PUTC) => {
+                        let add_ch = &[
+                            ArOp(Shr, Rax, ImmS(8)),
+                            Cmp(Reg(Al), ImmU(0)),
+                            Setne(Cl),
+                            ArOp(Add, Bl, Reg(Cl)),
+                        ];
+                        vec![
+                            [Mov(Reg(Rax), Deref(Qword, Rsp, 0)),
+                             Mov(Reg(Rbx), ImmS(1))].as_slice(),
+                            add_ch, add_ch, add_ch,
+                            &[Macro("write STDOUT, rsp, rbx"),
+                            Pop(Deref(Qword, Rsp, -8))],
+                        ].concat()
+                    },
+                    Osnovni(GETC) => vec![
+                        Call("_getc".to_string()),
+                        Push(Reg(Rax))],
+
+                    Osnovni(ALOC(mem)) => vec![
+                        Aloc(mem)],
+
+                    _ => unreachable!()
+                });
+                seq
+            });
+
+        let mut i = 0;
+        while i < asm.len() - 2 {
+            let sub = &asm[i..];
+            i = match sub {
+                [Push(r1), Pop(r2), ..] if r1 == r2 => {
+                    asm.remove(i);
+                    asm.remove(i);
+                    i
+                },
+                [Push(val), Pop(reg @ Reg(..)), ..] => {
+                    asm[i] = Mov(*reg, *val);
+                    asm.remove(i + 1);
+                    i
+                },
+                [Mov(Reg(..), ..), Pop(dst @ Reg(..)), ..] => {
+                    // potuj nazaj do PUSHa
+                    let mut j = i;
+
+                    let data = loop {
+                        match &asm[j] {
+                            Push(data @ (ImmS(..) | ImmU(..))) => break Some(*data),
+                            Mov(Reg(reg), ..) if *reg != R8 && *reg != R9 => j -= 1,
+                            _ => break None,
+                        };
+                        if i == 0 { break None }
+                    };
+
+                    match data {
+                        Some(data) => {
+                            let dst = *dst;
+                            asm.remove(j);
+                            asm.remove(i);
+                            asm.insert(i, Mov(dst, data));
+                            i
+                        },
+                        None => i + 1
+                    }
+                },
+                _ => i + 1
+            }
+        }
+
+        asm.into_iter()
+        .fold(HEADER.to_string(), |str, repr| str + &repr.to_string())
+        + FOOTER
+    }
+}
+
+fn push(data: u32) -> Vec<Instr> {
+    use Instr::*;
+    use Op::*;
+    use super::R::*;
+    if data > 0xFFFF {
+        vec![Mov(Reg(Rax), ImmU(data)),
+        Push(Reg(Rax))]
+    } else {
+        vec![Push(ImmU(data))]
     }
 }
 
@@ -224,7 +594,7 @@ fn formatiraj_oznako(oznaka: &str) -> String {
 #[cfg(test)]
 mod testi {
     use std::collections::HashMap;
-    use std::thread;
+    use std::{thread, io};
     use std::{fs::File, io::Write};
     use std::process::{Command, Stdio};
 

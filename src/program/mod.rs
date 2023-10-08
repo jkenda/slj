@@ -87,6 +87,33 @@ enum UkazPodatek
     ITOF,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(dead_code)]
+enum ArO {
+    Add,
+    Sub,
+    IMul,
+    Or,
+    Xor,
+    And,
+    Shl,
+    Shr,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(dead_code)]
+enum R {
+    Rax, Eax, Al,
+    Rbx, Ebx, Bl,
+    Rcx, Ecx, Cl,
+    Rdx,
+    Rdi,
+    Rsi,
+    R8,
+    R9,
+    Rsp,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 enum UkazPodatekRelative {
     Osnovni(UkazPodatek),
@@ -99,10 +126,9 @@ enum UkazPodatekRelative {
     PC(i32),
     Oznaka(String),
 
-    PUSHOPT(i32),
-    STIMM(i32, i32, &'static str),
-    LDOP(&'static str, &'static str, &'static str, i32, i32),
-    LDST(&'static str, &'static str, i32, i32),
+    STIMM(u32, i32, R),
+    LDOP(ArO, R, R, i32, i32),
+    LDST(R, R, i32, i32),
 }
 
 #[derive(Debug, PartialEq)]
