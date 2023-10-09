@@ -6,8 +6,16 @@ use super::{
     UkazPodatek::*,
 };
 
-const HEADER: &str = include_str!("../../fasm/header.asm");
-const FOOTER: &str = include_str!("../../fasm/footer.asm");
+//const HEADER: &str = include_str!("../../fasm/header.asm");
+//const FOOTER: &str = include_str!("../../fasm/footer.asm");
+const HEADER: &str = r#"
+include "header.asm"
+
+"#;
+const FOOTER: &str = r#"
+
+include "footer.asm"
+"#;
 
 #[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)]
@@ -486,21 +494,8 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                         Fild(Deref(Dword, Rsp, 0)),
                         Fstp(Deref(Dword, Rsp, 0))],
 
-                    Osnovni(PUTC) => {
-                        let add_ch = &[
-                            ArOp(Shr, Rax, ImmS(8)),
-                            Cmp(Reg(Al), ImmU(0)),
-                            Setne(Cl),
-                            ArOp(Add, Bl, Reg(Cl)),
-                        ];
-                        vec![
-                            [Mov(Reg(Rax), Deref(Qword, Rsp, 0)),
-                             Mov(Reg(Rbx), ImmS(1))].as_slice(),
-                            add_ch, add_ch, add_ch,
-                            &[Macro("write STDOUT, rsp, rbx"),
-                            Pop(Deref(Qword, Rsp, -8))],
-                        ].concat()
-                    },
+                    Osnovni(PUTC) => vec![
+                        Macro("putc")],
                     Osnovni(GETC) => vec![
                         Call("_getc".to_string()),
                         Push(Reg(Rax))],

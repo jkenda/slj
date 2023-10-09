@@ -60,6 +60,29 @@ macro aloc mem
     end if
 }
 
+macro getc
+{
+    call _getc
+    push rax
+}
+
+; TODO: bufferred
+macro putc
+{
+    ; count UTF-8 bytes
+    mov rax, [rsp]
+    mov rbx, 1
+    repeat 3
+        shr   rax, 8
+        cmp   al,  0
+        setne cl
+        add   bl,  cl
+    end repeat
+
+    write STDOUT, rsp, rbx
+    pop qword [rsi - 8]
+}
+
 macro powf
 {
     fld dword [rsp]

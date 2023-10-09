@@ -2,7 +2,11 @@ use super::*;
 use argumenti::*;
 
 impl<'a> Parser<'a> {
-    pub fn funkcija(&mut self, ime: &Žeton, izraz: &[Žeton]) -> Result<Rc<Vozlišče>, Napake> {
+    pub fn funkcija(
+        &mut self,
+        ime: &Žeton,
+        izraz: &[Žeton]
+    ) -> Result<Rc<Vozlišče>, Napake> {
         let (_, _, izraz) = loči_spredaj(izraz, &["("])
             .ok_or(Napake::from_zaporedje(izraz, E5, "Pričakovan '('"))??;
         let (parametri_izraz, _, izraz) = loči_spredaj(izraz, &[")"])
@@ -25,20 +29,18 @@ impl<'a> Parser<'a> {
         }
 
         let mut _naslov_nove = 0;
-        let mut naslov = |tip: &Tip| {
-            let naslov = _naslov_nove;
-            _naslov_nove += tip.sprememba_stacka();
-            naslov
-        };
-
         let mut spremenljivka = |tip: &Tip, ime: &str| {
-            Spremenljivka {
+            let naslov = _naslov_nove;
+            let spr = Spremenljivka {
                 tip: tip.clone(),
                 ime: ime.to_string(),
-                naslov: naslov(&tip),
+                naslov,
                 z_odmikom: true,
-                spremenljiva: true
-            }.rc()
+                spremenljiva: true,
+            }.rc();
+
+            _naslov_nove += tip.sprememba_stacka();
+            spr
         };
                 
         let mut spr_funkcije = HashMap::from([
@@ -76,7 +78,11 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let podpis_funkcije = Self::podpis_funkcije(ime, parametri.iter().map(|p| p.tip()).collect::<Vec<Tip>>().as_slice());
+        let podpis_funkcije = Self::podpis_funkcije(ime, parametri.iter()
+            .map(|p| p.tip())
+            .collect::<Vec<Tip>>()
+            .as_slice());
+
         spr_funkcije.insert("0_PC", spremenljivka(&Tip::Celo, "0_PC"));
         spr_funkcije.insert("0_OF", spremenljivka(&Tip::Celo, "0_OF"));
 
@@ -114,7 +120,11 @@ impl<'a> Parser<'a> {
         Ok(fun)
     }
 
-    pub fn funkcijski_klic_zavrzi_izhod(&mut self, ime: &Žeton, argumenti: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    pub fn funkcijski_klic_zavrzi_izhod(
+        &mut self,
+        ime: &Žeton,
+        argumenti: &[Žeton<'a>]
+    ) -> Result<Rc<Vozlišče>, Napake> {
         let klic = self.funkcijski_klic(ime, argumenti)?;
         let velikost = klic.tip().sprememba_stacka();
 
@@ -124,7 +134,11 @@ impl<'a> Parser<'a> {
         ]).rc())
     }
 
-    pub fn funkcijski_klic<'b>(&mut self, ime: &Žeton, argumenti: &'b[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
+    pub fn funkcijski_klic<'b>(
+        &mut self,
+        ime: &Žeton,
+        argumenti: &'b[Žeton<'a>]
+    ) -> Result<Rc<Vozlišče>, Napake> {
         let Argumenti { tipi, spremenljivke, argumenti } = self.argumenti(argumenti)?;
         let podpis_funkcije = Self::podpis_funkcije(ime, tipi.as_slice());
 
@@ -137,10 +151,17 @@ impl<'a> Parser<'a> {
             None => { self.št_klicev.insert(podpis_funkcije, 1); },
         }
 
-        Ok(FunkcijskiKlic { funkcija, spremenljivke: Zaporedje(spremenljivke).rc(), argumenti: Zaporedje(argumenti).rc() }.rc())
+        Ok(FunkcijskiKlic {
+            funkcija,
+            spremenljivke: Zaporedje(spremenljivke).rc(),
+            argumenti: Zaporedje(argumenti).rc() }.rc())
     }
 
-    pub fn multi_klic<'b>(&mut self, ime: &'b Žeton<'a>, argumenti_izraz: &'b [Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
+    pub fn multi_klic<'b>(
+        &mut self,
+        ime: &'b Žeton<'a>,
+        argumenti_izraz: &'b [Žeton<'a>]
+    ) -> Result<Rc<Vozlišče>, Napake> where 'a: 'b {
         let Argumenti { tipi, spremenljivke, argumenti } = self.argumenti(argumenti_izraz)?;
         let mut funkcijski_klici: Vec<Rc<Vozlišče>> = Vec::new();
         let mut napake = Napake::new();

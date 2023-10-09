@@ -173,7 +173,10 @@ impl Display for Vozlišče {
             Vrni(_) => "vrni".to_owned(),
 
             Funkcija{ tip, ime, parametri, .. } => {
-                let parametri = parametri.into_iter().map(|p| p.to_string()).collect::<Vec<String>>().join(", ");
+                let parametri = parametri.into_iter()
+                    .map(|p| p.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ");
                 format!("funkcija {}({}) -> {}", ime, parametri, tip)
             },
             FunkcijskiKlic{ funkcija, .. } => if let Funkcija { tip: _, ime, .. } = &**funkcija { ime.clone() } else { "".to_string() },
@@ -294,6 +297,7 @@ impl Vozlišče {
                     " ".repeat(globina) + &format!("{ime}[")
                     + &indeks.drevo(globina + 1)
                     + &" ".repeat(globina) + "]\n",
+                RefSeznama(seznam) => seznam.drevo(globina),
                 vozl @ _ => unreachable!("Referenca mora vsebovati spremenljivko, ne pa {:?}", vozl),
             }
 
@@ -541,9 +545,10 @@ impl Vozlišče {
 
             Dereferenciraj(spr) => spr.sprememba_stacka(),
             Indeksiraj { seznam_ref, .. } => match &**seznam_ref {
-                spr @ Spremenljivka { .. } => spr.sprememba_stacka(),
+                // TODO: če RefSeznama vsebuje seznam, potem to ni pravilno
+                Spremenljivka { tip, .. } => tip.sprememba_stacka(),
                 Referenca(spr) | RefSeznama(spr) => match &**spr {
-                    spr @ Spremenljivka { .. } => spr.sprememba_stacka(),
+                    Spremenljivka { tip, .. } => tip.sprememba_stacka(),
                     _ => unreachable!("Zakaj indeksiraš tip '{seznam_ref:?}'??"),
                 },
                 _ => unreachable!("Zakaj indeksiraš tip '{seznam_ref:?}'??"),
@@ -565,7 +570,7 @@ impl Vozlišče {
                 => l.sprememba_stacka() + d.sprememba_stacka() - 1,
 
             ProgramskiŠtevec(_)     => 1,
-            Skok(_) | Klic(_)                 => 0,
+            Skok(_) | Klic(_)       => 0,
             DinamičniSkok           => -1,
             PogojniSkok(pogoj, _)   => pogoj.sprememba_stacka() - 1,
 

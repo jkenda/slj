@@ -58,8 +58,8 @@ impl Program {
                 LOAD(naslov) => { stack.push(*stack.get(*naslov as usize).unsafe_unwrap()); *pc + 1 },
                 LDOF(naslov) => { stack.push(*stack.get((*addroff + *naslov) as usize).unsafe_unwrap()); *pc + 1 },
                 LDDY(naslov) => {
-                    let dynaddr = stack.pop().unsafe_unwrap().i;
-                    stack.push(*stack.get((*naslov + dynaddr) as usize).unsafe_unwrap());
+                    let dynaddr = stack.last().unsafe_unwrap().i;
+                    stack.last_mut().unsafe_unwrap().i = stack.get((*naslov + dynaddr) as usize).unsafe_unwrap().i;
                     *pc + 1
                 },
 
@@ -124,14 +124,14 @@ impl Program {
                 JMPC(naslov) => if stack.pop()? != LAŽ { *naslov } else { *pc + 1 },
                 JMPD => stack.pop()?.i,
 
-                ALOC(razlika) => { stack.set_len((stack.len() as i32 + razlika) as usize); *pc + 1 }
+                ALOC(razlika) => { stack.resize((stack.len() as i32 + razlika) as usize, LAŽ); *pc + 1 }
                 PUSH(podatek) => { stack.push(*podatek); *pc + 1 },
 
                 LOAD(naslov) => { stack.push(*stack.get(*naslov as usize)?); *pc + 1 },
                 LDOF(naslov) => { stack.push(*stack.get(*addroff as usize + *naslov as usize)?); *pc + 1 },
                 LDDY(naslov) => {
-                    let dynaddr = stack.pop()?.i;
-                    stack.push(*stack.get(*naslov as usize + dynaddr as usize)?);
+                    let dynaddr = stack.last()?.i;
+                    stack.last_mut()?.i = stack.get((*naslov + dynaddr) as usize)?.i;
                     *pc + 1
                 },
 

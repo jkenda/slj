@@ -241,7 +241,7 @@ fn indeksiranje() {
             natisni!(ref[i], " ")
         }
     "#;
-    assert_eq!(test(program, ""), "1 2 3\n3 2 1 ");
+    assert_eq!(test(program, ""), "1.0 2.0 3.0\n3.0 2.0 1.0 ");
 }
 
 #[test]

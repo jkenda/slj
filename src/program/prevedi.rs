@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 impl Prevedi for Drevo {
     fn prevedi(&self) -> Vec<UkazPodatekRelative> {
+        // TODO: alociraj ves pomnilnik (razen znotraj funkcij) naenkrat
         self.main.prevedi(&self.št_klicev)
     }
 
@@ -333,10 +334,11 @@ impl Vozlišče {
             },
 
             FunkcijskiKlic{ funkcija, spremenljivke, argumenti } => {
-                let (vrni, skok) = match &**funkcija {
-                    Funkcija { tip, ime, .. } => (
+                let (vrni, skok, parametri) = match &**funkcija {
+                    Funkcija { tip, ime, parametri, .. } => (
                         Push(tip.sprememba_stacka()).rc(),
                         Klic(format!("fn_{ime}")).rc(),
+                        parametri,
                     ),
                     _ => unreachable!("Funkcijski klic vedno kliče funkcijo"),
                 };
@@ -345,9 +347,11 @@ impl Vozlišče {
                     spremenljivke.clone(),
                     vrni,              // rezerviraj prostor za rezultat funkcije
                     argumenti.clone(), // naloži argumente
-                    ProgramskiŠtevec((1 + skok.len(št_klicev)) as i32).rc(),
+                    ProgramskiŠtevec(2).rc(),
                     skok,              // skoči v funkcijo
-                    Pop(argumenti.sprememba_stacka()).rc(),
+                    Pop(parametri.iter()
+                        .map(|p| p.sprememba_stacka())
+                        .sum()).rc(),
                 ]).prevedi(št_klicev)
             },
 
