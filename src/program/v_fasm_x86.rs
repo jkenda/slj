@@ -6,16 +6,20 @@ use super::{
     UkazPodatek::*,
 };
 
-//const HEADER: &str = include_str!("../../fasm/header.asm");
-//const FOOTER: &str = include_str!("../../fasm/footer.asm");
+#[cfg(debug_assertions)]
 const HEADER: &str = r#"
 include "header.asm"
 
 "#;
+#[cfg(debug_assertions)]
 const FOOTER: &str = r#"
-
 include "footer.asm"
 "#;
+
+#[cfg(not(debug_assertions))]
+const HEADER: &str = include_str!("../../fasm/header.asm");
+#[cfg(not(debug_assertions))]
+const FOOTER: &str = include_str!("../../fasm/footer.asm");
 
 #[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)]
@@ -131,7 +135,7 @@ impl Display for Op {
             Reg(r)               => write!(f, "{r}"),
             Deref(size, r, off)  => write!(f, "{size} [{r}{}{}]",
                 if *off == 0 { "" } else if *off > 0 { " + " } else { " - " },
-                if *off == 0 { "".to_string() } else { off.abs().to_string() }),
+                if *off == 0 { "".to_string() } else { format!("0x{:X}", off.abs()) }),
         }
     }
 }
@@ -363,13 +367,16 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                         Jmp(formatiraj_oznako(&oznaka))],
                     JMPCRel(oznaka) =>vec![
                         Pop(Reg(Rax)),
-                        Cmp(Reg(Rax), ImmU(0)),
+                        Cmp(Reg(Rax), ImmS(0)),
                         Jne(formatiraj_oznako(&oznaka))],
+                    PC(..) =>
+                        vec![],
                     CALL(oznaka) => vec![
                         Call(formatiraj_oznako(&oznaka))],
+                    Osnovni(JMPD) =>
+                        vec![Ret],
                     Oznaka(oznaka) => vec![
                         Label(formatiraj_oznako(&oznaka))],
-                    PC(..) => vec![],
 
                     STIMM(data, addr, reg) => vec![
                         Mov(Deref(Qword, reg, -8 - 8 * addr), ImmU(data))],
@@ -383,18 +390,17 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                         Mov(Deref(Qword, r2, -8 - 8 * dst), Reg(Rax))],
 
                     Osnovni(NOOP) => vec![Nop],
-                    Osnovni(JMPD) => vec![Ret],
                     Osnovni(POS) => vec![
                         Pop(Reg(Rax)),
-                        Cmp(Reg(Eax), ImmU(0)),
-                        Mov(Reg(Eax), ImmU(0)),
+                        Cmp(Reg(Eax), ImmS(0)),
+                        Mov(Reg(Eax), ImmS(0)),
                         Setg(Al),
                         Push(Reg(Rax))
                     ],
                     Osnovni(ZERO) => vec![
                         Pop(Reg(Rax)),
-                        Cmp(Reg(Eax), ImmU(0)),
-                        Mov(Reg(Eax), ImmU(0)),
+                        Cmp(Reg(Eax), ImmS(0)),
+                        Mov(Reg(Eax), ImmS(0)),
                         Sete(Al),
                         Push(Reg(Rax))],
 
@@ -404,7 +410,7 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                         Push(Deref(Qword, R9, -8 - 8 * addr))],
                     Osnovni(LDDY(offs)) => vec![
                         Pop(Reg(Rbx)),
-                        ArOp(IMul, Rbx, ImmU(8)),
+                        ArOp(IMul, Rbx, ImmS(8)),
                         Mov(Reg(Rax), Reg(R8)),
                         ArOp(Sub, Rax, Reg(Rbx)),
                         Push(Deref(Qword, Rax, -8 - 8 * offs))],
@@ -415,7 +421,7 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                         Pop(Deref(Qword, R9, -8 - 8 * addr))],
                     Osnovni(STDY(offs)) => vec![
                         Pop(Reg(Rbx)),
-                        ArOp(IMul, Rbx, ImmU(8)),
+                        ArOp(IMul, Rbx, ImmS(8)),
                         Mov(Reg(Rax), Reg(R8)),
                         ArOp(Sub, Rax, Reg(Rbx)),
                         Pop(Deref(Qword, Rax, -8 - 8 * offs))],
@@ -495,7 +501,8 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                         Fstp(Deref(Dword, Rsp, 0))],
 
                     Osnovni(PUTC) => vec![
-                        Macro("putc")],
+                        Pop(Reg(Rax)),
+                        Call("_putc".to_string())],
                     Osnovni(GETC) => vec![
                         Call("_getc".to_string()),
                         Push(Reg(Rax))],

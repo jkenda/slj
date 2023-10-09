@@ -34,6 +34,49 @@ _powi:
 _powi_done:
     ret
 
+_putc:
+    ; d = a
+    mov rdx, rax
+
+    ; move 1st char to the buffer
+    mov rbx, [stdout_buf.ptr]
+    mov [rbx], al
+    mov rdx, 1
+
+    ; move next ones only if they're non-zero
+    mov rcx, 0
+    offs = 1
+    repeat 3
+        shr   rax, 8
+        cmp   al, 0
+        setne cl
+        mov   [rbx + offs], al
+        add   rdx, rcx
+        offs = offs + 1
+    end repeat
+
+    ; increment len and pointer by how many chars were added
+    add [stdout_buf.ptr], rdx
+    add [stdout_buf.len], rdx
+
+    ; output buffer on newline
+    cmp rdx, 10
+    je _putc_write
+
+    ; output buffer if full
+    cmp [stdout_buf.len], stdout_buf.cap - 4
+    jge _putc_write
+
+    ret
+
+_putc_write:
+    ; write stdout
+    write STDOUT, stdout_buf.data, [stdout_buf.len]
+    ; reset buffer
+    mov [stdout_buf.ptr], stdout_buf.data
+    mov [stdout_buf.len], 0
+    ret
+
 _getc:
     PUSH 0
     read STDIN, rsp, 1
@@ -81,4 +124,16 @@ _read4:
 
 _fatal_error:
     exit rax
+
+segment readable writeable
+
+struc vec cap
+{
+    .data rb cap
+    .len  dq 0
+    .ptr  dq .data
+    .cap  = cap
+}
+
+stdout_buf vec 512
 

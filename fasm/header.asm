@@ -31,6 +31,7 @@ macro read fd, buf, count
     jl _fatal_error
 }
 
+; TODO: prostor za spremenljivke v data section
 macro aloc mem
 {
     local rem
@@ -60,29 +61,6 @@ macro aloc mem
     end if
 }
 
-macro getc
-{
-    call _getc
-    push rax
-}
-
-; TODO: bufferred
-macro putc
-{
-    ; count UTF-8 bytes
-    mov rax, [rsp]
-    mov rbx, 1
-    repeat 3
-        shr   rax, 8
-        cmp   al,  0
-        setne cl
-        add   bl,  cl
-    end repeat
-
-    write STDOUT, rsp, rbx
-    pop qword [rsi - 8]
-}
-
 macro powf
 {
     fld dword [rsp]
@@ -101,6 +79,9 @@ macro powf
 
 macro exit code
 {
+    ; izprazni write buffer
+    write STDOUT, stdout_buf.data, [stdout_buf.len]
+
     mov rax, 60
     mov rdi, code
     syscall
