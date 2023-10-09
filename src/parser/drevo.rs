@@ -114,6 +114,7 @@ pub enum Vozlišče {
 
     Natisni(Rc<Vozlišče>),
     Preberi,
+    Splakni,
 }
 
 use Vozlišče::*;
@@ -379,6 +380,7 @@ impl Vozlišče {
             Natisni(znak) => 
                 "  ".repeat(globina) + &znak.to_string() + "\n",
             Preberi => " ".repeat(globina) + &self.to_string(),
+            Splakni => " ".repeat(globina) + &self.to_string() + "()\n"
         }
     }
 
@@ -588,6 +590,7 @@ impl Vozlišče {
 
             Natisni(_) => 0,
             Preberi => 1,
+            Splakni => 0,
         }
     }
 
@@ -656,6 +659,7 @@ impl Vozlišče {
 
             Natisni(..) => Tip::Brez,
             Preberi => Tip::Znak,
+            Splakni => Tip::Brez,
         }
     }
 

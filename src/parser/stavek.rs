@@ -45,6 +45,8 @@ impl<'a> Parser<'a> {
             [ Ločilo("{", ..), vmes @ .., Ločilo("}", ..) ] => self.okvir(vmes),
             // funkcija natisni (zaenkrat še posebna funkcija)
             [ ime @ Ime("natisni", ..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.natisni(ime, argumenti),
+            // funkcija natisni (zaenkrat še posebna funkcija)
+            [ Ime("splakni", ..), Ločilo("(", ..), Ločilo(")", ..) ] => Ok(Splakni.rc()),
             // funkcijski klic
             [ ime @ Ime(..), Ločilo("(", ..), argumenti @ .., Ločilo(")", ..) ] => self.funkcijski_klic_zavrzi_izhod(ime, argumenti),
             // pogojni stavek

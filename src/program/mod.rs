@@ -66,6 +66,7 @@ enum UkazPodatek
     LOFF,
     PUTC,
     GETC,
+    FLUSH,
     ADDF,
     SUBF,
     MULF,

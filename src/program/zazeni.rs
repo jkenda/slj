@@ -79,6 +79,9 @@ impl Program {
                 PUTC => { 
                     let c = stack.pop().unsafe_unwrap().c;
                     write!(izhod, "{c}").unwrap();
+                    if c == '\n' {
+                        izhod.flush().unsafe_unwrap();
+                    }
                     *pc + 1
                 },
                 GETC => {
@@ -86,6 +89,10 @@ impl Program {
                     stack.push(Podatek { c });
                     *pc + 1
                 }
+                FLUSH => {
+                    izhod.flush().unsafe_unwrap();
+                    *pc + 1
+                },
 
                 ADDF => { stack.last_mut().unsafe_unwrap().f = stack.get(stack.len() - 2).unsafe_unwrap().f    + stack.pop().unsafe_unwrap().f;  *pc + 1 },
                 SUBF => { stack.last_mut().unsafe_unwrap().f = stack.get(stack.len() - 2).unsafe_unwrap().f    - stack.pop().unsafe_unwrap().f;  *pc + 1 },
@@ -154,13 +161,20 @@ impl Program {
                 PUTC => {
                     let c = stack.pop()?.c;
                     write!(izhod, "{c}").ok()?;
+                    if c == '\n' {
+                        izhod.flush().ok()?
+                    }
                     *pc + 1
                 },
                 GETC => {
                     let c = preberi_znak(vhod)?;
                     stack.push(Podatek { c });
                     *pc + 1
-                }
+                },
+                FLUSH => {
+                    izhod.flush().ok()?;
+                    *pc + 1
+                },
 
                 ADDF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f    + stack.pop()?.f;  *pc + 1 },
                 SUBF => { stack.last_mut()?.f = stack.get(stack.len() - 2)?.f    - stack.pop()?.f;  *pc + 1 },

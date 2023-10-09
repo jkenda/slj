@@ -36,7 +36,7 @@ _powi_done:
 
 _putc:
     ; d = a
-    mov rdx, rax
+    mov r10, rax
 
     ; move 1st char to the buffer
     mov rbx, [stdout_buf.ptr]
@@ -60,16 +60,17 @@ _putc:
     add [stdout_buf.len], rdx
 
     ; output buffer on newline
-    cmp rdx, 10
-    je _putc_write
+    cmp r10, 10
+    je _flush
 
     ; output buffer if full
     cmp [stdout_buf.len], stdout_buf.cap - 4
-    jge _putc_write
+    jge _flush
 
     ret
 
-_putc_write:
+
+_flush:
     ; write stdout
     write STDOUT, stdout_buf.data, [stdout_buf.len]
     ; reset buffer

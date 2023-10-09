@@ -1,6 +1,6 @@
 [package]
 name = "slj"
-version = "0.7.1"
+version = "0.7.2"
 authors = ["Jakob Kenda <kenda.jakob@gmail.com>"]
 description = "Programski jezik v slovenščini | A programming language in Slovenian"
 license = "GPL-3.0"

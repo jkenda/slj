@@ -362,6 +362,7 @@ impl Vozlišče {
                 ].concat()
             },
             Preberi => vec![Osnovni(GETC)],
+            Splakni => vec![Osnovni(FLUSH)],
         }
     }
 

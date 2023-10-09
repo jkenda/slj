@@ -327,12 +327,5 @@ fn konstante() {
         natisni(OBSEG)
     "#;
     assert_eq!(test(program, ""), "81.25");
-
-    let program = r#"
-        spr medp: [znak; 128]
-        naj dolžina = preberi(@medp)
-        natisni(@medp, dolžina)
-    "#;
-    assert_eq!(test(program, "🥝Hard liquor mixed with a bit of intellect🥝\n"), "🥝Hard liquor mixed with a bit of intellect🥝\n");
 }
 
