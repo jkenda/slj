@@ -5,8 +5,16 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 impl Prevedi for Drevo {
     fn prevedi(&self) -> Vec<UkazPodatekRelative> {
-        // TODO: alociraj ves pomnilnik (razen znotraj funkcij) naenkrat
-        self.main.prevedi(&self.št_klicev)
+        let main = self.main.prevedi(&self.št_klicev);
+        let funkcije = Zaporedje(self.funkcije.clone()).prevedi(&self.št_klicev);
+        [
+            &Push(self.prostor).prevedi(&self.št_klicev),
+            &Skok("main".to_string()).prevedi(&self.št_klicev),
+            funkcije.as_slice(),
+            &[Oznaka("main".to_string())],
+            main.as_slice(),
+            &Pop(self.prostor).prevedi(&self.št_klicev),
+        ].concat()
     }
 
     fn len(&self) -> usize {
@@ -323,13 +331,11 @@ impl Vozlišče {
                 ]);
 
                 [
-                    [JUMPRel(format!("skip_{ime}"))].as_slice(),
                     [Oznaka(format!("fn_{ime}"))].as_slice(),
                     pred.prevedi(št_klicev).as_slice(),
                     telo.prevedi(št_klicev).as_slice(),
                     [Oznaka(format!("fn_end_{ime}"))].as_slice(),
                     za.prevedi(št_klicev).as_slice(),
-                    [Oznaka(format!("skip_{ime}"))].as_slice(),
                 ].concat()
             },
 
@@ -602,7 +608,6 @@ mod test {
         ]);
 
         assert_eq!(funkcija.clone().prevedi(&št_klicev), [
-            JUMPRel("skip_ena(real)".to_string()),
             Oznaka("fn_ena(real)".to_string()),
             Osnovni(LOFF),
             Osnovni(TOP(-5)),
@@ -612,7 +617,6 @@ mod test {
             Oznaka("fn_end_ena(real)".to_string()),
             Osnovni(SOFF),
             Osnovni(JMPD),
-            Oznaka("skip_ena(real)".to_string()),
         ]);
 
         assert_eq!(FunkcijskiKlic {

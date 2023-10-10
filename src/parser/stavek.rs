@@ -298,8 +298,8 @@ impl<'a> Parser<'a> {
         // {
         let telo = self.zaporedje(telo_izraz)?;
         // }
-        let št_spr = self.iz_okvirja();
-        Ok(Okvir { zaporedje: Zanka { pogoj, telo }.rc(), št_spr }.rc())
+        self.iz_okvirja();
+        Ok(Zanka { pogoj, telo }.rc())
     }
 
     fn zanka_za(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
@@ -332,14 +332,14 @@ impl<'a> Parser<'a> {
         let pogoj = self.drevo(pogoj_izraz)?;
         let telo = self.okvir(telo_izraz.as_slice())?;
         // }
-        let št_spr = self.iz_okvirja();
+        self.iz_okvirja();
         
         let zaporedje = Zaporedje(vec![
             prirejanje,
             Zanka { pogoj, telo }.rc(),
         ]).rc();
 
-        Ok(Okvir { zaporedje, št_spr }.rc())
+        Ok(zaporedje)
     }
 
 }

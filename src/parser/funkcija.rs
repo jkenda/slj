@@ -117,7 +117,7 @@ impl<'a> Parser<'a> {
 
         self.funkcije.insert(podpis_funkcije, fun.clone());
         self.funkcije_vec.push(fun.clone());
-        Ok(fun)
+        Ok(Prazno.rc())
     }
 
     pub fn funkcijski_klic_zavrzi_izhod(

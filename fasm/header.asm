@@ -93,8 +93,6 @@ use64
 segment readable executable
 
 entry $
-	mov r8, rsp
     ; addroff = SP
+	mov r8, rsp
 	mov r9, rsp
-    finit
-

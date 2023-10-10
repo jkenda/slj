@@ -1,12 +1,20 @@
+use std::sync::atomic::{AtomicI32, Ordering};
+
 use super::*;
 
+static PROSTOR: AtomicI32 = AtomicI32::new(0);
+
 impl<'a> Parser<'a> {
+    pub fn prostor() -> i32 {
+        PROSTOR.load(Ordering::Relaxed)
+    }
+
     pub fn okvir(&mut self, izraz: &[Žeton<'a>]) -> Result<Rc<Vozlišče>, Napake> {
         self.v_okvir();
         let zaporedje = self.zaporedje(izraz)?;
-        let št_spr = self.iz_okvirja();
+        self.iz_okvirja();
 
-        Ok(Okvir { zaporedje, št_spr }.rc())
+        Ok(zaporedje)
     }
 
     // zaporedje izrazov, ločeno z ";" in "\n"
@@ -37,16 +45,15 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn iz_okvirja(&mut self) -> i32 {
-        let št_spr = if !self.znotraj_funkcije {
-            self.spremenljivke_stack.last().unwrap()
+    pub fn iz_okvirja(&mut self) {
+        if !self.znotraj_funkcije {
+            let št_spr = self.spremenljivke
                 .values()
                 .map(|s| s.sprememba_stacka())
-                .sum()
+                .sum();
+
+            PROSTOR.fetch_max(št_spr, Ordering::Relaxed);
         }
-        else {
-            0
-        };
 
         if !self.znotraj_funkcije {
             for (ime, _) in self.spremenljivke_stack.pop().unwrap() {
@@ -56,8 +63,6 @@ impl<'a> Parser<'a> {
                 self.konstante.remove(&ime);
             }
         }
-
-        št_spr
     }
 
 }

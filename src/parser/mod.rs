@@ -71,7 +71,8 @@ impl<'a> Parser<'a> {
         Ok(Drevo {
             main: okvir,
             funkcije: self.funkcije_vec.clone(),
-            št_klicev: self.št_klicev.clone()
+            št_klicev: self.št_klicev.clone(),
+            prostor: Self::prostor(),
         })
     }
 

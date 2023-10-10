@@ -759,7 +759,8 @@ mod testi {
                 Natisni(Znak('ž').rc()).rc(),
                 Natisni(Znak('😭').rc()).rc(),
                 Natisni(Znak('\n').rc()).rc(),
-            ]).rc()
+            ]).rc(),
+            prostor: 0,
         }
         .v_fasm_x86();
 
@@ -777,7 +778,8 @@ mod testi {
                 Natisni(Preberi.rc()).rc(),
                 Natisni(Preberi.rc()).rc(),
                 Natisni(Preberi.rc()).rc(),
-            ]).rc()
+            ]).rc(),
+            prostor: 0,
         }
         .v_fasm_x86();
 
@@ -804,7 +806,8 @@ mod testi {
                     Natisni(CeloVZnak(Sub(Tip::Celo, Celo(128).rc(), Pow(Tip::Celo, Celo(-3).rc(), Celo(4).rc()).rc()).rc()).rc()).rc(),
                 ]).rc(),
                 št_spr: 11,
-            }.rc()
+            }.rc(),
+            prostor: 0,
         }
         .v_fasm_x86();
 
@@ -823,6 +826,7 @@ mod testi {
                 Natisni(RealVCelo(CeloVReal(ZnakVCelo(Znak('2').rc()).rc()).rc()).rc()).rc(),
                 Natisni(RealVCelo(CeloVReal(ZnakVCelo(Znak('3').rc()).rc()).rc()).rc()).rc(),
             ]).rc(),
+            prostor: 0,
         }
         .v_fasm_x86();
 
@@ -846,6 +850,7 @@ mod testi {
                 //Natisni(CeloVZnak(RealVCelo(Pow(Tip::Real, Real(3.0).rc(),   Real(  4.0).rc()).rc()).rc()).rc()).rc(),
                 //Natisni(CeloVZnak(RealVCelo(Sub(Tip::Real, Real(128.0).rc(), Pow(Tip::Real, Real(-3.0).rc(), Real(4.0).rc()).rc()).rc()).rc()).rc()).rc(),
             ]).rc(),
+            prostor: 0,
         }
         .v_fasm_x86();
 
@@ -856,6 +861,7 @@ mod testi {
     #[test]
     fn bitne_operacije() -> Result<(), io::Error> {
         let asm = vec![
+            Oznaka("main".to_string()),
             PUSHI(0b110), PUSHI(0b011), Osnovni(BOR),  Osnovni(PUTC),
             PUSHI(0b110), PUSHI(0b011), Osnovni(BXOR), Osnovni(PUTC),
             PUSHI(0b110), PUSHI(0b011), Osnovni(BAND), Osnovni(PUTC),
@@ -877,6 +883,7 @@ mod testi {
     #[test]
     fn jump() -> Result<(), io::Error> {
         let asm = vec![
+            Oznaka("main".to_string()),
             PUSHC('0'),
             Osnovni(PUTC),
             JUMPRel("else".to_string()),
@@ -895,6 +902,7 @@ mod testi {
     #[test]
     fn jmpc() -> Result<(), io::Error> {
         let asm = vec![
+            Oznaka("main".to_string()),
             PUSHC('0'),
             Osnovni(PUTC),
             PUSHI(1),
@@ -923,6 +931,7 @@ mod testi {
     #[test]
     fn primerjave() -> Result<(), io::Error> {
         let asm = vec![
+            Oznaka("main".to_string()),
             PUSHI(1),
             Osnovni(POS),
             JMPCRel("konec1".to_string()),
@@ -945,6 +954,7 @@ mod testi {
     #[test]
     fn load() -> Result<(), io::Error> {
         let asm = vec![
+            Oznaka("main".to_string()),
             PUSHC('1'), Osnovni(TOP(0)), PUSHC('2'), PUSHC('3'),
 
             Osnovni(LOAD(0)), Osnovni(PUTC),
@@ -963,6 +973,7 @@ mod testi {
     #[test]
     fn stor() -> Result<(), io::Error> {
         let asm = vec![
+            Oznaka("main".to_string()),
             PUSHC('1'), Osnovni(TOP(0)), PUSHC('2'), PUSHC('3'),
 
             Osnovni(LOAD(0)), PUSHI(1), Osnovni(SUBI), Osnovni(STOR(0)),
@@ -983,6 +994,7 @@ mod testi {
     #[test]
     fn loff_soff() -> Result<(), io::Error> {
         let asm = vec![
+            Oznaka("main".to_string()),
             Osnovni(LOFF), Osnovni(TOP(0)), Osnovni(LOFF),
             Osnovni(LOAD(0)), Osnovni(LOAD(1)), Osnovni(SUBI),
             PUSHC('0'), Osnovni(ADDI), Osnovni(PUTC),

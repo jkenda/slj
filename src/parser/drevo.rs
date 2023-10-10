@@ -21,6 +21,7 @@ pub struct Drevo {
     pub main: Rc<Vozlišče>,
     pub funkcije: Vec<Rc<Vozlišče>>,
     pub št_klicev: HashMap<String, usize>,
+    pub prostor: i32,
 }
 
 impl Display for Drevo {

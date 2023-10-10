@@ -137,4 +137,3 @@ struc vec cap
 }
 
 stdout_buf vec 512
-
