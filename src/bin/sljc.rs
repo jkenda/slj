@@ -1,6 +1,7 @@
 use std::io;
 use std::env;
 use std::fs;
+use std::path::Path;
 use std::process::Stdio;
 use std::{fs::File, io::Write};
 use std::process::Command;
@@ -36,15 +37,26 @@ fn main() -> std::io::Result<()> {
         Ok(drevo) => {
             // transform AST into native x86_64 assembly
             let fasm = drevo
-                .v_fasm_x86();
+                .v_fasm_x86(2);
+
+            let filename = Path::new(ime)
+                .file_stem()
+                .expect("file has no name")
+                .to_str()
+                .expect("file name has no valid utf-8");
+
+            fs::create_dir_all(format!("bin/"))?;
+            let asm_filename = format!("fasm/{filename}.asm");
+            let filename = format!("bin/{filename}");
 
             // write assembly to file
-            File::create("fasm/_main.asm")?
+            File::create(&asm_filename)?
                 .write_all(fasm.as_bytes())?;
 
             // compile with FASM
             let output = Command::new("fasm")
-                .arg("fasm/_main.asm")
+                .arg(asm_filename)
+                .arg(&filename)
                 .output()
                 .expect("Failed to execute fasm");
 
@@ -54,8 +66,12 @@ fn main() -> std::io::Result<()> {
                 return Err(io::Error::new(io::ErrorKind::Other, "compilation failed"));
             }
 
+            if !možnosti.zaženi {
+                return Ok(());
+            }
+
             // run compiled binary
-            let status = Command::new("fasm/_main")
+            let status = Command::new(filename)
                 .stdin(Stdio::inherit())
                 .stdout(Stdio::inherit())
                 .stderr(Stdio::inherit())
@@ -78,14 +94,14 @@ fn main() -> std::io::Result<()> {
 
 struct Možnosti {
     pomoč: bool,
-    debug: bool,
+    zaženi: bool,
 }
 
 impl Možnosti {
     fn new() -> Možnosti {
         Možnosti {
             pomoč: false,
-            debug: false
+            zaženi: false
         }
     }
 }
@@ -94,7 +110,7 @@ fn pomoč(ukaz: &String) {
         println!("Ukaz: {ukaz} [možnosti] <pot>");
         println!("[možnosti]:");
         println!("\t-p, --pomoč: izpiši to pomoč,");
-        println!("\t-d, --debug: namesto izhoda programa izpisuj ukaze in stanje stacka pa vsakem ukazu.");
+        println!("\t-r, --run: po prevajanju zeženi program.");
 }
 
 fn analiziraj_možnosti(args: &[String]) -> Možnosti {
@@ -102,14 +118,14 @@ fn analiziraj_možnosti(args: &[String]) -> Možnosti {
     for arg in args {
         match arg.as_str() {
             "--pomoč" => možnosti.pomoč = true,
-            "--debug" => možnosti.debug = true,
+            "--zaženi" => možnosti.zaženi = true,
             _ => if arg.starts_with("--") {
                 panic!("Neznana možnost: '{arg}'");
             }
             else if arg.starts_with('-') {
                 for znak in &arg.chars().collect::<Vec<char>>()[1..] {
                     if *znak == 'p' { možnosti.pomoč = true }
-                    else if *znak == 'd' { možnosti.debug = true }
+                    else if *znak == 'z' { možnosti.zaženi = true }
                     else { panic!("Neznana možnost: '{znak}'") };
                 }
             },

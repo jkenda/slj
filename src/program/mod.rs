@@ -14,21 +14,21 @@ use crate::parser::drevo::Vozlišče::{*, self};
 use self::{UkazPodatek::*, UkazPodatekRelative::*};
 
 pub trait ToProgram {
-    fn v_program(&self) -> Program;
+    fn v_program(self) -> Program;
 }
 
 trait Prevedi {
-    fn prevedi(&self) -> Vec<UkazPodatekRelative>;
+    fn prevedi(self) -> Vec<UkazPodatekRelative>;
     fn len(&self) -> usize;
 }
 
 trait Postprocesiraj {
-    fn vrni_v_oznake(&self) -> Vec<UkazPodatekRelative>;
-    fn postprocesiraj(&self) -> (Vec<UkazPodatek>, Vec<Tip>);
+    fn vrni_v_oznake(self) -> Vec<UkazPodatekRelative>;
+    fn postprocesiraj(self) -> (Vec<UkazPodatek>, Vec<Tip>);
 }
 
 pub trait ToFasmX86 {
-    fn v_fasm_x86(&self) -> String;
+    fn v_fasm_x86(self, opti: u32) -> String;
 }
 
 #[derive(Clone, Copy)]
@@ -130,6 +130,9 @@ enum UkazPodatekRelative {
     STIMM(u32, i32, R),
     LDOP(ArO, R, R, i32, i32),
     LDST(R, R, i32, i32),
+    PUSHREF(i32, bool),
+    LDINDEXED,
+    STINDEXED,
 }
 
 #[derive(Debug, PartialEq)]
@@ -146,7 +149,7 @@ impl Debug for Podatek {
 }
 
 impl ToProgram for Drevo {
-    fn v_program(&self) -> Program {
+    fn v_program(self) -> Program {
         let (ukazi, push_tipi) = self
             .prevedi()
             .vrni_v_oznake()
@@ -160,11 +163,11 @@ impl ToProgram for Drevo {
 }
 
 impl ToFasmX86 for Drevo {
-    fn v_fasm_x86(&self) -> String {
+    fn v_fasm_x86(self, opti: u32) -> String {
         self
             .prevedi()
             .vrni_v_oznake()
-            .v_fasm_x86()
+            .v_fasm_x86(opti)
     }
 }
 

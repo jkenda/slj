@@ -546,16 +546,22 @@ impl Vozlišče {
             Spremenljivka{ tip, .. } => tip.sprememba_stacka(),
             Referenca(_) | RefSeznama(_) => 1,
 
-            Dereferenciraj(spr) => spr.sprememba_stacka(),
-            Indeksiraj { seznam_ref, .. } => match &**seznam_ref {
-                // TODO: če RefSeznama vsebuje seznam, potem to ni pravilno
-                Spremenljivka { tip, .. } => tip.sprememba_stacka(),
+            Dereferenciraj(spr) => match &**spr {
+                Spremenljivka { tip, .. } => tip.vsebuje_tip().sprememba_stacka(),
                 Referenca(spr) | RefSeznama(spr) => match &**spr {
                     Spremenljivka { tip, .. } => tip.sprememba_stacka(),
+                    _ => unreachable!("Zakaj indeksiraš tip '{spr:?}'??"),
+                },
+                _ => unreachable!("Zakaj indeksiraš tip '{spr:?}'??"),
+            },
+            Indeksiraj { seznam_ref, .. } => match &**seznam_ref {
+                Spremenljivka { tip, .. } => tip.vsebuje_tip().sprememba_stacka(),
+                Referenca(spr) | RefSeznama(spr) => match &**spr {
+                    Spremenljivka { tip, .. } => tip.vsebuje_tip().sprememba_stacka(),
                     _ => unreachable!("Zakaj indeksiraš tip '{seznam_ref:?}'??"),
                 },
                 _ => unreachable!("Zakaj indeksiraš tip '{seznam_ref:?}'??"),
-            }
+            },
             Dolžina(..) => 1,
 
             Add(_, l, d) | Sub(_, l, d) | Mul(_, l, d) | Div(_, l, d) | Mod(_, l, d) | Pow(_, l, d) |
@@ -722,6 +728,7 @@ mod testi {
     use super::*;
     use crate::parser::{lekser::{Razčleni, L}, Parse, drevo::{Prazno, FunkcijskiKlic, Zaporedje}};
 
+    #[ignore]
     #[test]
     fn eq() {
     }
@@ -742,6 +749,80 @@ mod testi {
             funkcija: rekurzivna_f.clone(),
             spremenljivke: Zaporedje(vec![]).rc(),
             argumenti: Zaporedje(vec![]).rc() }), true);
+    }
+
+    #[test]
+    fn sprememba_stacka() {
+        assert_eq!(Prazno.sprememba_stacka(), 0);
+        assert_eq!(Push(2).sprememba_stacka(), 2);
+        assert_eq!(Pop(2).sprememba_stacka(), -2);
+        assert_eq!(Vrh(-3).sprememba_stacka(), 0);
+        assert_eq!(NaložiOdmik.sprememba_stacka(), 1);
+        assert_eq!(ShraniOdmik.sprememba_stacka(), -1);
+        assert_eq!(Celo(0).sprememba_stacka(), 1);
+        assert_eq!(Real(0.0).sprememba_stacka(), 1);
+        assert_eq!(Znak('a').sprememba_stacka(), 1);
+        assert_eq!(Resnica.sprememba_stacka(), 1);
+        assert_eq!(Laž.sprememba_stacka(), 1);
+        assert_eq!(Niz("šipa".to_string()).sprememba_stacka(), 4);
+
+        assert_eq!(Spremenljivka {
+            tip: Tip::Seznam(Box::new(Tip::Znak), 4),
+            ime: "šmir".to_string(),
+            naslov: 0,
+            z_odmikom: false,
+            spremenljiva: false,
+        }.sprememba_stacka(), 5);
+        assert_eq!(Referenca(Spremenljivka {
+            tip: Tip::Seznam(Box::new(Tip::Znak), 4),
+            ime: "šmir".to_string(),
+            naslov: 0,
+            z_odmikom: false,
+            spremenljiva: false,
+        }.rc()).sprememba_stacka(), 1);
+        assert_eq!(RefSeznama(Spremenljivka {
+            tip: Tip::Seznam(Box::new(Tip::Znak), 4),
+            ime: "šmir".to_string(),
+            naslov: 0,
+            z_odmikom: false,
+            spremenljiva: false,
+        }.rc()).sprememba_stacka(), 1);
+
+        assert_eq!(Dereferenciraj(Spremenljivka {
+            tip: Tip::Referenca(Box::new(Tip::Seznam(Box::new(Tip::Znak), 4))),
+            ime: "šmir".to_string(),
+            naslov: 0,
+            z_odmikom: false,
+            spremenljiva: false,
+        }.rc()).sprememba_stacka(), 5);
+        assert_eq!(Dereferenciraj(Referenca(Spremenljivka {
+            tip: Tip::Seznam(Box::new(Tip::Znak), 4),
+            ime: "šmir".to_string(),
+            naslov: 0,
+            z_odmikom: false,
+            spremenljiva: false,
+        }.rc()).rc()).sprememba_stacka(), 5);
+
+        assert_eq!(Indeksiraj{
+            seznam_ref: Spremenljivka {
+                tip: Tip::Seznam(Box::new(Tip::Znak), 4),
+                ime: "šmir".to_string(),
+                naslov: 0,
+                z_odmikom: false,
+                spremenljiva: false,
+            }.rc(),
+            indeks: Celo(0).rc()
+        }.sprememba_stacka(), 1);
+        assert_eq!(Indeksiraj{
+            seznam_ref: RefSeznama(Spremenljivka {
+                tip: Tip::Seznam(Box::new(Tip::Znak), 4),
+                ime: "šmir".to_string(),
+                naslov: 0,
+                z_odmikom: false,
+                spremenljiva: false,
+            }.rc()).rc(),
+            indeks: Celo(1).rc()
+        }.sprememba_stacka(), 1);
     }
 
     #[test]

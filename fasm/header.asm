@@ -94,5 +94,5 @@ segment readable executable
 
 entry $
     ; addroff = SP
-	mov r8, rsp
-	mov r9, rsp
+	lea r8, [rsp - 8]
+	lea r9, [rsp - 8]

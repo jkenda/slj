@@ -3,8 +3,8 @@ use super::*;
 impl Postprocesiraj for Vec<UkazPodatekRelative> {
 
     // nadomesti "vrni" z JUMP x
-    fn vrni_v_oznake(&self) -> Vec<UkazPodatekRelative> {
-        let mut postproc1 = self.clone();
+    fn vrni_v_oznake(self) -> Vec<UkazPodatekRelative> {
+        let mut postproc1 = self;
         
         let mut i: usize = 0;
         while i < postproc1.len() {
@@ -33,9 +33,31 @@ impl Postprocesiraj for Vec<UkazPodatekRelative> {
         postproc1
     }
 
-    fn postprocesiraj(&self) -> (Vec<UkazPodatek>, Vec<Tip>) {
-        let mut postproc1 = self.clone();
+    fn postprocesiraj(self) -> (Vec<UkazPodatek>, Vec<Tip>) {
+        let mut postproc1 = self;
         let mut push_tipi = Vec::new();
+
+        let mut i = 0;
+        while i < postproc1.len() {
+            match postproc1[i] {
+                PUSHREF(addr, offset) => {
+                    postproc1[i] = PUSHI(addr);
+                    if offset {
+                        postproc1.insert(i + 1, Osnovni(LOFF));
+                        postproc1.insert(i + 2, Osnovni(ADDI));
+                    }
+                },
+                LDINDEXED => {
+                    postproc1[i] = Osnovni(ADDI);
+                    postproc1.insert(i + 1, Osnovni(LDDY(0)));
+                },
+                STINDEXED => {
+                    postproc1[i] = Osnovni(ADDI);
+                    postproc1.insert(i + 1, Osnovni(STDY(0)));
+                },
+                _ => i += 1,
+            }
+        }
 
         let mut oznake_vrstic: HashMap<String, i32> = HashMap::new();
 

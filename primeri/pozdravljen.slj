@@ -1,0 +1,2 @@
+naj kdo = "svet"
+natisni!("pozdravljen, ", @kdo, "!\n")

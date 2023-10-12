@@ -79,6 +79,8 @@ impl Tip {
     pub fn vsebuje_tip(&self) -> Self {
         match self {
             Tip::Seznam(tip, _) => (**tip).clone(),
+            Tip::Referenca(tip) => (**tip).clone(),
+            Tip::RefSeznama(tip) => (**tip).clone(),
             _ => unreachable!("Samo seznami vsebujejo tipe"),
         }
     }

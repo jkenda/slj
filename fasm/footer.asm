@@ -1,4 +1,10 @@
 
+    ; check that the stack is empty at the end of execution
+    lea rax, [rsp - 8]
+    cmp r8, rax
+    jne _fatal_error
+    cmp r9, r8
+    jne _fatal_error
     exit 0
 
 _push:

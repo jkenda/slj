@@ -1,18 +1,17 @@
 use super::*;
 
-use std::iter;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 impl Prevedi for Drevo {
-    fn prevedi(&self) -> Vec<UkazPodatekRelative> {
+    fn prevedi(self) -> Vec<UkazPodatekRelative> {
         let main = self.main.prevedi(&self.št_klicev);
         let funkcije = Zaporedje(self.funkcije.clone()).prevedi(&self.št_klicev);
         [
-            &Push(self.prostor).prevedi(&self.št_klicev),
-            &Skok("main".to_string()).prevedi(&self.št_klicev),
-            funkcije.as_slice(),
+            Push(self.prostor).prevedi(&self.št_klicev).as_slice(),
+            &[JUMPRel("main".to_string())],
+            &funkcije,
             &[Oznaka("main".to_string())],
-            main.as_slice(),
+            &main,
             &Pop(self.prostor).prevedi(&self.št_klicev),
         ].concat()
     }
@@ -29,7 +28,7 @@ impl Vozlišče {
         match self {
             Prazno => vec![],
 
-            Push(krat) => if *krat > 0 { vec![Osnovni(ALOC(*krat))] } else { iter::repeat(PUSHI(0)).take(*krat as usize).collect() },
+            Push(krat) => if *krat > 0 { vec![Osnovni(ALOC(*krat))] } else { vec![] },
             Pop(krat)  => if *krat > 0 { vec![Osnovni(ALOC(-krat))] } else { vec![] },
             Vrh(odmik) => vec![Osnovni(TOP(*odmik as i32))],
 
@@ -52,19 +51,12 @@ impl Vozlišče {
 
             Spremenljivka{ naslov, z_odmikom, .. } => vec![Osnovni(if *z_odmikom { LDOF(*naslov) } else { LOAD(*naslov) })],
             Referenca(vozlišče) | RefSeznama(vozlišče) => match &**vozlišče {
-                Spremenljivka { naslov, z_odmikom, .. } => [
-                    [match vozlišče.tip() {
-                        Tip::Seznam(..) => PUSHI(*naslov as i32 + 1),
-                        _ => PUSHI(*naslov as i32),
-                    }].as_slice(),
-                    if *z_odmikom {
-                        [Osnovni(LOFF),
-                        Osnovni(ADDI)].as_slice()
+                Spremenljivka { naslov, z_odmikom, .. } =>
+                    match vozlišče.tip() {
+                        Tip::Seznam(..) => vec![PUSHREF(*naslov + 1, *z_odmikom)],
+                        _               => vec![PUSHREF(*naslov, *z_odmikom)],
                     }
-                    else {
-                        [].as_slice()
-                    },
-                ].concat(),
+                    
                 _ => unreachable!("Referenciramo lahko samo spremenljivko.")
             },
 
@@ -72,8 +64,11 @@ impl Vozlišče {
                 vozlišče.prevedi(št_klicev).as_slice(),
                 [Osnovni(LDDY(0))].as_slice(),
             ].concat(),
-            Indeksiraj { seznam_ref, indeks } =>
-                Dereferenciraj(Add(Tip::Celo, seznam_ref.clone(), indeks.clone()).rc()).prevedi(št_klicev),
+            Indeksiraj { seznam_ref, indeks } => [
+                    seznam_ref.prevedi(št_klicev).as_slice(),
+                    indeks.prevedi(št_klicev).as_slice(),
+                    &[LDINDEXED],
+                ].concat(),
             Dolžina(vozlišče) => match vozlišče.tip() {
                 Tip::Seznam(_, dolžina) => Celo(dolžina).rc().prevedi(št_klicev),
                 Tip::RefSeznama(..) => [
@@ -273,8 +268,7 @@ impl Vozlišče {
                     Some(indeks) => [
                         referenca.prevedi(št_klicev).as_slice(),
                         indeks.prevedi(št_klicev).as_slice(),
-                        [Osnovni(ADDI),
-                        Osnovni(STDY(0))].as_slice(),
+                        [STINDEXED].as_slice(),
                     ].concat(),
                     None => [
                         referenca.prevedi(št_klicev).as_slice(),
@@ -340,11 +334,10 @@ impl Vozlišče {
             },
 
             FunkcijskiKlic{ funkcija, spremenljivke, argumenti } => {
-                let (vrni, skok, parametri) = match &**funkcija {
-                    Funkcija { tip, ime, parametri, .. } => (
+                let (vrni, skok) = match &**funkcija {
+                    Funkcija { tip, ime, .. } => (
                         Push(tip.sprememba_stacka()).rc(),
                         Klic(format!("fn_{ime}")).rc(),
-                        parametri,
                     ),
                     _ => unreachable!("Funkcijski klic vedno kliče funkcijo"),
                 };
@@ -355,9 +348,7 @@ impl Vozlišče {
                     argumenti.clone(), // naloži argumente
                     ProgramskiŠtevec(2).rc(),
                     skok,              // skoči v funkcijo
-                    Pop(parametri.iter()
-                        .map(|p| p.sprememba_stacka())
-                        .sum()).rc(),
+                    Pop(argumenti.sprememba_stacka()).rc(),
                 ]).prevedi(št_klicev)
             },
 
@@ -421,16 +412,10 @@ mod test {
         assert_eq!(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false, spremenljiva: false }.prevedi(&HashMap::new()), [Osnovni(LOAD(55))]);
         assert_eq!(
             Referenca(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: true, spremenljiva: false }.rc()).prevedi(&HashMap::new()),
-            [
-                PUSHI(55),
-                Osnovni(LOFF),
-                Osnovni(ADDI),
-            ]);
+            [PUSHREF(55, true)]);
         assert_eq!(
             Referenca(Spremenljivka { tip: Tip::Celo, ime: "šmir".to_string(), naslov: 55, z_odmikom: false, spremenljiva: false }.rc()).prevedi(&HashMap::new()),
-            [
-                PUSHI(55),
-            ]);
+            [PUSHREF(55, false)]);
 
         assert_eq!(Resnica.prevedi(&HashMap::new()), [PUSHI(1)]);
         assert_eq!(Laž.prevedi(&HashMap::new()), [PUSHI(0)]);

@@ -6,7 +6,7 @@ fn test(src: &str, input: &str) -> String {
         .razčleni("[test]")
         .analiziraj()
         .unwrap()
-        .v_fasm_x86();
+        .v_fasm_x86(2);
 
     // transform AST into native x86_64 assembly
     let thread_id = format!("{:?}", thread::current().id().to_owned());
@@ -289,7 +289,7 @@ fn indeksiranje() {
             natisni!(ref[i], " ")
         }
     "#;
-    assert_eq!(test(program, ""), "1 2 3\n3 2 1 ");
+    assert_eq!(test(program, ""), "1.0 2.0 3.0\n3.0 2.0 1.0 ");
 }
 
 #[test]
@@ -375,12 +375,30 @@ fn konstante() {
         natisni(OBSEG)
     "#;
     assert_eq!(test(program, ""), "81.25");
+}
 
+#[test]
+fn natisni() {
     let program = r#"
-        spr medp: [znak; 128]
-        naj dolžina = preberi(@medp)
-        natisni(@medp, dolžina)
+        natisni('a')
+        natisni("bcd")
+        natisni!("efg", 2 + 3)
     "#;
-    assert_eq!(test(program, "🥝Hard liquor mixed with a bit of intellect🥝\n"), "🥝Hard liquor mixed with a bit of intellect🥝\n");
+    assert_eq!(test(program, ""), "abcdefg5");
+}
+
+#[test]
+fn fn_fn() {
+    let asm = r#"
+        funkcija a() {
+            natisni('c')
+        }
+        funkcija b() {
+            a()
+        }
+        b()
+    "#;
+
+    assert_eq!(test(asm, ""), "c");
 }
 

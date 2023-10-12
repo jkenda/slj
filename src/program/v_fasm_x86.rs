@@ -32,6 +32,7 @@ enum Instr {
     Ret,
 
     Mov(Op, Op),
+    Lea(R, Op),
     Push(Op),
     Pop(Op),
 
@@ -49,6 +50,7 @@ enum Instr {
 
     Jmp(String),
     Jne(String),
+    Je(String),
     Jl(String),
     Call(String),
     Syscall,
@@ -67,8 +69,8 @@ enum Instr {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(dead_code)]
 enum Op {
-    ImmU(u32),
-    ImmS(i32),
+    UImm(u32),
+    SImm(i32),
     Reg(R),
     Deref(Size, R, i32)
 }
@@ -99,6 +101,7 @@ impl Display for Instr {
             Ret => "\tret\n".fmt(f),
 
             Mov(a, b)   => write!(f, "\tmov  {a}, {b}\n"),
+            Lea(r, a)   => write!(f, "\tlea  {r}, {a}\n"),
             Push(data)  => write!(f, "\tpush {data}\n"),
             Pop(data)   => write!(f, "\tpop  {data}\n"),
 
@@ -116,6 +119,7 @@ impl Display for Instr {
 
             Jmp(label)  => write!(f, "\tjmp  {label}\n"),
             Jne(label)  => write!(f, "\tjne  {label}\n"),
+            Je(label)   => write!(f, "\tje   {label}\n"),
             Jl(label)   => write!(f, "\tjl   {label}\n"),
             Call(label) => write!(f, "\tcall {label}\n"),
             Syscall     => write!(f, "\tsyscall\n"),
@@ -136,8 +140,8 @@ impl Display for Instr {
 impl Display for Op {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ImmU(data)           => write!(f, "0x{data:X}"),
-            ImmS(data)           => write!(f, "{data}"),
+            UImm(data)           => write!(f, "0x{data:X}"),
+            SImm(data)           => write!(f, "{data}"),
             Reg(r)               => write!(f, "{r}"),
             Deref(size, r, off)  => write!(f, "{size} [{r}{}{}]",
                 if *off == 0 { "" } else if *off > 0 { " + " } else { " - " },
@@ -194,7 +198,7 @@ impl Display for super::R {
 }
 
 impl ToFasmX86 for Vec<UkazPodatekRelative> {
-    fn v_fasm_x86(&self) -> String {
+    fn v_fasm_x86(self, level: u32) -> String {
         use Instr::*;
         use Op::*;
         use super::{
@@ -202,178 +206,31 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
             ArO::*,
         };
 
-        let mut opti = self.clone();
-        let mut i = 0;
+        let len = self.len() * 2;
+        let opti = if level >= 1 { opti1(self) } else { self };
 
-        // optimiziraj
-
-        while i < opti.len() - 2 {
-            let sub = &opti[i..];
-            i = match sub {
-                [
-                    a @ (PUSHI(..) | PUSHC(..)),
-                    b @ (PUSHI(..) | PUSHC(..)),
-                    Osnovni(op @ (ADDI | SUBI | MULI | DIVF)),
-                    ..
-                ] => {
-                    let op = match op {
-                        ADDI => i32::wrapping_add,
-                        SUBI => i32::wrapping_sub,
-                        MULI => i32::wrapping_mul,
-                        DIVF => i32::wrapping_div,
-                        _ => unreachable!()
-                    };
-                    opti[i] = match (a, b) {
-                        (PUSHI(a), PUSHI(b)) => PUSHI(op(*a, *b)),
-                        (PUSHI(a), PUSHC(b)) => PUSHC(unsafe {transmute::<i32, char>(op(*a, v_utf8(*b))) }),
-                        (PUSHC(a), PUSHI(b)) => PUSHC(unsafe {transmute::<i32, char>(op(v_utf8(*a), *b)) }),
-                        (PUSHC(a), PUSHC(b)) => PUSHC(unsafe {transmute::<i32, char>(op(v_utf8(*a), v_utf8(*b))) }),
-                        _ => unreachable!(),
-                    };
-                    opti.remove(i + 1); opti.remove(i + 1);
-                    i
-                },
-
-                [PUSHF(a), PUSHF(b), Osnovni(op @ (ADDF | SUBF | MULF | DIVF))] => {
-                    let result = match op {
-                        ADDF => a + b,
-                        SUBF => a - b,
-                        MULF => a * b,
-                        DIVF => a / b,
-                        _ => unreachable!(),
-                    };
-                    PUSHF(result);
-                    opti.remove(i + 1); opti.remove(i + 1);
-                    i
-                }
-
-                [
-                    Osnovni(ld1 @ (LOAD(src) | LDOF(src))),
-                    Osnovni(ld2 @ (LOAD(dst) | LDOF(dst))),
-                    Osnovni(op @ (ADDI | SUBI | MULI)),
-                    ..
-                ] => {
-                    let op = match op {
-                        ADDI => Add, SUBI => Sub,
-                        MULI => IMul,
-                        _ => unreachable!(),
-                    };
-                    let off1 = match ld1 {
-                        LOAD(..) => R8,
-                        LDOF(..) => R9,
-                        _ => unreachable!(),
-                    };
-                    let off2 = match ld2 {
-                        LOAD(..) => R8,
-                        LDOF(..) => R9,
-                        _ => unreachable!(),
-                    };
-
-                    opti[i] = LDOP(op, off1, off2, *src, *dst);
-                    opti.remove(i + 1); opti.remove(i + 1);
-                    i
-                },
-
-                [
-                    push @ (PUSHI(..) | PUSHC(..) | PUSHF(..)),
-                    Osnovni(stor @ (STOR(dst) | STOF(dst))),
-                    ..
-                ] => {
-                    let reg = match stor {
-                        STOR(..) => R8,
-                        STOF(..) => R9,
-                        _ => unreachable!(),
-                    };
-                    let data = match push {
-                        PUSHI(data) => *data,
-                        PUSHC(data) => v_utf8(*data),
-                        PUSHF(data) => unsafe { transmute::<f32, i32>(*data) },
-                        _ => unreachable!(),
-                    };
-                    opti[i] = STIMM(unsafe { transmute::<i32, u32>(data) }, *dst, reg);
-                    opti.remove(i + 1);
-                    i - 1
-                },
-
-                [
-                    Osnovni(load @ (LOAD(src) | LDOF(src))),
-                    Osnovni(stor @ (STOR(dst) | STOF(dst))),
-                    ..
-                ] => {
-                    let r1 = match load {
-                        LOAD(..) => R8,
-                        LDOF(..) => R9,
-                        _ => unreachable!(),
-                    };
-                    let r2 = match stor {
-                        STOR(..) => R8,
-                        STOF(..) => R9,
-                        _ => unreachable!(),
-                    };
-
-                    opti[i] = LDST(r1, r2, *src, *dst);
-                    opti.remove(i + 1);
-                    i
-                },
-
-                [
-                    STIMM(..),
-                    Osnovni(stor @ (STOR(dst) | STOF(dst))),
-                    ..
-                ] => {
-                    // potuj nazaj do PUSHa
-                    let mut j = i;
-
-                    let data = loop {
-                        match &opti[j] {
-                            PUSHI(data) => break Some(*data),
-                            PUSHC(data) => break Some(v_utf8(*data)),
-                            PUSHF(data) => break Some(unsafe { transmute::<f32, i32>(*data) }),
-                            STIMM(..) => j -= 1,
-                            _ => break None,
-                        };
-                        if i == 0 { break None }
-                    };
-
-                    match data {
-                        Some(data) => {
-                            let reg = match stor {
-                                STOR(..) => R8,
-                                STOF(..) => R9,
-                                _ => unreachable!(),
-                            };
-
-                            let dst = *dst;
-                            opti.remove(j);
-                            opti.remove(i);
-                            opti.insert(i, STIMM(unsafe { transmute::<i32, u32>(data) }, dst, reg));
-                            i
-                        },
-                        None => i + 1
-                    }
-                },
-
-                _ => i + 1,
-            }
-        }
-
-        let mut asm = Vec::new();
-        asm.reserve(opti.len() * 3);
-
-        opti.into_iter()
-            .fold(&mut asm, |seq, ukaz_podatek| {
+        let asm = opti.into_iter()
+            .fold(Vec::with_capacity(len), |mut seq, ukaz_podatek| {
                 seq.append(&mut match ukaz_podatek {
+                    // PUSH
                     PUSHI(število) =>
                         push(unsafe { transmute::<i32, u32>(število) }),
                     PUSHF(število) =>
                         push(unsafe { transmute::<f32, u32>(število) }),
                     PUSHC(znak) =>
                         push(unsafe { transmute::<i32, u32>(v_utf8(znak)) }),
+                    PUSHREF(addr, true) => vec![
+                            Lea(Rdi, Deref(Qword, R9, -addr * 8)),
+                            Push(Reg(Rdi))],
+                    PUSHREF(addr, false) => vec![
+                            Lea(Rdi, Deref(Qword, R8, -addr * 8)),
+                            Push(Reg(Rdi))],
+                    // JUMP
                     JUMPRel(oznaka) => vec![
                         Jmp(formatiraj_oznako(&oznaka))],
-                    JMPCRel(oznaka) =>vec![
+                    JMPCRel(oznaka) => vec![
                         Pop(Reg(Rax)),
-                        Cmp(Reg(Rax), ImmS(0)),
+                        Cmp(Reg(Eax), SImm(0)),
                         Jne(formatiraj_oznako(&oznaka))],
                     PC(..) =>
                         vec![],
@@ -384,86 +241,96 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                     Oznaka(oznaka) => vec![
                         Label(formatiraj_oznako(&oznaka))],
 
+                    // combined LOAD/STORE/OPERATION
                     STIMM(data, addr, reg) => vec![
-                        Mov(Deref(Dword, reg, -8 - 8 * addr), ImmU(data))],
+                        Mov(Deref(Dword, reg, -addr * 8), UImm(data))],
                     LDOP(op, r1, r2, addr1, addr2) => vec![
-                        Mov(Reg(Eax), Deref(Dword, r1, -8 - 8 * addr1)),
-                        ArOp(op, Eax, Deref(Dword, r2, -8 - 8 * addr2)),
+                        Mov(Reg(Eax), Deref(Dword, r1, -addr1 * 8)),
+                        ArOp(op, Eax, Deref(Dword, r2, -addr2 * 8)),
                         Push(Reg(Rax))],
                     LDST(r1, r2, src, dst) => vec![
-                        Mov(Reg(Eax), Deref(Dword, r1, -8 - 8 * src)),
-                        Mov(Deref(Dword, r2, -8 - 8 * dst), Reg(Eax))],
+                        Mov(Reg(Eax), Deref(Dword, r1, -src * 8)),
+                        Mov(Deref(Dword, r2, -dst * 8), Reg(Eax))],
 
-                    Osnovni(NOOP) => vec![
-                        Nop],
+                    Osnovni(NOOP) =>
+                        vec![Nop],
                     Osnovni(POS) => vec![
                         Pop(Reg(Rax)),
-                        Cmp(Reg(Eax), ImmS(0)),
-                        Mov(Reg(Eax), ImmS(0)),
+                        Cmp(Reg(Eax), SImm(0)),
+                        Mov(Reg(Eax), SImm(0)),
                         Setg(Al),
                         Push(Reg(Rax))
                     ],
                     Osnovni(ZERO) => vec![
                         Pop(Reg(Rax)),
-                        Cmp(Reg(Eax), ImmS(0)),
-                        Mov(Reg(Eax), ImmS(0)),
+                        Cmp(Reg(Eax), SImm(0)),
+                        Mov(Reg(Eax), SImm(0)),
                         Sete(Al),
                         Push(Reg(Rax))],
 
+                    // load
                     Osnovni(LOAD(addr)) => vec![
-                        Push(Deref(Qword, R8, -8 - 8 * addr))],
+                        Push(Deref(Qword, R8, -addr * 8))],
                     Osnovni(LDOF(addr)) => vec![
-                        Push(Deref(Qword, R9, -8 - 8 * addr))],
+                        Push(Deref(Qword, R9, -addr * 8))],
                     Osnovni(LDDY(offs)) => vec![
+                        Pop(Reg(Rdi)),
+                        Push(Deref(Qword, Rdi, -offs * 8))],
+                    LDINDEXED => vec![
                         Pop(Reg(Rbx)),
-                        ArOp(IMul, Rbx, ImmS(8)),
-                        Mov(Reg(Rax), Reg(R8)),
+                        Pop(Reg(Rax)),
+                        ArOp(IMul, Rbx, SImm(8)),
                         ArOp(Sub, Rax, Reg(Rbx)),
-                        Push(Deref(Qword, Rax, -8 - 8 * offs))],
+                        Push(Deref(Qword, Rax, 0))],
 
+                    // store
                     Osnovni(STOR(addr)) => vec![
-                        Pop(Deref(Qword, R8, -8 - 8 * addr))],
+                        Pop(Deref(Qword, R8, -addr * 8))],
                     Osnovni(STOF(addr)) => vec![
-                        Pop(Deref(Qword, R9, -8 - 8 * addr))],
+                        Pop(Deref(Qword, R9, -addr * 8))],
                     Osnovni(STDY(offs)) => vec![
+                        Pop(Reg(Rdi)),
+                        Pop(Deref(Qword, Rdi, -offs * 8))],
+                    STINDEXED => vec![
                         Pop(Reg(Rbx)),
-                        ArOp(IMul, Rbx, ImmS(8)),
-                        Mov(Reg(Rax), Reg(R8)),
+                        Pop(Reg(Rax)),
+                        ArOp(IMul, Rbx, SImm(8)),
                         ArOp(Sub, Rax, Reg(Rbx)),
-                        Pop(Deref(Qword, Rax, -8 - 8 * offs))],
+                        Pop(Deref(Qword, Rax, 0))],
 
+                    // handle address offset for load/store in functions
                     Osnovni(TOP(offs)) => vec![
-                        Mov(Reg(R9), Reg(Rsp)),
-                        ArOp(Sub, R9, ImmS(8 * offs))],
+                        Lea(R9, Deref(Qword, Rsp, -offs * 8 - 8))],
                     Osnovni(LOFF) => vec![
                         Push(Reg(R9))],
                     Osnovni(SOFF) => vec![
                         Pop(Reg(R9))],
 
+                    // arithmetic operations
                     Osnovni(op @ (ADDI | SUBI | MULI)) => vec![
                         Pop(Reg(Rbx)),
                         Pop(Reg(Rax)),
-                        match op {
-                            ADDI => ArOp(Add, Eax, Reg(Ebx)),
-                            SUBI => ArOp(Sub, Eax, Reg(Ebx)),
-                            MULI => ArOp(IMul, Eax, Reg(Ebx)),
+                        ArOp(match op {
+                            ADDI => Add,
+                            SUBI => Sub,
+                            MULI => IMul,
                             _ => unreachable!()
-                        },
+                        }, Rax, Reg(Rbx)),
                         Push(Reg(Rax))],
                     Osnovni(op @ (DIVI | MODI)) => vec![
                         Pop(Reg(Rbx)),
                         Pop(Reg(Rax)),
                         Cdq,
                         IDiv(Ebx),
-                        match op {
-                            DIVI => Push(Reg(Rax)),
-                            MODI => Push(Reg(Rdx)),
+                        Push(Reg(match op {
+                            DIVI => Rax,
+                            MODI => Rdx,
                             _ => unreachable!()
-                        }],
+                        }))],
                     Osnovni(POWI) => vec![
-                        Mov(Reg(Rax), ImmS(1)),
                         Pop(Reg(Rcx)),
                         Pop(Reg(Rbx)),
+                        Mov(Reg(Rax), SImm(1)),
                         Call("_powi".to_string()),
                         Push(Reg(Rax))],
                     Osnovni(op @ (BOR | BXOR | BAND | BSLL | BSLR)) => vec![
@@ -523,127 +390,7 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
                 seq
             });
 
-        let mut i = 0;
-        while i < asm.len() - 2 {
-            i = match &asm[i..] {
-                [Push(r1), Pop(r2), ..] if r1 == r2 => {
-                    asm.remove(i);
-                    asm.remove(i);
-                    (i as isize - 3).max(0) as usize
-                },
-                [Push(val), Pop(reg @ Reg(..)), ..] => {
-                    asm[i] = Mov(*reg, *val);
-                    asm.remove(i + 1);
-                    (i as isize - 3).max(0) as usize
-                },
-                [
-                    Mov(Reg(a), val1 @ (ImmS(..) | ImmU(..) | Deref(..))),
-                    Mov(Reg(b), val2 @ (ImmS(..) | ImmU(..) | Deref(..))),
-                    ArOp(Add, c, Reg(d)),
-                    ..
-                ] if a == d && b == c => {
-                    let b = *b;
-                    let val2 = *val2;
-                    asm[i] = Mov(Reg(b), *val1);
-                    asm[i + 1] = ArOp(Add, b, val2);
-                    asm.remove(i + 2);
-                    (i as isize - 3).max(0) as usize
-                },
-                [ArOp(Add, a, ImmU(1) | ImmS(1)), ..] => {
-                    asm[i] = Inc(Reg(*a));
-                    (i as isize - 3).max(0) as usize
-                },
-                [ArOp(Sub, a, ImmU(1) | ImmS(1)), ..] => {
-                    asm[i] = Dec(Reg(*a));
-                    (i as isize - 3).max(0) as usize
-                },
-                [
-                    Mov(a, imm @ (ImmU(..) | ImmS(..))),
-                    Mov(b, c),
-                    ..
-                ] if a == c => {
-                    asm[i] = Mov(*b, *imm);
-                    asm.remove(i + 1);
-                    (i as isize - 3).max(0) as usize
-                },
-                [
-                    a @ Mov(Reg(Rbx), ..),
-                    b @ Mov(Reg(Rax), ..),
-                    ..
-                ] => {
-                    let a = a.clone();
-                    asm[i] = b.clone();
-                    asm[i + 1] = a;
-                    (i as isize - 3).max(0) as usize
-                },
-                [
-                    Mov(Reg(Rax), ImmU(..) | ImmS(..)),
-                    Mov(Reg(Rbx), c),
-                    ArOp(op, Rax, Reg(Rbx)),
-                    ..
-                ] => {
-                    asm[i + 1] = ArOp(*op, Rax, *c);
-                    asm.remove(i + 2);
-                    (i as isize - 3).max(0) as usize
-                },
-                [Mov(Reg(..), ..), Pop(dst @ Reg(..)), ..] => {
-                    // potuj nazaj do PUSHa
-                    let mut j = i;
-
-                    let data = loop {
-                        match &asm[j] {
-                            Push(data @ (ImmS(..) | ImmU(..))) => break Some(*data),
-                            Mov(Reg(reg), ..) if *reg != R8 && *reg != R9 => j -= 1,
-                            _ => break None,
-                        };
-                        if j == 0 { break None }
-                    };
-
-                    match data {
-                        Some(data) => {
-                            let dst = *dst;
-                            asm.remove(j);
-                            asm.remove(i);
-                            asm.insert(i, Mov(dst, data));
-                            (j as isize - 3).max(0) as usize
-                        },
-                        None => i + 1
-                    }
-                },
-                [
-                    Pop(dst),
-                    ..
-                ] if i != 0 => {
-                    // potuj nazaj do PUSHa
-                    let mut j = i - 1;
-
-                    let data = loop {
-                        match &asm[j] {
-                            Push(data @ (ImmS(..) | ImmU(..))) => break Some(*data),
-                            instr => match instr {
-                                Push(..) => break None,
-                                Pop(..) => break None,
-                                Mov(a, ..) if a == dst => break None,
-                                _ => j -= 1,
-                            }
-                        };
-                        if j == 0 { break None }
-                    };
-
-                    match data {
-                        Some(data) => {
-                            let dst = *dst;
-                            asm[i] = Mov(dst, data);
-                            asm.remove(j);
-                            j
-                        },
-                        None => i + 1
-                    }
-                },
-
-                _ => i + 1
-            }
-        }
+        let asm = if level >= 2 { opti2(asm) } else { asm };
 
         asm.into_iter()
         .fold(HEADER.to_string(), |str, repr| str + &repr.to_string())
@@ -651,15 +398,312 @@ impl ToFasmX86 for Vec<UkazPodatekRelative> {
     }
 }
 
+fn opti1(mut opti: Vec<UkazPodatekRelative>) -> Vec<UkazPodatekRelative> {
+    use super::{
+        R::*,
+        ArO::*,
+    };
+
+    let mut i = 0;
+    while i < opti.len() - 2 {
+        let sub = &opti[i..];
+        i = match sub {
+            [
+                a @ (PUSHI(..) | PUSHC(..)),
+                b @ (PUSHI(..) | PUSHC(..)),
+                Osnovni(op @ (ADDI | SUBI | MULI | DIVF)),
+                ..
+            ] => {
+                let op = match op {
+                    ADDI => i32::wrapping_add,
+                    SUBI => i32::wrapping_sub,
+                    MULI => i32::wrapping_mul,
+                    DIVF => i32::wrapping_div,
+                    _ => unreachable!()
+                };
+                opti[i] = match (a, b) {
+                    (PUSHI(a), PUSHI(b)) => PUSHI(op(*a, *b)),
+                    (PUSHI(a), PUSHC(b)) => PUSHC(unsafe {transmute::<i32, char>(op(*a, v_utf8(*b))) }),
+                    (PUSHC(a), PUSHI(b)) => PUSHC(unsafe {transmute::<i32, char>(op(v_utf8(*a), *b)) }),
+                    (PUSHC(a), PUSHC(b)) => PUSHC(unsafe {transmute::<i32, char>(op(v_utf8(*a), v_utf8(*b))) }),
+                    _ => unreachable!(),
+                };
+                opti.remove(i + 1); opti.remove(i + 1);
+                i
+            },
+            [PUSHF(a), PUSHF(b), Osnovni(op @ (ADDF | SUBF | MULF | DIVF))] => {
+                let result = match op {
+                    ADDF => a + b,
+                    SUBF => a - b,
+                    MULF => a * b,
+                    DIVF => a / b,
+                    _ => unreachable!(),
+                };
+                PUSHF(result);
+                opti.remove(i + 1); opti.remove(i + 1);
+                i
+            }
+            [
+                Osnovni(ld1 @ (LOAD(src) | LDOF(src))),
+                Osnovni(ld2 @ (LOAD(dst) | LDOF(dst))),
+                Osnovni(op @ (ADDI | SUBI | MULI)),
+                ..
+            ] => {
+                let op = match op {
+                    ADDI => Add, SUBI => Sub,
+                    MULI => IMul,
+                    _ => unreachable!(),
+                };
+                let off1 = match ld1 {
+                    LOAD(..) => R8,
+                    LDOF(..) => R9,
+                    _ => unreachable!(),
+                };
+                let off2 = match ld2 {
+                    LOAD(..) => R8,
+                    LDOF(..) => R9,
+                    _ => unreachable!(),
+                };
+
+                opti[i] = LDOP(op, off1, off2, *src, *dst);
+                opti.remove(i + 1); opti.remove(i + 1);
+                i
+            },
+
+            [
+                push @ (PUSHI(..) | PUSHC(..) | PUSHF(..)),
+                Osnovni(stor @ (STOR(dst) | STOF(dst))),
+                ..
+            ] => {
+                let reg = match stor {
+                    STOR(..) => R8,
+                    STOF(..) => R9,
+                    _ => unreachable!(),
+                };
+                let data = match push {
+                    PUSHI(data) => *data,
+                    PUSHC(data) => v_utf8(*data),
+                    PUSHF(data) => unsafe { transmute::<f32, i32>(*data) },
+                    _ => unreachable!(),
+                };
+                opti[i] = STIMM(unsafe { transmute::<i32, u32>(data) }, *dst, reg);
+                opti.remove(i + 1);
+                i - 1
+            },
+
+            [
+                Osnovni(load @ (LOAD(src) | LDOF(src))),
+                Osnovni(stor @ (STOR(dst) | STOF(dst))),
+                ..
+            ] => {
+                let r1 = match load {
+                    LOAD(..) => R8,
+                    LDOF(..) => R9,
+                    _ => unreachable!(),
+                };
+                let r2 = match stor {
+                    STOR(..) => R8,
+                    STOF(..) => R9,
+                    _ => unreachable!(),
+                };
+
+                opti[i] = LDST(r1, r2, *src, *dst);
+                opti.remove(i + 1);
+                i
+            },
+
+            [
+                STIMM(..),
+                Osnovni(stor @ (STOR(dst) | STOF(dst))),
+                ..
+            ] => {
+                // potuj nazaj do PUSHa
+                let mut j = i;
+
+                let data = loop {
+                    match &opti[j] {
+                        PUSHI(data) => break Some(*data),
+                        PUSHC(data) => break Some(v_utf8(*data)),
+                        PUSHF(data) => break Some(unsafe { transmute::<f32, i32>(*data) }),
+                        STIMM(..) => j -= 1,
+                        _ => break None,
+                    };
+                    if i == 0 { break None }
+                };
+
+                match data {
+                    Some(data) => {
+                        let reg = match stor {
+                            STOR(..) => R8,
+                            STOF(..) => R9,
+                            _ => unreachable!(),
+                        };
+
+                        let dst = *dst;
+                        opti.remove(j);
+                        opti.remove(i);
+                        opti.insert(i, STIMM(unsafe { transmute::<i32, u32>(data) }, dst, reg));
+                        i
+                    },
+                    None => i + 1
+                }
+            },
+
+            _ => i + 1,
+        }
+    };
+    opti
+}
+
+fn opti2(mut asm: Vec<Instr>) -> Vec<Instr> {
+    use Instr::*;
+    use Op::*;
+    use super::{
+        R::*,
+        ArO::*,
+    };
+
+    let mut i = 0;
+    while i < asm.len() - 2 {
+        i = match &asm[i..] {
+            [Push(r1), Pop(r2), ..] if r1 == r2 => {
+                asm.remove(i);
+                asm.remove(i);
+                (i as isize - 3).max(0) as usize
+            },
+            [Push(val), Pop(reg @ Reg(..)), ..] => {
+                asm[i] = Mov(*reg, *val);
+                asm.remove(i + 1);
+                (i as isize - 3).max(0) as usize
+            },
+            [
+                Mov(Reg(a), val1 @ (SImm(..) | UImm(..) | Deref(..))),
+                Mov(Reg(b), val2 @ (SImm(..) | UImm(..) | Deref(..))),
+                ArOp(Add, c, Reg(d)),
+                ..
+            ] if a == d && b == c => {
+                let b = *b;
+                let val2 = *val2;
+                asm[i] = Mov(Reg(b), *val1);
+                asm[i + 1] = ArOp(Add, b, val2);
+                asm.remove(i + 2);
+                (i as isize - 3).max(0) as usize
+            },
+            [ArOp(Add, a, UImm(1) | SImm(1)), ..] => {
+                asm[i] = Inc(Reg(*a));
+                (i as isize - 3).max(0) as usize
+            },
+            [ArOp(Sub, a, UImm(1) | SImm(1)), ..] => {
+                asm[i] = Dec(Reg(*a));
+                (i as isize - 3).max(0) as usize
+            },
+            [
+                Mov(a, imm @ (UImm(..) | SImm(..))),
+                Mov(b, c),
+                ..
+            ] if a == c => {
+                asm[i] = Mov(*b, *imm);
+                asm.remove(i + 1);
+                (i as isize - 3).max(0) as usize
+            },
+            [Jne(..), Jmp(b), ..] => {
+                asm[i] = Je(b.clone());
+                asm.remove(i + 1);
+                (i as isize - 3).max(0) as usize
+            },
+            [
+                a @ Mov(Reg(Rbx), ..),
+                b @ Mov(Reg(Rax), ..),
+                ..
+            ] => {
+                let a = a.clone();
+                asm[i] = b.clone();
+                asm[i + 1] = a;
+                (i as isize - 3).max(0) as usize
+            },
+            [
+                Mov(Reg(Rax), UImm(..) | SImm(..)),
+                Mov(Reg(Rbx), c),
+                ArOp(op, Rax, Reg(Rbx)),
+                ..
+            ] => {
+                asm[i + 1] = ArOp(*op, Rax, *c);
+                asm.remove(i + 2);
+                (i as isize - 3).max(0) as usize
+            },
+            [Mov(Reg(..), ..), Pop(dst @ Reg(..)), ..] => {
+                // potuj nazaj do PUSHa
+                let mut j = i;
+
+                let data = loop {
+                    match &asm[j] {
+                        Push(data @ (SImm(..) | UImm(..))) => break Some(*data),
+                        Mov(Reg(reg), ..) if *reg != R8 && *reg != R9 => j -= 1,
+                        _ => break None,
+                    };
+                    if j == 0 { break None }
+                };
+
+                match data {
+                    Some(data) => {
+                        let dst = *dst;
+                        asm.remove(j);
+                        asm.remove(i);
+                        asm.insert(i, Mov(dst, data));
+                        (j as isize - 3).max(0) as usize
+                    },
+                    None => i + 1
+                }
+            },
+            /* TODO: preglej, zakaj je ta optimizacija nevarna
+            [
+                Pop(dst),
+                ..
+            ] if i != 0 => {
+                // potuj nazaj do PUSHa
+                let mut j = i - 1;
+
+                let data = loop {
+                    match &asm[j] {
+                        Push(data @ (SImm(..) | UImm(..))) => break Some(*data),
+                        instr => match instr {
+                            Label(..) => break None,
+                            Push(..) => break None,
+                            Pop(..) => break None,
+                            Mov(a, ..) if a == dst => break None,
+                            _ => j -= 1,
+                        }
+                    };
+                    if j == 0 { break None }
+                };
+
+                match data {
+                    Some(data) => {
+                        let dst = *dst;
+                        asm[i] = Mov(dst, data);
+                        asm.remove(j);
+                        j
+                    },
+                    None => i + 1
+                }
+            },
+            */
+
+            _ => i + 1
+        }
+    };
+    asm
+}
+
 fn push(data: u32) -> Vec<Instr> {
     use Instr::*;
     use Op::*;
     use super::R::*;
     if data > 0xFFFF {
-        vec![Mov(Reg(Rax), ImmU(data)),
+        vec![Mov(Reg(Rax), UImm(data)),
         Push(Reg(Rax))]
     } else {
-        vec![Push(ImmU(data))]
+        vec![Push(UImm(data))]
     }
 }
 
@@ -672,7 +716,7 @@ fn v_utf8(znak: char) -> i32 {
 }
 
 fn formatiraj_oznako(oznaka: &str) -> String {
-    format!(".{}", oznaka
+    format!("_{}", oznaka
         .replace("(", "8")
         .replace(")", "9")
         .replace("[", "F")
@@ -689,8 +733,6 @@ mod testi {
     use std::process::{Command, Stdio};
 
     use super::*;
-    use crate::parser::lekser::Razčleni;
-    use crate::parser::Parse;
     use crate::parser::drevo::{Drevo, Vozlišče};
     use crate::parser::tip::Tip;
     use Vozlišče::*;
@@ -743,7 +785,7 @@ mod testi {
             println!("{program_filename}.asm");
             io::stdout().write_all(&output.stdout)?;
             io::stderr().write_all(&output.stderr)?;
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, "program failed"));
+            return Err(io::Error::new(io::ErrorKind::Other, format!("exit code: {}", output.status.code().unwrap())));
         }
 
         Ok(String::from_utf8_lossy(&output.stdout).to_string())
@@ -762,7 +804,7 @@ mod testi {
             ]).rc(),
             prostor: 0,
         }
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
         assert_eq!(test(&asm, "")?, "až😭\n");
         Ok(())
@@ -781,7 +823,7 @@ mod testi {
             ]).rc(),
             prostor: 0,
         }
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
         assert_eq!(test(&asm, "asdf")?, "asdf");
         //test(drevo, "až😭\n", "až😭\n", true)
@@ -809,7 +851,7 @@ mod testi {
             }.rc(),
             prostor: 0,
         }
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
         assert_eq!(test(&asm, "")?, "130<>25Q/");
         Ok(())
@@ -828,7 +870,7 @@ mod testi {
             ]).rc(),
             prostor: 0,
         }
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
         assert_eq!(test(&asm, "")?, "0123");
         Ok(())
@@ -852,7 +894,7 @@ mod testi {
             ]).rc(),
             prostor: 0,
         }
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
         assert_eq!(test(&asm, "")?, "130<>25");
         Ok(())
@@ -868,7 +910,7 @@ mod testi {
             PUSHI(0b011), PUSHI(0b001), Osnovni(BSLL), Osnovni(PUTC),
             PUSHI(0b110), PUSHI(0b001), Osnovni(BSLR), Osnovni(PUTC),
         ]
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
         assert_eq!(test(&asm, "")?.as_bytes(), &[
                 0b111u8,
@@ -893,7 +935,7 @@ mod testi {
             PUSHC('2'),
             Osnovni(PUTC),
         ]
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
         assert_eq!(test(&asm, "")?, "02");
         Ok(())
@@ -922,7 +964,7 @@ mod testi {
             Osnovni(PUTC),
             Oznaka("konec".to_string()),
         ]
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
         assert_eq!(test(&asm, "")?, "023");
         Ok(())
@@ -945,7 +987,7 @@ mod testi {
             Osnovni(PUTC),
             Oznaka("konec2".to_string()),
         ]
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
         assert_eq!(test(&asm, "")?, "2");
         Ok(())
@@ -957,16 +999,19 @@ mod testi {
             Oznaka("main".to_string()),
             PUSHC('1'), Osnovni(TOP(0)), PUSHC('2'), PUSHC('3'),
 
-            Osnovni(LOAD(0)), Osnovni(PUTC),
-            PUSHI(1), Osnovni(LDDY(0)), Osnovni(PUTC),
-            Osnovni(LDOF(0)), Osnovni(PUTC),
-            Osnovni(LDOF(1)), Osnovni(PUTC),
+            Osnovni(LOAD(0)), Osnovni(PUTC),                    // 1
+            PUSHREF(0, false), Osnovni(LDDY(0)), Osnovni(PUTC), // 1
+            PUSHREF(0, true),  Osnovni(LDDY(0)), Osnovni(PUTC), // 2
+            Osnovni(LDOF(0)), Osnovni(PUTC),                    // 2
+            Osnovni(LDOF(1)), Osnovni(PUTC),                    // 3
+            PUSHREF(0, false), Osnovni(LDDY(2)), Osnovni(PUTC), // 3
 
-            Osnovni(PUTC), Osnovni(PUTC), Osnovni(PUTC),
+            Osnovni(PUTC), Osnovni(PUTC), Osnovni(PUTC), // 3 2 1
+            Osnovni(TOP(0)),
         ]
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
-        assert_eq!(test(&asm, "")?, "1223321");
+        assert_eq!(test(&asm, "")?, "112233321");
         Ok(())
     }
 
@@ -977,15 +1022,16 @@ mod testi {
             PUSHC('1'), Osnovni(TOP(0)), PUSHC('2'), PUSHC('3'),
 
             Osnovni(LOAD(0)), PUSHI(1), Osnovni(SUBI), Osnovni(STOR(0)),
-            Osnovni(LOAD(1)), PUSHI(1), Osnovni(SUBI), PUSHI(1), Osnovni(STDY(0)),
+            Osnovni(LOAD(1)), PUSHI(1), Osnovni(SUBI), PUSHREF(1, false), Osnovni(STDY(0)),
             Osnovni(LDOF(1)), PUSHI(1), Osnovni(SUBI), Osnovni(STOF(1)),
             Osnovni(LOAD(0)), Osnovni(PUTC),
             Osnovni(LOAD(1)), Osnovni(PUTC),
             Osnovni(LOAD(2)), Osnovni(PUTC),
 
             Osnovni(ALOC(-3)),
+            Osnovni(TOP(0)),
         ]
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
         assert_eq!(test(&asm, "")?, "012");
         Ok(())
@@ -995,29 +1041,14 @@ mod testi {
     fn loff_soff() -> Result<(), io::Error> {
         let asm = vec![
             Oznaka("main".to_string()),
-            Osnovni(LOFF), Osnovni(TOP(0)), Osnovni(LOFF),
-            Osnovni(LOAD(0)), Osnovni(LOAD(1)), Osnovni(SUBI),
-            PUSHC('0'), Osnovni(ADDI), Osnovni(PUTC),
+            Osnovni(LOFF), Osnovni(TOP(1)), Osnovni(LOFF),
+            Osnovni(LOAD(0)), Osnovni(LOAD(1)), Osnovni(SUBI), Osnovni(PUTC),
+            Osnovni(ALOC(-2)),
+            Osnovni(TOP(0)),
         ]
-        .v_fasm_x86();
+        .v_fasm_x86(0);
 
-        assert_eq!(test(&asm, "")?, "8");
-        Ok(())
-    }
-
-    #[test]
-    fn natisni() -> Result<(), io::Error> {
-        let asm = r#"
-            natisni('a')
-            natisni("bcd")
-            natisni!("efg", 2 + 3)
-        "#
-        .razčleni("[test]")
-        .analiziraj()
-        .unwrap()
-        .v_fasm_x86();
-
-        assert_eq!(test(&asm, "")?, "abcdefg5");
+        assert_eq!(test(&asm, "")?.as_bytes(), [16]);
         Ok(())
     }
 
